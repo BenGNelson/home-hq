@@ -1,4 +1,21 @@
 import { NavLink } from 'react-router-dom'
+import { useApi } from '../lib/useApi.js'
+
+// A live health indicator: green when the API answers, red when it doesn't.
+function StatusDot() {
+  const { data, error } = useApi('/health', 10000)
+  const ok = !error && data?.status === 'ok'
+  return (
+    <span className="flex items-center gap-1.5 text-xs text-slate-400">
+      <span
+        className={`inline-block h-2 w-2 rounded-full ${
+          ok ? 'bg-emerald-500' : 'bg-rose-500'
+        }`}
+      />
+      {ok ? 'online' : 'offline'}
+    </span>
+  )
+}
 
 // The shell: a persistent sidebar (nav) + a content area where the active
 // module renders. This frame stays constant as modules come and go.
@@ -8,7 +25,9 @@ export default function Shell({ modules, children }) {
       <aside className="w-56 shrink-0 border-r border-slate-800 bg-slate-900/50 p-4">
         <div className="mb-6 px-2">
           <h1 className="text-lg font-semibold tracking-tight">Home HQ</h1>
-          <p className="text-xs text-slate-400">personal platform</p>
+          <div className="mt-1">
+            <StatusDot />
+          </div>
         </div>
         <nav className="space-y-1">
           {modules.map((m) => (

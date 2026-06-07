@@ -1,13 +1,19 @@
 """
-/api/containers — list the host's Docker containers (name, status, uptime).
+/api/containers — list the host's Docker containers, and per-container detail.
 
 How it reaches Docker: docker-compose mounts the host's Docker socket into this
 container at the conventional path /var/run/docker.sock. `docker.from_env()`
 connects to that socket by default, so the SDK talks to the host's Docker daemon
 and sees every container on the host.
 
-This endpoint only READS (lists) containers. See compose notes on hardening the
-socket with a docker-socket-proxy later.
+SECURITY: the detail endpoint deliberately exposes only operational facts
+(state, health, ports, resource usage). It NEVER returns environment variables,
+bind-mount host paths, command args, or logs — those routinely contain secrets
+(tokens, passwords, VPN creds) and host paths, which must not reach a UI that
+will eventually be accessible over the tailnet.
+
+This endpoint only READS. See compose notes on hardening the socket with a
+docker-socket-proxy later.
 """
 
 from datetime import datetime, timezone
@@ -48,6 +54,54 @@ def _uptime_seconds(started_at: str) -> int | None:
         return None
 
 
+def _cpu_percent(stats: dict) -> float | None:
+    """Compute CPU% from a Docker stats snapshot, the way `docker stats` does."""
+    try:
+        cpu = stats["cpu_stats"]
+        pre = stats["precpu_stats"]
+        cpu_delta = cpu["cpu_usage"]["total_usage"] - pre["cpu_usage"]["total_usage"]
+        sys_delta = cpu.get("system_cpu_usage", 0) - pre.get("system_cpu_usage", 0)
+        online = cpu.get("online_cpus") or len(
+            cpu["cpu_usage"].get("percpu_usage") or [1]
+        )
+        if cpu_delta > 0 and sys_delta > 0:
+            return round((cpu_delta / sys_delta) * online * 100, 1)
+        return 0.0
+    except (KeyError, TypeError, ZeroDivisionError):
+        return None
+
+
+def _mem_usage(stats: dict) -> tuple[int | None, int | None, float | None]:
+    """Return (used_bytes, limit_bytes, percent), matching `docker stats`."""
+    try:
+        mem = stats["memory_stats"]
+        usage = mem.get("usage")
+        limit = mem.get("limit")
+        # Subtract page cache so it reflects real working set (cgroup v2).
+        inactive = mem.get("stats", {}).get("inactive_file", 0)
+        if usage is not None:
+            used = max(usage - inactive, 0)
+            percent = round(used / limit * 100, 1) if limit else None
+            return used, limit, percent
+    except (KeyError, TypeError):
+        pass
+    return None, None, None
+
+
+def _ports(attrs: dict) -> list[str]:
+    """Published ports as 'containerport/proto -> hostport' (no host IPs)."""
+    out = []
+    ports = (attrs.get("NetworkSettings", {}) or {}).get("Ports", {}) or {}
+    for container_port, bindings in sorted(ports.items()):
+        if bindings:
+            host_ports = sorted({b.get("HostPort") for b in bindings if b.get("HostPort")})
+            for hp in host_ports:
+                out.append(f"{container_port} -> {hp}")
+        else:
+            out.append(f"{container_port} (exposed)")
+    return out
+
+
 @router.get("/containers")
 def get_containers():
     try:
@@ -71,3 +125,49 @@ def get_containers():
     # Running first, then alphabetical — nicest for a dashboard.
     result.sort(key=lambda x: (x["status"] != "running", x["name"].lower()))
     return {"available": True, "count": len(result), "containers": result}
+
+
+@router.get("/containers/{name}")
+def get_container_detail(name: str):
+    """Operational detail for one container. Secret-free by design (see module
+    docstring): no env vars, no mount paths, no command, no logs."""
+    try:
+        client = docker.from_env()
+        c = client.containers.get(name)
+    except docker.errors.NotFound:
+        return {"found": False}
+    except docker.errors.DockerException as exc:
+        return {"available": False, "error": str(exc)}
+
+    attrs = c.attrs
+    state = attrs.get("State", {}) or {}
+    host_config = attrs.get("HostConfig", {}) or {}
+    networks = list((attrs.get("NetworkSettings", {}) or {}).get("Networks", {}).keys())
+
+    # One-shot live stats. May briefly read 0% CPU on a cold first sample.
+    cpu_percent = mem_used = mem_limit = mem_percent = None
+    try:
+        stats = c.stats(stream=False)
+        cpu_percent = _cpu_percent(stats)
+        mem_used, mem_limit, mem_percent = _mem_usage(stats)
+    except docker.errors.DockerException:
+        pass
+
+    return {
+        "found": True,
+        "name": c.name,
+        "image": (c.image.tags[0] if c.image.tags else c.image.short_id),
+        "status": c.status,
+        "state": state.get("Status"),
+        "health": (state.get("Health", {}) or {}).get("Status"),
+        "started_at": state.get("StartedAt"),
+        "uptime_seconds": _uptime_seconds(state.get("StartedAt")) if c.status == "running" else None,
+        "restart_count": attrs.get("RestartCount"),
+        "restart_policy": (host_config.get("RestartPolicy", {}) or {}).get("Name"),
+        "ports": _ports(attrs),
+        "networks": networks,
+        "cpu_percent": cpu_percent,
+        "mem_used_bytes": mem_used,
+        "mem_limit_bytes": mem_limit,
+        "mem_percent": mem_percent,
+    }

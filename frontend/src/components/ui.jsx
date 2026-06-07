@@ -1,5 +1,15 @@
 // Small presentational building blocks reused across widgets.
 
+// A spinning indicator for "this is loading / updating".
+export function Spinner({ label = 'loading…' }) {
+  return (
+    <div className="flex items-center gap-2 text-sm text-slate-500">
+      <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-600 border-t-slate-300" />
+      {label}
+    </div>
+  )
+}
+
 // A label/value line.
 export function Row({ label, value }) {
   return (
