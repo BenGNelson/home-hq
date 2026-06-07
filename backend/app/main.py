@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import disk, system
+from app.routers import containers, disk, system
 
 app = FastAPI(title="Home HQ API")
 
@@ -34,3 +34,4 @@ def health():
 # so system.py's "/system" becomes "/api/system".
 app.include_router(system.router, prefix="/api")
 app.include_router(disk.router, prefix="/api")
+app.include_router(containers.router, prefix="/api")
