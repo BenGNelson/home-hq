@@ -20,6 +20,9 @@ services:
       - "${DOCKER_SOCKET}:/var/run/docker.sock:ro"
       # RAID mount, read-only — lets /api/disk report real usage for the array.
       - "${RAID_MOUNT}:${RAID_MOUNT}:ro"
+      # Host /proc, read-only — lets /api/network read host interface counters
+      # (PID 1's net namespace). Exposes only counters + interface names.
+      - "/proc:/host/proc:ro"
     restart: unless-stopped
 
   # --- frontend: the shell + dashboard (build step 4). ---

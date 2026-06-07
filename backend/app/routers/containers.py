@@ -16,6 +16,7 @@ This endpoint only READS. See compose notes on hardening the socket with a
 docker-socket-proxy later.
 """
 
+import time
 from datetime import datetime, timezone
 
 import docker
@@ -146,15 +147,23 @@ def get_container_detail(name: str):
 
     # One-shot live stats. May briefly read 0% CPU on a cold first sample.
     cpu_percent = mem_used = mem_limit = mem_percent = None
+    net_rx = net_tx = None
     try:
         stats = c.stats(stream=False)
         cpu_percent = _cpu_percent(stats)
         mem_used, mem_limit, mem_percent = _mem_usage(stats)
+        # Sum rx/tx across the container's interfaces (cumulative byte counts;
+        # the frontend turns successive samples into a live rate + graph).
+        nets = stats.get("networks") or {}
+        if nets:
+            net_rx = sum(v.get("rx_bytes", 0) for v in nets.values())
+            net_tx = sum(v.get("tx_bytes", 0) for v in nets.values())
     except docker.errors.DockerException:
         pass
 
     return {
         "found": True,
+        "time": time.time(),
         "name": c.name,
         "image": (c.image.tags[0] if c.image.tags else c.image.short_id),
         "status": c.status,
@@ -170,4 +179,6 @@ def get_container_detail(name: str):
         "mem_used_bytes": mem_used,
         "mem_limit_bytes": mem_limit,
         "mem_percent": mem_percent,
+        "net_rx_bytes": net_rx,
+        "net_tx_bytes": net_tx,
     }

@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useApi } from '../../lib/useApi.js'
+import { useCounterRate } from '../../lib/useRates.js'
 import { Row, Bar, Spinner } from '../../components/ui.jsx'
-import { formatBytes, formatUptime } from '../../lib/format.js'
+import { Graph } from '../../components/Graph.jsx'
+import { formatBytes, formatRate, formatUptime } from '../../lib/format.js'
 
 function Dot({ ok }) {
   return (
@@ -17,6 +19,7 @@ function Dot({ ok }) {
 // Polls so CPU/memory stay current. Shows only non-sensitive facts.
 function ContainerDetail({ name }) {
   const { data, error, loading } = useApi(`/containers/${name}`, 5000)
+  const net = useCounterRate(data?.net_rx_bytes, data?.net_tx_bytes, data?.time)
 
   if (error) return <p className="text-sm text-rose-400">unavailable — {error}</p>
   if (loading || !data) return <Spinner label="loading container…" />
@@ -64,6 +67,24 @@ function ContainerDetail({ name }) {
               caption={`${formatBytes(data.mem_used_bytes)} (${data.mem_percent}%)`}
             />
           )}
+        </div>
+      )}
+
+      {data.net_rx_bytes != null && (
+        <div className="border-t border-slate-800 pt-3">
+          <div className="mb-1 flex items-center justify-between text-xs">
+            <span className="uppercase tracking-wide text-slate-500">Network</span>
+            <span className="flex gap-3 tabular-nums">
+              <span className="text-emerald-400">↓ {formatRate(net.rxRate)}</span>
+              <span className="text-sky-400">↑ {formatRate(net.txRate)}</span>
+            </span>
+          </div>
+          <Graph
+            series={[
+              { color: '#34d399', points: net.rx },
+              { color: '#38bdf8', points: net.tx },
+            ]}
+          />
         </div>
       )}
 
@@ -123,7 +144,7 @@ export default function Containers() {
           {/* Detail */}
           <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
             {active ? (
-              <ContainerDetail name={active} />
+              <ContainerDetail key={active} name={active} />
             ) : (
               <p className="text-sm text-slate-500">loading…</p>
             )}
