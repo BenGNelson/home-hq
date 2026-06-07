@@ -22,14 +22,23 @@ services:
       - "${RAID_MOUNT}:${RAID_MOUNT}:ro"
     restart: unless-stopped
 
-  # --- frontend: added in build step 4 (the shell + dashboard). ---
-  # Kept here as a placeholder so the intended shape is visible.
-  # frontend:
-  #   build: ./frontend
-  #   container_name: home-hq-frontend
-  #   env_file: .env
-  #   ports:
-  #     - "8080:80"
-  #   depends_on:
-  #     - backend
-  #   restart: unless-stopped
+  # --- frontend: the shell + dashboard (build step 4). ---
+  # DEV mode: runs the Vite dev server with hot reload. The source is
+  # bind-mounted so edits on the host reload live in the browser. Vite proxies
+  # /api to the backend (see frontend/vite.config.js), so everything is one
+  # origin. A production image (static build served by Nginx) replaces this
+  # later — same /api contract, so no app code changes when we switch.
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: home-hq-frontend
+    env_file: .env
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app          # live source for hot reload
+      - /app/node_modules        # keep the image's deps; don't shadow with host
+    depends_on:
+      - backend
+    restart: unless-stopped

@@ -1,0 +1,16 @@
+# Development image: runs the Vite dev server with hot reload.
+# The source is bind-mounted at runtime (see docker-compose.yml), so edits on
+# the host reload live in the browser. node_modules stays inside the container
+# (an anonymous volume in compose shields it from the bind mount).
+FROM node:20-alpine
+WORKDIR /app
+
+# Install deps first so this layer is cached unless package.json changes.
+COPY package.json package-lock.json* ./
+RUN npm install
+
+# Fallback copy so the image also runs standalone; the bind mount overlays it.
+COPY . .
+
+EXPOSE 5173
+CMD ["npm", "run", "dev"]
