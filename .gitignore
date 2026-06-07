@@ -1,0 +1,17 @@
+# --- Secrets / host-specific config ---
+# .env holds REAL values (tokens, paths). Never commit it.
+.env
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# --- Node / frontend ---
+node_modules/
+dist/
+
+# --- Editor / OS noise ---
+.DS_Store
+*.swp
