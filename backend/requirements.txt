@@ -11,5 +11,6 @@ psutil>=5.9
 # Docker SDK for /api/containers (added when we build that endpoint)
 docker>=7.0
 
-# Plex client for /api/plex (added when we build that endpoint)
-# python-plexapi>=4.15
+# Plex client for /api/plex.
+# NOTE: PyPI package is "PlexAPI"; the Python import is "plexapi".
+PlexAPI>=4.15

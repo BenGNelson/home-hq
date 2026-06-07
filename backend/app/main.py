@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import containers, disk, system
+from app.routers import containers, disk, plex, system
 
 app = FastAPI(title="Home HQ API")
 
@@ -35,3 +35,4 @@ def health():
 app.include_router(system.router, prefix="/api")
 app.include_router(disk.router, prefix="/api")
 app.include_router(containers.router, prefix="/api")
+app.include_router(plex.router, prefix="/api")
