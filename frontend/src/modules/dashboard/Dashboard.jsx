@@ -9,7 +9,9 @@ export default function Dashboard() {
   return (
     <div>
       <h2 className="mb-4 text-xl font-semibold">Dashboard</h2>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {/* Masonry flow: cards pack vertically per column instead of aligning
+          into rows, so a short card never leaves a gap under a tall neighbour. */}
+      <div className="columns-1 gap-4 md:columns-2 [&>*]:mb-4 [&>*]:break-inside-avoid">
         <SystemWidget />
         <DiskWidget />
         <PlexWidget />

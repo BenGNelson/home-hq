@@ -10,12 +10,7 @@ export default function ContainersWidget() {
   const title = data && !unavailable ? `Containers · ${running}/${list.length}` : 'Containers'
 
   return (
-    <Widget
-      title={title}
-      loading={loading}
-      error={error}
-      className="md:col-span-2 xl:col-span-1"
-    >
+    <Widget title={title} loading={loading} error={error}>
       {data &&
         (unavailable ? (
           <p className="text-sm text-amber-400">Docker unavailable</p>

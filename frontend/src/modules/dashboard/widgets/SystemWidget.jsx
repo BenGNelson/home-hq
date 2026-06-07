@@ -1,15 +1,32 @@
 import { useApi } from '../../../lib/useApi.js'
+import { useNetworkRates } from '../../../lib/useRates.js'
 import { Row, Bar } from '../../../components/ui.jsx'
-import { formatBytes, formatUptime } from '../../../lib/format.js'
+import { formatBytes, formatRate, formatUptime } from '../../../lib/format.js'
 import Widget from './Widget.jsx'
 
 export default function SystemWidget() {
   const { data, error, loading } = useApi('/system', 5000)
+  // A tiny rolling window — we only need the current rate for an at-a-glance line.
+  const { rates } = useNetworkRates(2000, 2)
+  // The physical wired interface is the meaningful "real" throughput to show.
+  const wired = Object.keys(rates).find((n) => n.startsWith('en') || n.startsWith('eth'))
+  const net = wired ? rates[wired] : null
+
   return (
     <Widget title="System" loading={loading} error={error}>
       {data && (
         <dl className="space-y-3 text-sm">
           <Row label="Host" value={data.server_name} />
+          <Row label="Uptime" value={formatUptime(data.uptime_seconds)} />
+          <Row
+            label="Network"
+            value={
+              <span className="flex gap-3 tabular-nums">
+                <span className="text-emerald-400">↓ {net ? formatRate(net.rxRate) : '—'}</span>
+                <span className="text-sky-400">↑ {net ? formatRate(net.txRate) : '—'}</span>
+              </span>
+            }
+          />
           <Bar
             label="CPU"
             percent={data.cpu.percent}
@@ -20,7 +37,6 @@ export default function SystemWidget() {
             percent={data.memory.percent}
             caption={`${formatBytes(data.memory.used_bytes)} / ${formatBytes(data.memory.total_bytes)}`}
           />
-          <Row label="Uptime" value={formatUptime(data.uptime_seconds)} />
         </dl>
       )}
     </Widget>

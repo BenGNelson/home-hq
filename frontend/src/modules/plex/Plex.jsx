@@ -38,11 +38,14 @@ export default function Plex() {
   }
 
   const s = status.data
-  const libraries = libs.data?.libraries ?? []
+  // Sort alphabetically so related libraries (e.g. the "Anime …" ones) group.
+  const libraries = [...(libs.data?.libraries ?? [])].sort((a, b) =>
+    a.title.localeCompare(b.title),
+  )
   const reachable = s && s.configured && s.reachable
 
   return (
-    <div className="max-w-3xl">
+    <div>
       <h2 className="mb-4 text-xl font-semibold">Plex</h2>
 
       {/* Server status card */}

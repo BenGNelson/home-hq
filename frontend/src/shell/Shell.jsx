@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useApi } from '../lib/useApi.js'
 
 // A live health indicator: green when the API answers, red when it doesn't.
@@ -18,11 +19,30 @@ function StatusDot() {
 }
 
 // The shell: a persistent sidebar (nav) + a content area where the active
-// module renders. This frame stays constant as modules come and go.
+// module renders. On phones the sidebar collapses into a slide-in drawer
+// behind a top bar; on md+ screens it's always visible.
 export default function Shell({ modules, children }) {
+  const [open, setOpen] = useState(false)
+  const location = useLocation()
+
+  // Close the mobile drawer whenever the route changes (after a tap).
+  useEffect(() => setOpen(false), [location.pathname])
+
   return (
     <div className="flex min-h-screen bg-slate-950 text-slate-100">
-      <aside className="w-56 shrink-0 border-r border-slate-800 bg-slate-900/50 p-4">
+      {/* Backdrop — only on mobile while the drawer is open. */}
+      {open && (
+        <div
+          className="fixed inset-0 z-30 bg-black/60 md:hidden"
+          onClick={() => setOpen(false)}
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 w-56 shrink-0 transform border-r border-slate-800 bg-slate-900 p-4 transition-transform md:static md:translate-x-0 md:bg-slate-900/50 ${
+          open ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <div className="mb-6 px-2">
           <h1 className="text-lg font-semibold tracking-tight">Home HQ</h1>
           <div className="mt-1">
@@ -48,7 +68,28 @@ export default function Shell({ modules, children }) {
           ))}
         </nav>
       </aside>
-      <main className="flex-1 overflow-auto p-6">{children}</main>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Mobile top bar — hidden on md+ where the sidebar is always shown. */}
+        <header className="flex items-center gap-3 border-b border-slate-800 bg-slate-900/50 px-4 py-3 md:hidden">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-label="Toggle navigation"
+            className="rounded-lg p-1 text-slate-300 hover:bg-slate-800"
+          >
+            {/* Hamburger */}
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+          <span className="text-base font-semibold tracking-tight">Home HQ</span>
+        </header>
+
+        <main className="min-w-0 flex-1 overflow-auto p-4 md:p-6">{children}</main>
+      </div>
     </div>
   )
 }

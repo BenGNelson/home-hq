@@ -38,12 +38,34 @@ def get_plex():
         # timeout keeps the dashboard snappy if Plex is down.
         server = _connect(timeout=5)
         sessions = server.sessions()  # currently playing streams
+
+        # Transcodes are the CPU-heavy streams; direct play is nearly free. Sum
+        # the reserved stream bandwidth too. Both are derived from the sessions
+        # we already fetched — no extra round-trips. Guarded since the session
+        # sub-objects vary by media type / client.
+        transcodes = 0
+        bandwidth_kbps = 0
+        for s in sessions:
+            try:
+                if getattr(s, "transcodeSessions", None):
+                    transcodes += 1
+            except Exception:
+                pass
+            try:
+                sess = getattr(s, "session", None)
+                if sess and getattr(sess, "bandwidth", None):
+                    bandwidth_kbps += sess.bandwidth
+            except Exception:
+                pass
+
         return {
             "configured": True,
             "reachable": True,
             "server_name": server.friendlyName,
             "version": server.version,
             "streams": len(sessions),
+            "transcodes": transcodes,
+            "bandwidth_kbps": bandwidth_kbps or None,
         }
     except Exception as exc:  # plexapi raises a variety of network/auth errors
         return {
