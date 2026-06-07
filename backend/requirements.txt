@@ -1,0 +1,15 @@
+# Web framework + ASGI server that runs it
+fastapi>=0.110
+uvicorn[standard]>=0.29
+
+# Reads config from env / .env into a typed settings object
+pydantic-settings>=2.2
+
+# System stats (cpu/ram/disk/uptime) for /api/system and /api/disk
+psutil>=5.9
+
+# Docker SDK for /api/containers (added when we build that endpoint)
+docker>=7.0
+
+# Plex client for /api/plex (added when we build that endpoint)
+# python-plexapi>=4.15
