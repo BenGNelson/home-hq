@@ -55,6 +55,28 @@ export function formatDate(epoch) {
   return new Date(epoch * 1000).toLocaleDateString()
 }
 
+export function formatDateTime(epoch) {
+  if (!epoch) return '—'
+  const d = new Date(epoch * 1000)
+  return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  })}`
+}
+
+// Byte size in B/KB/MB/GB (for files, not rates — see formatRate for /s).
+export function formatSize(bytes) {
+  if (bytes == null) return '—'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let v = bytes
+  let i = 0
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024
+    i += 1
+  }
+  return `${v.toFixed(i > 0 && v < 10 ? 1 : 0)} ${units[i]}`
+}
+
 export function formatAgo(epoch) {
   if (!epoch) return 'never'
   const s = Math.floor(Date.now() / 1000 - epoch)

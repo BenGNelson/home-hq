@@ -7,6 +7,7 @@ import ShowBrowser from './modules/plex/ShowBrowser.jsx'
 import MovieDetail from './modules/plex/MovieDetail.jsx'
 import Containers from './modules/containers/Containers.jsx'
 import Network from './modules/network/Network.jsx'
+import Backups from './modules/backups/Backups.jsx'
 
 // The module registry. Each module declares its nav entry here and a matching
 // <Route> below. Adding a module = one entry + one route, nothing else.
@@ -16,6 +17,7 @@ const modules = [
   { id: 'plex', label: 'Plex', path: '/plex', icon: '►' },
   { id: 'containers', label: 'Containers', path: '/containers', icon: '▣' },
   { id: 'network', label: 'Network', path: '/network', icon: '⇅' },
+  { id: 'backups', label: 'Backups', path: '/backups', icon: '⤓' },
 ]
 
 export default function App() {
@@ -30,6 +32,7 @@ export default function App() {
         <Route path="/plex/movie/:key" element={<MovieDetail />} />
         <Route path="/containers" element={<Containers />} />
         <Route path="/network" element={<Network />} />
+        <Route path="/backups" element={<Backups />} />
       </Routes>
     </Shell>
   )

@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     # survives rebuilds). Not a secret, but configurable for non-Docker dev.
     db_path: str = "/data/homehq.db"
 
+    # --- Config backup (read-only listing; backups are created by a host script) ---
+    backup_dir: str = ""  # where encrypted backups land (under RAID_MOUNT)
+    age_recipient: str = ""  # public key — presence = "backups configured"
+    backup_retention: int = 14
+
     model_config = SettingsConfigDict(
         # In local (non-Docker) dev, also read a .env file sitting next to the repo.
         # In Docker, the values come from the environment instead (compose injects them),

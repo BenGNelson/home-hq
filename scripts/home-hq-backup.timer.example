@@ -1,0 +1,16 @@
+# Home HQ config backup — weekly schedule.
+# Install:  sudo cp scripts/home-hq-backup.timer.example \
+#             /etc/systemd/system/home-hq-backup.timer
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now home-hq-backup.timer
+
+[Unit]
+Description=Weekly Home HQ config backup
+
+[Timer]
+# Sundays at 03:00; Persistent runs a missed backup after downtime.
+OnCalendar=Sun *-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

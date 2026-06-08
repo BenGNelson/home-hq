@@ -1,0 +1,26 @@
+# What the config backup includes — one path per line.
+# Lines starting with # and blank lines are ignored. Missing paths are skipped
+# with a warning, so it's fine to list optimistically.
+#
+# Copy this to backup.includes (gitignored) and edit for your host. Keep the
+# real file out of git — it contains host-specific paths.
+
+# --- Docker stacks: compose files + their .env ---
+/path/to/home-hq/docker-compose.yml
+/path/to/home-hq/.env
+/path/to/another-stack/docker-compose.yml
+/path/to/another-stack/.env
+
+# --- Application config (DB/logs are auto-excluded to stay small) ---
+/path/to/homeassistant/config
+
+# --- System config ---
+/etc/samba/smb.conf
+/etc/ssh/sshd_config
+/etc/fstab
+/etc/mdadm/mdadm.conf
+/etc/netplan
+/etc/systemd/system
+
+# --- Scripts ---
+/path/to/your/scripts

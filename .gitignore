@@ -1,6 +1,8 @@
 # --- Secrets / host-specific config ---
 # .env holds REAL values (tokens, paths). Never commit it.
 .env
+# Per-host backup path list (host-specific paths). Use backup.includes.example.
+scripts/backup.includes
 
 # --- Python ---
 __pycache__/

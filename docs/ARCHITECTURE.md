@@ -67,6 +67,7 @@ Adding a module = add a router file and one `include_router` line.
 | `GET /api/containers` | name, status, image, uptime per container | Docker SDK over the socket |
 | `GET /api/containers/{name}` | one container's live stats (cpu/mem/net) | Docker SDK |
 | `GET /api/network` | per-interface byte counters | reads host `/proc/1/net/dev` |
+| `GET /api/backups` | list encrypted config backups (read-only) | reads BACKUP_DIR (under the RAID mount) |
 | `GET /api/plex` | reachable? streams, transcodes, bandwidth | `PlexAPI` client |
 | `GET /api/plex/libraries` | each library + item counts (+ key) | `PlexAPI` |
 | `GET /api/plex/export` | full title manifest (on-demand backup) | `PlexAPI` (heavy) |
@@ -143,6 +144,18 @@ The split: **lists are cached** (browsed, searched, sorted); **single-item
 detail + posters are on-demand** from Plex (viewed occasionally, not searched —
 no reason to store long summaries or binary art). Posters are **proxied** through
 `/api/plex/art/{key}` so the Plex token never reaches the browser.
+
+## Config backup (host script, app only lists)
+
+Reproduce the server if the OS disk dies. A host script (`scripts/backup.sh`,
+run by a systemd timer as root) tars the config listed in `backup.includes`
+(per-host, gitignored), streams it through gzip into **`age`**, and writes an
+encrypted bundle to `BACKUP_DIR`. It encrypts to a **public key only**
+(`AGE_RECIPIENT`) — the private key never touches the server — so a compromised
+host still can't read its own backups. Retrieval is SSH/rsync + the private key,
+off-box. The Home HQ app stays unprivileged: it only **lists** the encrypted
+files (`/api/backups`, via the read-only RAID mount). The script + unit templates
+are committed and generic; the real path list and recipient live outside git.
 
 ---
 
@@ -225,6 +238,11 @@ Short record of *why* things are the way they are, so future changes have contex
 - **Proxy Plex images through the backend.** The poster URL carries the Plex
   token; serving it via `/api/plex/art/{key}` keeps the token server-side and out
   of the browser/DOM.
+- **Backups: host script encrypts, app only lists.** Asymmetric `age` means the
+  server holds only the public key and can never decrypt — the right model when
+  the threat is the server itself being compromised. Keeping the encrypt step in
+  a root host script (not the container) means the unprivileged app never needs
+  read access to all that config; it just lists the encrypted output.
 - **Client-side rate computation.** Live network/throughput graphs derive rates
   from cumulative counters in the browser, so the backend stays stateless (no
   time-series storage) in this phase.

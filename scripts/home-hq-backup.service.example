@@ -1,0 +1,13 @@
+# Home HQ config backup — oneshot service run by the timer.
+# Install:  sudo cp scripts/home-hq-backup.service.example \
+#             /etc/systemd/system/home-hq-backup.service
+# then edit ExecStart to your real repo path.
+
+[Unit]
+Description=Home HQ config backup (age-encrypted)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/path/to/home-hq/scripts/backup.sh
