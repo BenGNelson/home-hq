@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useApi, API_BASE } from '../../lib/useApi.js'
 import { Row } from '../../components/ui.jsx'
+import SyncControl from '../../components/SyncControl.jsx'
 
 // Pretty label for a library type.
 const TYPE_LABEL = { movie: 'Movies', show: 'TV', artist: 'Music', photo: 'Photos' }
@@ -74,7 +76,10 @@ export default function Plex() {
 
       {/* Libraries */}
       <section className="mb-4 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-        <h3 className="mb-3 text-sm font-medium text-slate-300">Libraries</h3>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-sm font-medium text-slate-300">Libraries</h3>
+          <SyncControl />
+        </div>
         {libs.error ? (
           <p className="text-sm text-rose-400">unavailable — {libs.error}</p>
         ) : libraries.length === 0 ? (
@@ -90,16 +95,31 @@ export default function Plex() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
-              {libraries.map((l) => (
-                <tr key={l.title}>
-                  <td className="py-2 text-slate-200">{l.title}</td>
-                  <td className="py-2 text-slate-400">{TYPE_LABEL[l.type] ?? l.type}</td>
-                  <td className="py-2 text-right tabular-nums text-slate-200">{l.count}</td>
-                  <td className="py-2 text-right tabular-nums text-slate-400">
-                    {l.episodes ?? '—'}
-                  </td>
-                </tr>
-              ))}
+              {libraries.map((l) => {
+                // Only movie/show libraries are cached/browsable for now.
+                const browsable = l.type === 'movie' || l.type === 'show'
+                return (
+                  <tr key={l.title} className="hover:bg-slate-900/40">
+                    <td className="py-2">
+                      {browsable ? (
+                        <Link
+                          to={`/plex/library/${l.key}`}
+                          className="font-medium text-emerald-400 hover:underline"
+                        >
+                          {l.title} →
+                        </Link>
+                      ) : (
+                        <span className="text-slate-200">{l.title}</span>
+                      )}
+                    </td>
+                    <td className="py-2 text-slate-400">{TYPE_LABEL[l.type] ?? l.type}</td>
+                    <td className="py-2 text-right tabular-nums text-slate-200">{l.count}</td>
+                    <td className="py-2 text-right tabular-nums text-slate-400">
+                      {l.episodes ?? '—'}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}

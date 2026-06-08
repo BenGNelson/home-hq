@@ -14,11 +14,15 @@ Each reports its state gracefully (configured / reachable / unreachable) so the
 dashboard can render something sensible instead of erroring.
 """
 
+import threading
+import time
 from datetime import datetime, timezone
 
-from fastapi import APIRouter
+import requests
+from fastapi import APIRouter, Response
 from plexapi.server import PlexServer
 
+from app import db
 from app.config import settings
 
 router = APIRouter()
@@ -91,6 +95,7 @@ def get_plex_libraries():
         libraries = []
         for section in server.library.sections():
             entry = {
+                "key": str(section.key),  # used by the library browser drill-down
                 "title": section.title,
                 "type": section.type,  # movie / show / artist / photo
                 "count": section.totalSize,  # fast count query, no full fetch
@@ -111,6 +116,284 @@ def get_plex_libraries():
             "libraries": None,
             "error": str(exc),
         }
+
+
+# --- Library browser cache (SQLite) ---------------------------------------
+#
+# The browser reads from the local SQLite cache (db.py) instead of querying
+# Plex on every search/sort — fast, and easy on Plex. A sync job walks Plex
+# once and refills the cache; it runs in a background thread so the HTTP
+# request returns immediately. Triggered by a UI "Refresh" button (and, later,
+# a scheduled nightly job).
+
+# Map a Plex resolution string to a numeric height so quality sorts correctly.
+_RES_RANK = {"4k": 2160, "1080": 1080, "720": 720, "576": 576, "480": 480, "sd": 480}
+
+# Sort keys exposed to the UI -> safe column expressions (whitelist; never
+# interpolate user input into SQL directly).
+_SORT_COLUMNS = {
+    "title": "title COLLATE NOCASE",
+    "year": "year",
+    "duration": "duration_ms",
+    "resolution": "res_height",
+    "size": "file_size",
+    "added": "added_at",
+    "episodes": "episodes",
+}
+
+_sync_lock = threading.Lock()
+_sync_running = False
+
+
+def _res_height(res):
+    return _RES_RANK.get(str(res).lower(), 0) if res else 0
+
+
+def _media_meta(item):
+    """Pull resolution / codec / file size from an item's first media part."""
+    res = codec = size = None
+    try:
+        media = (item.media or [None])[0]
+        if media:
+            res = media.videoResolution
+            codec = media.videoCodec
+            part = (media.parts or [None])[0]
+            if part:
+                size = part.size
+    except Exception:
+        pass
+    return res, codec, size
+
+
+# Each row matches the media_items column order (see db.py). The last four
+# fields are episode-only (season, episode_num, show_title, grandparent_key);
+# movies and shows leave them NULL.
+def _movie_row(section, m):
+    res, codec, size = _media_meta(m)
+    return (
+        str(m.ratingKey), str(section.key), section.title, "movie",
+        m.title, m.year, m.duration, res, _res_height(res), codec, size, None,
+        int(m.addedAt.timestamp()) if m.addedAt else None,
+        None, None, None, None,
+    )
+
+
+def _show_row(section, s):
+    return (
+        str(s.ratingKey), str(section.key), section.title, "show",
+        s.title, s.year, None, None, 0, None, None, s.leafCount,
+        int(s.addedAt.timestamp()) if s.addedAt else None,
+        None, None, None, None,
+    )
+
+
+def _episode_row(section, e):
+    res, codec, size = _media_meta(e)
+    gp = getattr(e, "grandparentRatingKey", None)
+    return (
+        str(e.ratingKey), str(section.key), section.title, "episode",
+        e.title, getattr(e, "year", None), e.duration, res, _res_height(res),
+        codec, size, None,
+        int(e.addedAt.timestamp()) if e.addedAt else None,
+        getattr(e, "parentIndex", None), getattr(e, "index", None),
+        getattr(e, "grandparentTitle", None), str(gp) if gp is not None else None,
+    )
+
+
+def _sync_worker():
+    """Rebuild the media cache from Plex. Runs in a daemon thread."""
+    global _sync_running
+    try:
+        db.set_meta("sync_status", "running")
+        db.set_meta("sync_error", "")
+        server = _connect(timeout=120)
+        rows = []
+        for section in server.library.sections():
+            if section.type == "movie":
+                rows.extend(_movie_row(section, m) for m in section.all())
+            elif section.type == "show":
+                rows.extend(_show_row(section, s) for s in section.all())
+                # Also cache every episode so show drill-down works offline.
+                try:
+                    rows.extend(
+                        _episode_row(section, e)
+                        for e in section.search(libtype="episode")
+                    )
+                except Exception:
+                    pass  # episodes are best-effort; shows still cache
+            # music / photo libraries are skipped for now.
+        with db.get_conn() as conn:
+            conn.execute("DELETE FROM media_items")
+            conn.executemany(
+                "INSERT INTO media_items (rating_key, library_key, library, type,"
+                " title, year, duration_ms, resolution, res_height, codec,"
+                " file_size, episodes, added_at, season, episode_num, show_title,"
+                " grandparent_key)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                rows,
+            )
+        db.set_meta("item_count", len(rows))
+        db.set_meta("last_synced", int(time.time()))
+        db.set_meta("sync_status", "idle")
+    except Exception as exc:
+        db.set_meta("sync_status", "error")
+        db.set_meta("sync_error", str(exc))
+    finally:
+        with _sync_lock:
+            _sync_running = False
+
+
+@router.post("/plex/sync")
+def trigger_sync():
+    """Start a background resync of the media cache (no-op if already running)."""
+    global _sync_running
+    if not settings.plex_token:
+        return {"started": False, "error": "not configured"}
+    with _sync_lock:
+        if _sync_running:
+            return {"started": False, "running": True}
+        _sync_running = True
+    threading.Thread(target=_sync_worker, daemon=True).start()
+    return {"started": True}
+
+
+@router.get("/plex/sync/status")
+def sync_status():
+    last = db.get_meta("last_synced")
+    return {
+        "running": _sync_running,
+        "status": db.get_meta("sync_status", "never"),
+        "last_synced": int(last) if last else None,
+        "item_count": int(db.get_meta("item_count", 0) or 0),
+        "error": db.get_meta("sync_error") or None,
+    }
+
+
+@router.get("/plex/library/{library_key}/items")
+def library_items(
+    library_key: str,
+    search: str = "",
+    sort: str = "title",
+    order: str = "asc",
+    limit: int = 100,
+    offset: int = 0,
+):
+    """Paginated, sorted, filtered items for one library — served from cache."""
+    sort_col = _SORT_COLUMNS.get(sort, _SORT_COLUMNS["title"])
+    direction = "DESC" if order.lower() == "desc" else "ASC"
+    # Libraries are at most a few hundred items, so the UI fetches a whole
+    # library in one request (then searches/sorts client-side). Cap generously
+    # as a safety valve; virtualize the table if we ever browse episodes (~1000s).
+    limit = max(1, min(limit, 10000))
+    offset = max(0, offset)
+
+    # Episodes share their show's library_key but belong to the show drill-down,
+    # not the top-level library listing — exclude them here.
+    where = "library_key = ? AND type != 'episode'"
+    params = [library_key]
+    if search:
+        where += " AND title LIKE ?"
+        params.append(f"%{search}%")
+
+    with db.get_conn() as conn:
+        total = conn.execute(
+            f"SELECT COUNT(*) AS n FROM media_items WHERE {where}", params
+        ).fetchone()["n"]
+        rows = conn.execute(
+            f"SELECT * FROM media_items WHERE {where}"
+            # NULLs always sort last, then by the chosen column/direction.
+            f" ORDER BY ({sort_col} IS NULL), {sort_col} {direction}"
+            f" LIMIT ? OFFSET ?",
+            params + [limit, offset],
+        ).fetchall()
+    return {"total": total, "items": [dict(r) for r in rows]}
+
+
+@router.get("/plex/show/{rating_key}/episodes")
+def show_episodes(rating_key: str):
+    """All cached episodes for one show, in season/episode order."""
+    with db.get_conn() as conn:
+        show = conn.execute(
+            "SELECT title, library_key FROM media_items"
+            " WHERE rating_key = ? AND type = 'show'",
+            (rating_key,),
+        ).fetchone()
+        rows = conn.execute(
+            "SELECT * FROM media_items WHERE grandparent_key = ? AND type = 'episode'"
+            " ORDER BY (season IS NULL), season, (episode_num IS NULL), episode_num",
+            (rating_key,),
+        ).fetchall()
+    return {
+        "show": show["title"] if show else None,
+        "library_key": show["library_key"] if show else None,
+        "total": len(rows),
+        "episodes": [dict(r) for r in rows],
+    }
+
+
+@router.get("/plex/item/{rating_key}")
+def plex_item(rating_key: str):
+    """Rich metadata for one item (movie/show), fetched live from Plex.
+
+    On-demand by design: a single detail view, not searched/sorted, so it
+    doesn't belong in the cache. Returns only display metadata — no file paths.
+    """
+    if not settings.plex_token:
+        return {"found": False, "configured": False}
+    try:
+        server = _connect(timeout=10)
+        it = server.fetchItem(int(rating_key))
+        data = {
+            "found": True,
+            "type": it.type,
+            "title": it.title,
+            "year": getattr(it, "year", None),
+            "summary": getattr(it, "summary", None) or None,
+            "content_rating": getattr(it, "contentRating", None),
+            "rating": getattr(it, "audienceRating", None) or getattr(it, "rating", None),
+            "duration_ms": getattr(it, "duration", None),
+            "studio": getattr(it, "studio", None),
+            "added_at": int(it.addedAt.timestamp()) if getattr(it, "addedAt", None) else None,
+            "genres": [g.tag for g in getattr(it, "genres", []) or []],
+            "has_art": bool(getattr(it, "thumb", None)),
+            "library_key": (
+                str(it.librarySectionID)
+                if getattr(it, "librarySectionID", None) is not None
+                else None
+            ),
+        }
+        if it.type == "show":
+            data["seasons"] = getattr(it, "childCount", None)
+            data["episodes"] = getattr(it, "leafCount", None)
+        if it.type in ("movie", "episode"):
+            res, codec, size = _media_meta(it)
+            data.update({"resolution": res, "codec": codec, "file_size": size})
+        if it.type == "movie":
+            data["directors"] = [d.tag for d in getattr(it, "directors", []) or []][:3]
+        return data
+    except Exception as exc:
+        return {"found": False, "error": str(exc)}
+
+
+@router.get("/plex/art/{rating_key}")
+def plex_art(rating_key: str):
+    """Proxy an item's poster from Plex so the token never reaches the browser."""
+    try:
+        server = _connect(timeout=10)
+        it = server.fetchItem(int(rating_key))
+        url = it.thumbUrl  # full URL incl. token — used server-side only
+        if not url:
+            return Response(status_code=404)
+        r = requests.get(url, timeout=10)
+        if r.status_code != 200:
+            return Response(status_code=404)
+        return Response(
+            content=r.content,
+            media_type=r.headers.get("Content-Type", "image/jpeg"),
+            headers={"Cache-Control": "max-age=86400"},  # let the browser reuse it
+        )
+    except Exception:
+        return Response(status_code=404)
 
 
 @router.get("/plex/export")

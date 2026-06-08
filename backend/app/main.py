@@ -10,9 +10,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.db import init_db
 from app.routers import containers, disk, network, plex, system
 
 app = FastAPI(title="Home HQ API")
+
+
+@app.on_event("startup")
+def _startup():
+    # Create the SQLite cache tables if they don't exist yet (used by the
+    # Plex library browser). Idempotent.
+    init_db()
 
 # Allow the browser-based frontend to call this API. In a homelab we keep it
 # permissive; tighten to specific origins if this ever leaves the tailnet.

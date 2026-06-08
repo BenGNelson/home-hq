@@ -28,6 +28,44 @@ export function formatClock(ts) {
   })
 }
 
+export function formatDuration(ms) {
+  if (!ms) return '—'
+  const totalMin = Math.round(ms / 60000)
+  const h = Math.floor(totalMin / 60)
+  const m = totalMin % 60
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
+}
+
+const RESOLUTIONS = {
+  '4k': '4K',
+  '1080': '1080p',
+  '720': '720p',
+  '576': '576p',
+  '480': '480p',
+  sd: 'SD',
+}
+
+export function formatResolution(res) {
+  if (!res) return '—'
+  return RESOLUTIONS[String(res).toLowerCase()] ?? res
+}
+
+export function formatDate(epoch) {
+  if (!epoch) return '—'
+  return new Date(epoch * 1000).toLocaleDateString()
+}
+
+export function formatAgo(epoch) {
+  if (!epoch) return 'never'
+  const s = Math.floor(Date.now() / 1000 - epoch)
+  if (s < 60) return 'just now'
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
+}
+
 export function formatUptime(seconds) {
   if (seconds == null) return '—'
   const d = Math.floor(seconds / 86400)

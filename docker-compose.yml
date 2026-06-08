@@ -23,6 +23,8 @@ services:
       # Host /proc, read-only — lets /api/network read host interface counters
       # (PID 1's net namespace). Exposes only counters + interface names.
       - "/proc:/host/proc:ro"
+      # Persistent SQLite cache for the Plex library browser.
+      - "homehq-data:/data"
     restart: unless-stopped
 
   # --- frontend: the shell + dashboard (build step 4). ---
@@ -45,3 +47,6 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  homehq-data:

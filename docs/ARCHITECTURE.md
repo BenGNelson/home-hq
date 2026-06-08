@@ -16,20 +16,24 @@ to publish and anyone can clone and run it against their own machine.
 ┌─────────────┐     HTTP/JSON      ┌──────────────┐
 │  Frontend   │  ───────────────▶  │   Backend    │
 │  (shell +   │  ◀───────────────  │   /api/*     │
-│   widgets)  │     live status    └──────┬───────┘
+│   modules)  │     live status    └──────┬───────┘
 └─────────────┘                           │
-                          reads from:     │
-              ┌───────────────┬───────────┼───────────────┐
-              ▼               ▼           ▼               ▼
-        Docker socket    system stats   Plex API    (Postgres — later)
+                    reads from:           │
+        ┌───────────┬───────────┬─────────┼──────────┬──────────────┐
+        ▼           ▼           ▼         ▼          ▼              ▼
+  Docker socket  system     host /proc  Plex API  SQLite cache  (more later)
+                  stats     (net counters)        (media browser)
 ```
 
-- **Frontend** — renders the module nav + dashboard widgets, polls the API for
-  live status. (Build step 4–5; not built yet.)
-- **Backend** — exposes `/api/*`; gathers data from Docker, the system, and Plex.
-  Every host-specific target comes from config, never hardcoded.
-- **Data** — none in Phase 1 (status is live/ephemeral). Add Postgres the first
-  time a module needs to remember things.
+- **Frontend** — React + Vite + Tailwind. Renders the module nav + pages, polls
+  the API for live status. Dev: Vite dev server with HMR, proxying `/api` to the
+  backend. Production (later): static build behind Nginx.
+- **Backend** — exposes `/api/*`; gathers data from Docker, the system, host
+  `/proc` (network counters), and Plex. Every host-specific target comes from
+  config, never hardcoded.
+- **Data** — mostly live/ephemeral. The one exception is a **SQLite cache** for
+  the Plex library browser (the first stateful feature). Reach for a bigger store
+  only when a module needs more than a rebuildable cache.
 
 ---
 
@@ -39,19 +43,21 @@ FastAPI app. One concern per file:
 
 ```
 backend/app/
-  main.py            # creates the app, CORS, mounts routers under /api
+  main.py            # creates the app, CORS, mounts routers, inits the DB
   config.py          # pydantic-settings: reads ALL host values from env
+  db.py              # SQLite cache (media browser): schema, migrations, helpers
   routers/
     system.py        # /api/system
     disk.py          # /api/disk
-    containers.py    # /api/containers
-    plex.py          # /api/plex
+    containers.py    # /api/containers + /api/containers/{name}
+    network.py       # /api/network  (host interface counters)
+    plex.py          # /api/plex + library browser endpoints
 ```
 
 Each feature is an `APIRouter` included by `main.py` under the `/api` prefix.
 Adding a module = add a router file and one `include_router` line.
 
-### Endpoints (Phase 1)
+### Endpoints
 
 | Endpoint | Returns | How |
 |---|---|---|
@@ -59,7 +65,17 @@ Adding a module = add a router file and one `include_router` line.
 | `GET /api/system` | CPU %, RAM used/total, uptime | `psutil` |
 | `GET /api/disk` | total/used/free/% for the storage mount | `psutil.disk_usage` |
 | `GET /api/containers` | name, status, image, uptime per container | Docker SDK over the socket |
-| `GET /api/plex` | reachable? + active stream count | `PlexAPI` client |
+| `GET /api/containers/{name}` | one container's live stats (cpu/mem/net) | Docker SDK |
+| `GET /api/network` | per-interface byte counters | reads host `/proc/1/net/dev` |
+| `GET /api/plex` | reachable? streams, transcodes, bandwidth | `PlexAPI` client |
+| `GET /api/plex/libraries` | each library + item counts (+ key) | `PlexAPI` |
+| `GET /api/plex/export` | full title manifest (on-demand backup) | `PlexAPI` (heavy) |
+| `POST /api/plex/sync` | rebuild the media cache from Plex (background) | `PlexAPI` → SQLite |
+| `GET /api/plex/sync/status` | running / last-synced / item count | SQLite meta |
+| `GET /api/plex/library/{key}/items` | a library's items (movies or shows) | SQLite cache |
+| `GET /api/plex/show/{key}/episodes` | one show's episodes, in order | SQLite cache |
+| `GET /api/plex/item/{key}` | rich metadata for one item (detail page) | `PlexAPI` (on-demand) |
+| `GET /api/plex/art/{key}` | item poster, proxied so the token stays server-side | `PlexAPI` + stream |
 
 **Graceful degradation:** every endpoint that touches an external system
 (Docker, Plex, a mount) catches failures and returns a friendly
@@ -86,7 +102,47 @@ The repo holds **logic**; the machine holds **values**.
 | `PLEX_URL` / `PLEX_TOKEN` | Plex address + token |
 | `API_PORT` | host port the backend listens on |
 | `DOCKER_SOCKET` | host Docker socket path, mounted into the backend |
+| `DB_PATH` | SQLite file path (on a Docker volume); has a sane default |
 | `VITE_API_BASE` | base path the frontend uses to call the API |
+
+---
+
+## Frontend design
+
+React + Vite + Tailwind (v4). A **module registry** in `App.jsx` is the single
+seam the platform grows along — each entry declares a nav item + route; the
+`Shell` renders the sidebar (a slide-in drawer on phones) and the active page.
+
+```
+frontend/src/
+  App.jsx            # module registry + routes
+  shell/Shell.jsx    # sidebar + responsive layout frame
+  lib/               # useApi (polling), useRates, format helpers
+  components/        # shared UI: Graph, MediaTable, MediaDetail, SyncControl, …
+  modules/
+    dashboard/       # widgets (system, storage, plex, containers)
+    plex/            # Plex page, LibraryBrowser, ShowBrowser, MovieDetail
+    containers/      # container list + live detail
+    network/         # live per-interface throughput graphs
+```
+
+Key shared pieces: `useApi(path, interval)` polls and exposes
+`{data, error, loading}`; `MediaTable` is one searchable/sortable table reused
+for movies and episodes; live graphs derive rates client-side from cumulative
+counters so the backend stays stateless.
+
+## Plex library browser (the one stateful feature)
+
+A **sync** job (`POST /api/plex/sync`, background thread) walks Plex once and
+fills a SQLite `media_items` table with movies, shows, and episodes (title,
+year, runtime, resolution, codec, file size, season/episode, …). The browser
+then reads from SQLite, so search/sort/pagination are instant and don't hit
+Plex per keystroke. The cache is **rebuildable** — a Refresh re-syncs it.
+
+The split: **lists are cached** (browsed, searched, sorted); **single-item
+detail + posters are on-demand** from Plex (viewed occasionally, not searched —
+no reason to store long summaries or binary art). Posters are **proxied** through
+`/api/plex/art/{key}` so the Plex token never reaches the browser.
 
 ---
 
@@ -129,11 +185,12 @@ is why compose mounts the storage path.
 
 ## Roadmap
 
-- **Phase 1 (current):** shell + server status dashboard (system, disk,
-  containers, plex). No database.
-- **After Phase 1:** a lightweight **module registry** so new modules register
-  their nav entry + routes in one place; then introduce Postgres and the first
-  persistent module.
+- **Phase 1 (done):** shell + server status dashboard (system, disk, containers,
+  plex) + live network graphs. Frontend built (React/Vite/Tailwind).
+- **Phase 2 (current):** richer modules. Plex library browser with a searchable
+  SQLite cache + per-item detail pages (the first stateful feature).
+- **Next:** config backup module (age-encrypted to the RAID); an in-app "How it
+  works" doc; production serve behind Nginx.
 - **Remote access:** reach the dashboard and a shell privately over a mesh VPN
   rather than opening firewall ports.
 - **Observability (later):** metrics + dashboards once there's more to watch.
@@ -157,6 +214,23 @@ Short record of *why* things are the way they are, so future changes have contex
   state instead of throwing.
 - **Docker socket mounted, proxy planned.** Pragmatic for Phase 1; the
   socket-proxy hardening is a deliberate later step, not an oversight.
+- **SQLite for the media browser, not Postgres.** The browser needs fast
+  search/sort over a few thousand rows that are fully rebuildable from Plex.
+  SQLite (a single file on a Docker volume, stdlib `sqlite3`, no ORM) is the
+  right-sized tool; it stays trivially small (~MBs) and adds zero infrastructure.
+- **Cache the lists, fetch detail on-demand.** What's browsed/searched/sorted
+  (movies, shows, episodes) is cached; a single detail view and its poster are
+  fetched live (not searched, viewed rarely). Keeps the DB lean and the data
+  model honest about what actually benefits from caching.
+- **Proxy Plex images through the backend.** The poster URL carries the Plex
+  token; serving it via `/api/plex/art/{key}` keeps the token server-side and out
+  of the browser/DOM.
+- **Client-side rate computation.** Live network/throughput graphs derive rates
+  from cumulative counters in the browser, so the backend stays stateless (no
+  time-series storage) in this phase.
+- **Module-local navigation.** Cross-library switching lives in the Plex module
+  (a pill bar), not the global sidebar — the shell stays generic so every module
+  isn't tempted to inject its own children into it.
 - **Commit at meaningful milestones.** History reads like the build order — one
   coherent, working increment per commit.
 - **`PlexAPI` packaging gotcha.** The PyPI package is `PlexAPI`; the Python

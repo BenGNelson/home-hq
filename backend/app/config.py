@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     # --- Backend ---
     api_port: int = 8000
     docker_socket: str = "/var/run/docker.sock"
+    # SQLite cache for the Plex library browser (lives on a Docker volume so it
+    # survives rebuilds). Not a secret, but configurable for non-Docker dev.
+    db_path: str = "/data/homehq.db"
 
     model_config = SettingsConfigDict(
         # In local (non-Docker) dev, also read a .env file sitting next to the repo.
