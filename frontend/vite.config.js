@@ -10,6 +10,11 @@ export default defineConfig({
   server: {
     host: true, // listen on 0.0.0.0 so the port is reachable from outside the container
     port: 5173,
+    // Accept the Host header when reached over a Tailscale HTTPS hostname
+    // (*.ts.net), which `tailscale serve` proxies to this dev server. Without
+    // this, Vite blocks the request as an unrecognized host. LAN access by
+    // IP:port is unaffected.
+    allowedHosts: ['.ts.net'],
     watch: { usePolling: true }, // reliable file-watching across a Docker bind mount
     proxy: {
       // "backend" is the compose service name; Docker's network resolves it.
