@@ -3,6 +3,8 @@
 .env
 # Per-host backup path list (host-specific paths). Use backup.includes.example.
 scripts/backup.includes
+# Per-host "How it works" notes (container descriptions). Generic UI is committed.
+frontend/src/modules/guide/host.local.jsx
 
 # --- Python ---
 __pycache__/
