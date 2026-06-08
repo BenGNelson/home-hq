@@ -176,6 +176,28 @@ read endpoints we need — planned as a later step.
 
 ---
 
+## Testing
+
+Tests run in the project's containers — no host Python/Node toolchain needed.
+`scripts/test.sh` runs both suites; run it before committing, and add or update
+a test whenever you change a helper, query, parser, or endpoint.
+
+- **Backend — pytest** (`backend/tests/`). Each test gets an isolated temp SQLite
+  DB (autouse fixture monkeypatches `settings.db_path` to a tmp file, then
+  `init_db()`), so the cache logic is tested for real without touching the live
+  DB. Coverage: the container/network/backup/Plex helpers, graceful-degradation
+  paths (Docker down, `/proc` missing), and the library-query logic — episode
+  exclusion, search, the sort whitelist with its injection-safe fallback,
+  pagination, and episode ordering. Test-only deps live in `requirements-dev.txt`
+  and are installed ephemerally by the runner, never baked into the prod image.
+- **Frontend — Vitest** (`*.test.js` beside the source). Covers the pure logic:
+  the `format.js` helpers and the `MediaTable` `compare` sorter. UI rendering is
+  intentionally not tested — the value is in the helpers. Vitest is a dev
+  dependency in the image, so after adding a frontend dev dep, rebuild the image
+  (`docker compose build frontend`) before the runner can see it.
+
+---
+
 ## How a request flows (example: `/api/system`)
 
 ```
