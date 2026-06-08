@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { Spinner } from './ui.jsx'
 
 // Compare two values for sorting, pushing empty/null to the end either way.
-function compare(a, b, order) {
+// Exported for unit testing.
+export function compare(a, b, order) {
   const an = a == null || a === ''
   const bn = b == null || b === ''
   if (an || bn) return an === bn ? 0 : an ? 1 : -1

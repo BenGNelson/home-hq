@@ -6,6 +6,8 @@ browser), and mounts each feature router under the /api prefix. As we add more
 endpoints (disk, containers, plex) we just include their routers here.
 """
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -13,14 +15,16 @@ from app.config import settings
 from app.db import init_db
 from app.routers import backups, containers, disk, network, plex, system
 
-app = FastAPI(title="Home HQ API")
 
-
-@app.on_event("startup")
-def _startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     # Create the SQLite cache tables if they don't exist yet (used by the
-    # Plex library browser). Idempotent.
+    # Plex library browser). Idempotent. Runs once on startup.
     init_db()
+    yield
+
+
+app = FastAPI(title="Home HQ API", lifespan=lifespan)
 
 # Allow the browser-based frontend to call this API. In a homelab we keep it
 # permissive; tighten to specific origins if this ever leaves the tailnet.
