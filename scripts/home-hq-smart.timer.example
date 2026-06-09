@@ -1,0 +1,12 @@
+# Home HQ — run the SMART health collector daily.
+# Install: copy to /etc/systemd/system/home-hq-smart.timer, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now home-hq-smart.timer
+[Unit]
+Description=Home HQ — daily SMART drive health collection
+
+[Timer]
+OnCalendar=daily
+Persistent=true   # catch up if the machine was off at the scheduled time
+
+[Install]
+WantedBy=timers.target

@@ -25,6 +25,9 @@ services:
       - "/proc:/host/proc:ro"
       # Persistent SQLite cache for the Plex library browser.
       - "homehq-data:/data"
+      # SMART health JSON written by the host timer (scripts/smart-health.py),
+      # read-only — the container never runs smartctl itself.
+      - "${SMART_DIR:-/var/lib/home-hq}:/smart:ro"
     restart: unless-stopped
 
   # --- frontend: production build served by nginx (the always-on face). ---

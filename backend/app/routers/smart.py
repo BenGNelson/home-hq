@@ -1,0 +1,109 @@
+"""
+/api/smart — per-drive SMART health, read from a JSON file a host timer writes.
+
+SMART needs root + raw device access, which the (deliberately unprivileged)
+backend container doesn't have. So a host-side systemd timer runs
+`scripts/smart-health.py` as root, dumps each disk's `smartctl -j` output to
+`smart.json`, and we just read + summarize that here. Same split as the config
+backup: privileged work on the host, the app only reads the result.
+
+The file may not exist yet (timer hasn't run) — we degrade to available:false.
+"""
+
+import json
+
+from fastapi import APIRouter
+
+from app.config import settings
+
+router = APIRouter()
+
+
+def _attr(table, attr_id):
+    """Raw value of an ATA SMART attribute by id, or None."""
+    for attr in table:
+        if attr.get("id") == attr_id:
+            return (attr.get("raw") or {}).get("value")
+    return None
+
+
+def parse_drive(entry):
+    """Summarize one drive's raw `smartctl -j` report into display fields."""
+    name = entry.get("name")
+    report = entry.get("report") or {}
+    out = {
+        "name": name,
+        "supported": False,
+        "model": report.get("model_name"),
+        "passed": None,
+        "temperature_c": None,
+        "power_on_hours": None,
+        "power_cycles": None,
+        "capacity_bytes": None,
+        "reallocated": None,
+        "pending": None,
+        "wear_percent": None,
+        "media_errors": None,
+        "message": None,
+        "warnings": [],
+    }
+
+    status = report.get("smart_status")
+    if not status or "passed" not in status:
+        # Couldn't read SMART (e.g. a USB enclosure that blocks passthrough).
+        meta = report.get("smartctl") or {}
+        msgs = [m.get("string", "") for m in (meta.get("messages") or [])]
+        out["message"] = "; ".join(filter(None, msgs)) or "SMART data unavailable"
+        return out
+
+    out["supported"] = True
+    out["passed"] = status.get("passed")
+    out["temperature_c"] = (report.get("temperature") or {}).get("current")
+    out["power_on_hours"] = (report.get("power_on_time") or {}).get("hours")
+    out["power_cycles"] = report.get("power_cycle_count")
+    out["capacity_bytes"] = (report.get("user_capacity") or {}).get(
+        "bytes"
+    ) or report.get("nvme_total_capacity")
+
+    table = (report.get("ata_smart_attributes") or {}).get("table") or []
+    out["reallocated"] = _attr(table, 5)  # Reallocated_Sector_Ct
+    out["pending"] = _attr(table, 197)  # Current_Pending_Sector
+
+    nvme = report.get("nvme_smart_health_information_log")
+    if nvme:
+        out["wear_percent"] = nvme.get("percentage_used")
+        out["media_errors"] = nvme.get("media_errors")
+        if out["temperature_c"] is None:
+            out["temperature_c"] = nvme.get("temperature")
+        if out["power_on_hours"] is None:
+            out["power_on_hours"] = nvme.get("power_on_hours")
+
+    # Surface early-warning conditions even when the overall verdict is "passed".
+    if out["passed"] is False:
+        out["warnings"].append("SMART overall self-assessment FAILED")
+    if out["reallocated"]:
+        out["warnings"].append(f"{out['reallocated']} reallocated sectors")
+    if out["pending"]:
+        out["warnings"].append(f"{out['pending']} pending sectors")
+    if out["media_errors"]:
+        out["warnings"].append(f"{out['media_errors']} media errors")
+    if out["wear_percent"] is not None and out["wear_percent"] >= 80:
+        out["warnings"].append(f"{out['wear_percent']}% life used")
+    if out["temperature_c"] is not None and out["temperature_c"] >= 65:
+        out["warnings"].append(f"running hot ({out['temperature_c']}°C)")
+
+    return out
+
+
+@router.get("/smart")
+def get_smart():
+    try:
+        with open(settings.smart_json_path) as fh:
+            data = json.load(fh)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {"available": False}
+    return {
+        "available": True,
+        "generated_at": data.get("generated_at"),
+        "drives": [parse_drive(d) for d in data.get("drives", [])],
+    }

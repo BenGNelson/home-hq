@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     age_recipient: str = ""  # public key — presence = "backups configured"
     backup_retention: int = 14
 
+    # --- SMART drive health (collected by a host root timer; we only read it) ---
+    smart_json_path: str = "/smart/smart.json"
+
     model_config = SettingsConfigDict(
         # In local (non-Docker) dev, also read a .env file sitting next to the repo.
         # In Docker, the values come from the environment instead (compose injects them),

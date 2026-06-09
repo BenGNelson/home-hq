@@ -1,5 +1,6 @@
 import SystemWidget from './widgets/SystemWidget.jsx'
 import DiskWidget from './widgets/DiskWidget.jsx'
+import DrivesWidget from './widgets/DrivesWidget.jsx'
 import ContainersWidget from './widgets/ContainersWidget.jsx'
 import PlexWidget from './widgets/PlexWidget.jsx'
 
@@ -14,6 +15,7 @@ export default function Dashboard() {
       <div className="columns-1 gap-4 md:columns-2 [&>*]:mb-4 [&>*]:break-inside-avoid">
         <SystemWidget />
         <DiskWidget />
+        <DrivesWidget />
         <PlexWidget />
         <ContainersWidget />
       </div>

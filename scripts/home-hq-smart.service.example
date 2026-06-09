@@ -1,0 +1,12 @@
+# Home HQ — SMART drive health collector (oneshot, run by the timer).
+# Install: copy to /etc/systemd/system/home-hq-smart.service and replace
+# /path/to/home-hq with the real checkout path. Runs as root so smartctl works.
+[Unit]
+Description=Home HQ — collect SMART drive health
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/path/to/home-hq/scripts/smart-health.py
+# Override the output path here if desired:
+# Environment=SMART_JSON=/var/lib/home-hq/smart.json
