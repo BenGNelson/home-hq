@@ -40,7 +40,7 @@ export default function Shell({ modules, children }) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 transform flex-col border-r border-slate-800 bg-slate-900 p-4 transition-transform md:static md:translate-x-0 md:bg-slate-900/50 ${
+        className={`fixed inset-y-0 left-0 z-40 w-56 shrink-0 transform border-r border-slate-800 bg-slate-900 p-4 transition-transform md:static md:translate-x-0 md:bg-slate-900/50 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -68,30 +68,32 @@ export default function Shell({ modules, children }) {
             </NavLink>
           ))}
         </nav>
-
-        {/* Theme picker pinned to the bottom of the sidebar. */}
-        <div className="mt-auto border-t border-slate-800 pt-4">
-          <ThemePicker />
-        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Mobile top bar — hidden on md+ where the sidebar is always shown. */}
-        <header className="flex items-center gap-3 border-b border-slate-800 bg-slate-900/50 px-4 py-3 md:hidden">
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            aria-label="Toggle navigation"
-            className="rounded-lg p-1 text-slate-300 hover:bg-slate-800"
-          >
-            {/* Hamburger */}
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
-          <span className="text-base font-semibold tracking-tight">Home HQ</span>
+        {/* Top bar — persistent so the theme picker sits top-right on every
+            screen. The hamburger + title only appear on mobile (where the
+            sidebar is a drawer); on md+ only the theme control shows. */}
+        <header className="flex items-center gap-3 border-b border-slate-800 bg-slate-900/50 px-4 py-3">
+          <div className="flex items-center gap-3 md:hidden">
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              aria-label="Toggle navigation"
+              className="rounded-lg p-1 text-slate-300 hover:bg-slate-800"
+            >
+              {/* Hamburger */}
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+            <span className="text-base font-semibold tracking-tight">Home HQ</span>
+          </div>
+          <div className="ml-auto">
+            <ThemePicker />
+          </div>
         </header>
 
         <main className="min-w-0 flex-1 overflow-auto p-4 md:p-6">{children}</main>
