@@ -15,8 +15,38 @@ import json
 from fastapi import APIRouter
 
 from app.config import settings
+from app.routers import raid
 
 router = APIRouter()
+
+
+def _raid_member_disks():
+    """Base disk names that belong to a software-RAID array (e.g. {'sdb','sdc'}).
+
+    mdstat lists members as partitions (sdb2); a disk is a member if any of its
+    partitions appears, which we detect by prefix.
+    """
+    text = raid._read_mdstat()
+    if not text:
+        return set()
+    members = set()
+    for array in raid.parse_mdstat(text):
+        members.update(array.get("members") or [])
+    return members
+
+
+def assign_role(drive, raid_members):
+    """Classify a drive so the UI can label/filter it:
+    'raid'   — a member of the storage array,
+    'other'  — external/unreadable (e.g. a USB-bridged disk); hidden in the UI,
+    'system' — an internal disk that isn't in the array (the OS/boot disk).
+    """
+    name = drive.get("name") or ""
+    if name and any(member.startswith(name) for member in raid_members):
+        return "raid"
+    if not drive.get("supported"):
+        return "other"
+    return "system"
 
 
 def _attr(table, attr_id):
@@ -102,8 +132,15 @@ def get_smart():
             data = json.load(fh)
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         return {"available": False}
+
+    raid_members = _raid_member_disks()
+    drives = []
+    for raw in data.get("drives", []):
+        parsed = parse_drive(raw)
+        parsed["role"] = assign_role(parsed, raid_members)
+        drives.append(parsed)
     return {
         "available": True,
         "generated_at": data.get("generated_at"),
-        "drives": [parse_drive(d) for d in data.get("drives", [])],
+        "drives": drives,
     }

@@ -12,9 +12,18 @@ function badge(d) {
   return { label: 'OK', cls: 'text-emerald-400' }
 }
 
+// A small tag identifying the drive's role on the box.
+function roleTag(role) {
+  if (role === 'raid') return { label: 'RAID', cls: 'bg-sky-500/15 text-sky-300' }
+  if (role === 'system') return { label: 'OS', cls: 'bg-violet-500/15 text-violet-300' }
+  return null
+}
+
 export default function DrivesWidget() {
   const { data, error, loading } = useApi('/smart', 60000)
-  const drives = data?.available ? data.drives : []
+  // Hide external/unreadable disks (e.g. the USB-bridged 4tex); show the OS
+  // disk and the RAID members, each tagged so it's clear which is which.
+  const drives = (data?.available ? data.drives : []).filter((d) => d.role !== 'other')
 
   return (
     <Widget title="Drives" loading={loading} error={error}>
@@ -28,6 +37,7 @@ export default function DrivesWidget() {
         <div className="space-y-2 text-sm">
           {drives.map((d) => {
             const b = badge(d)
+            const tag = roleTag(d.role)
             return (
               <div
                 key={d.name}
@@ -36,6 +46,13 @@ export default function DrivesWidget() {
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-slate-200">
                     {d.name}
+                    {tag && (
+                      <span
+                        className={`ml-2 rounded px-1.5 py-0.5 text-[10px] font-semibold ${tag.cls}`}
+                      >
+                        {tag.label}
+                      </span>
+                    )}
                     {d.model && (
                       <span className="ml-2 text-xs font-normal text-slate-500">
                         {d.model}

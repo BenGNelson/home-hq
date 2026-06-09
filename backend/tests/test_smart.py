@@ -1,7 +1,9 @@
 import json
 
 from app.config import settings
-from app.routers.smart import parse_drive
+from app.routers.smart import assign_role, parse_drive
+
+RAID_MEMBERS = {"sdb2", "sdc2", "sdd2"}
 
 # A healthy SATA SSD: smart_status passed, zero reallocated/pending.
 SATA_OK = {
@@ -116,6 +118,20 @@ def test_unsupported_drive_captures_message():
     assert d["supported"] is False
     assert "Unable to detect" in d["message"]
     assert d["warnings"] == []
+
+
+def test_role_raid_member():
+    assert assign_role({"name": "sdb", "supported": True}, RAID_MEMBERS) == "raid"
+
+
+def test_role_system_disk():
+    # Internal disk that isn't in the array = the OS/boot disk.
+    assert assign_role({"name": "sda", "supported": True}, RAID_MEMBERS) == "system"
+
+
+def test_role_external_unreadable():
+    # The USB-bridged drive can't be read → "other" (hidden in the UI).
+    assert assign_role({"name": "sde", "supported": False}, RAID_MEMBERS) == "other"
 
 
 def test_smart_endpoint_unavailable_when_file_missing(client, monkeypatch, tmp_path):
