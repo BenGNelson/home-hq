@@ -102,3 +102,45 @@ def test_sync_status_defaults_then_reads_meta():
     db.set_meta("sync_status", "idle")
     st2 = P.sync_status()
     assert st2["last_synced"] == 123 and st2["item_count"] == 5 and st2["status"] == "idle"
+
+
+# --- now-playing session detail -------------------------------------------
+
+def test_session_title_episode_movie_track():
+    ep = SimpleNamespace(
+        type="episode", grandparentTitle="The Office", parentIndex=3, index=7, title="The Convict"
+    )
+    assert P._session_title(ep) == "The Office · S03E07 · The Convict"
+    movie = SimpleNamespace(type="movie", title="Dune", year=2021)
+    assert P._session_title(movie) == "Dune (2021)"
+    track = SimpleNamespace(type="track", grandparentTitle="Pink Floyd", title="Time")
+    assert P._session_title(track) == "Pink Floyd · Time"
+
+
+def test_session_detail_extracts_fields():
+    s = SimpleNamespace(
+        type="movie",
+        title="Dune",
+        year=2021,
+        usernames=["emily"],
+        players=[SimpleNamespace(title="Living Room TV", state="playing", product="Plex for Apple TV")],
+        viewOffset=600000,
+        duration=1200000,
+        media=[SimpleNamespace(videoResolution="4k")],
+        transcodeSessions=[object()],
+    )
+    d = P._session_detail(s)
+    assert d["user"] == "emily"
+    assert d["title"] == "Dune (2021)"
+    assert d["player"] == "Living Room TV"
+    assert d["state"] == "playing"
+    assert d["progress_percent"] == 50.0
+    assert d["transcoding"] is True
+    assert d["resolution"] == "4k"
+
+
+def test_session_detail_handles_sparse_session():
+    # A minimal session (e.g. mid-buffer with little metadata) must not crash.
+    d = P._session_detail(SimpleNamespace(type="movie", title="X"))
+    assert d["user"] is None and d["player"] is None
+    assert d["progress_percent"] is None and d["transcoding"] is False

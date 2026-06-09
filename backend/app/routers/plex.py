@@ -80,6 +80,77 @@ def get_plex():
         }
 
 
+def _session_title(s):
+    """A human label for what's playing, varying by media type."""
+    kind = getattr(s, "type", None)
+    if kind == "episode":
+        show = getattr(s, "grandparentTitle", "") or ""
+        season = getattr(s, "parentIndex", None)
+        episode = getattr(s, "index", None)
+        title = getattr(s, "title", "") or ""
+        code = f" · S{season:02d}E{episode:02d}" if season and episode else ""
+        return f"{show}{code} · {title}".strip(" ·")
+    if kind == "track":
+        artist = getattr(s, "grandparentTitle", "") or ""
+        track = getattr(s, "title", "") or ""
+        return f"{artist} · {track}".strip(" ·")
+    title = getattr(s, "title", "") or "Unknown"
+    year = getattr(s, "year", None)
+    return f"{title} ({year})" if year else title
+
+
+def _session_detail(s):
+    """Pull the glanceable per-stream fields, guarded — session sub-objects
+    vary a lot by client and media type."""
+    user = None
+    usernames = getattr(s, "usernames", None)
+    if usernames:
+        user = usernames[0]
+
+    player = state = None
+    players = getattr(s, "players", None)
+    if players:
+        p = players[0]
+        player = getattr(p, "title", None) or getattr(p, "product", None)
+        state = getattr(p, "state", None)  # playing / paused / buffering
+
+    offset = getattr(s, "viewOffset", None)
+    duration = getattr(s, "duration", None)
+    percent = round(offset / duration * 100, 1) if offset and duration else None
+
+    resolution = None
+    media = getattr(s, "media", None)
+    if media:
+        resolution = getattr(media[0], "videoResolution", None)
+
+    return {
+        "user": user,
+        "title": _session_title(s),
+        "type": getattr(s, "type", None),
+        "player": player,
+        "state": state,
+        "progress_percent": percent,
+        "transcoding": bool(getattr(s, "transcodeSessions", None)),
+        "resolution": resolution,
+    }
+
+
+@router.get("/plex/now-playing")
+def plex_now_playing():
+    """Currently-playing streams with per-session detail (who/what/where)."""
+    if not settings.plex_token:
+        return {"configured": False, "reachable": False, "sessions": []}
+    try:
+        server = _connect(timeout=5)
+        return {
+            "configured": True,
+            "reachable": True,
+            "sessions": [_session_detail(s) for s in server.sessions()],
+        }
+    except Exception as exc:
+        return {"configured": True, "reachable": False, "sessions": [], "error": str(exc)}
+
+
 @router.get("/plex/libraries")
 def get_plex_libraries():
     """Each library section with its top-level item count.
