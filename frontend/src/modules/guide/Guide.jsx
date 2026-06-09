@@ -39,7 +39,7 @@ const ENDPOINTS = [
   ['/api/backups', 'Lists the age-encrypted config backups (read-only).'],
   [
     '/api/plex · …',
-    'Status (streams/transcodes), now-playing sessions, libraries, background sync, cached library items & show episodes, on-demand item detail, and a poster proxy.',
+    'Status (streams/transcodes), now-playing sessions, recently added, libraries, background sync, cached library items & show episodes, on-demand item detail, and a poster proxy.',
   ],
 ]
 

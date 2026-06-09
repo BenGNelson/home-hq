@@ -144,3 +144,31 @@ def test_session_detail_handles_sparse_session():
     d = P._session_detail(SimpleNamespace(type="movie", title="X"))
     assert d["user"] is None and d["player"] is None
     assert d["progress_percent"] is None and d["transcoding"] is False
+
+
+# --- recently added ---------------------------------------------------------
+
+def test_recent_item_movie():
+    it = SimpleNamespace(type="movie", ratingKey=42, title="Dune", year=2021, addedAt=None)
+    r = P._recent_item(it)
+    assert r["rating_key"] == "42" and r["title"] == "Dune" and r["subtitle"] == "2021"
+
+
+def test_recent_item_episode_uses_show_poster():
+    it = SimpleNamespace(
+        type="episode",
+        ratingKey=99,
+        grandparentRatingKey=7,
+        grandparentTitle="Fallout",
+        parentIndex=2,
+        index=8,
+        addedAt=None,
+    )
+    r = P._recent_item(it)
+    # Art points at the show (grandparent) so the strip stays portrait posters.
+    assert r["rating_key"] == "7"
+    assert r["title"] == "Fallout" and r["subtitle"] == "S02E08"
+
+
+def test_added_ts_handles_missing():
+    assert P._added_ts(SimpleNamespace()) == 0

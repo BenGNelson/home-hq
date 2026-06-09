@@ -75,6 +75,7 @@ Adding a module = add a router file and one `include_router` line.
 | `GET /api/backups` | list encrypted config backups (read-only) | reads BACKUP_DIR (under the RAID mount) |
 | `GET /api/plex` | reachable? streams, transcodes, bandwidth | `PlexAPI` client |
 | `GET /api/plex/now-playing` | active streams: who/what/where, progress, transcode | `PlexAPI` sessions |
+| `GET /api/plex/recently-added` | newest items across libraries (poster strip) | `PlexAPI` |
 | `GET /api/plex/libraries` | each library + item counts (+ key) | `PlexAPI` |
 | `GET /api/plex/export` | full title manifest (on-demand backup) | `PlexAPI` (heavy) |
 | `POST /api/plex/sync` | rebuild the media cache from Plex (background) | `PlexAPI` → SQLite |

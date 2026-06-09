@@ -1,4 +1,5 @@
 import HealthBar from './HealthBar.jsx'
+import RecentlyAdded from './RecentlyAdded.jsx'
 import SystemWidget from './widgets/SystemWidget.jsx'
 import DiskWidget from './widgets/DiskWidget.jsx'
 import DrivesWidget from './widgets/DrivesWidget.jsx'
@@ -21,6 +22,7 @@ export default function Dashboard() {
         <PlexWidget />
         <ContainersWidget />
       </div>
+      <RecentlyAdded />
     </div>
   )
 }

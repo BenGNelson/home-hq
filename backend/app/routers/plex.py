@@ -151,6 +151,64 @@ def plex_now_playing():
         return {"configured": True, "reachable": False, "sessions": [], "error": str(exc)}
 
 
+def _added_ts(it):
+    """addedAt as an epoch float (0 if missing) — for sorting + display."""
+    try:
+        return getattr(it, "addedAt").timestamp()
+    except Exception:
+        return 0
+
+
+def _recent_item(it):
+    """A poster-strip entry. For episodes/seasons we point art at the SHOW so
+    the strip is uniform portrait posters, not landscape episode stills."""
+    kind = getattr(it, "type", None)
+    if kind == "episode":
+        season = getattr(it, "parentIndex", None)
+        episode = getattr(it, "index", None)
+        return {
+            "rating_key": str(getattr(it, "grandparentRatingKey", "") or getattr(it, "ratingKey", "")),
+            "title": getattr(it, "grandparentTitle", None) or getattr(it, "title", ""),
+            "subtitle": f"S{season:02d}E{episode:02d}" if season and episode else "",
+            "type": kind,
+            "added_at": int(_added_ts(it)),
+        }
+    if kind == "season":
+        return {
+            "rating_key": str(getattr(it, "parentRatingKey", "") or getattr(it, "ratingKey", "")),
+            "title": getattr(it, "parentTitle", None) or getattr(it, "title", ""),
+            "subtitle": getattr(it, "title", ""),
+            "type": kind,
+            "added_at": int(_added_ts(it)),
+        }
+    return {
+        "rating_key": str(getattr(it, "ratingKey", "")),
+        "title": getattr(it, "title", ""),
+        "subtitle": str(getattr(it, "year", "") or ""),
+        "type": kind,
+        "added_at": int(_added_ts(it)),
+    }
+
+
+@router.get("/plex/recently-added")
+def plex_recently_added(limit: int = 12):
+    """Newest items across all libraries, for the dashboard poster strip."""
+    if not settings.plex_token:
+        return {"configured": False, "items": []}
+    try:
+        server = _connect(timeout=5)
+        items = []
+        for section in server.library.sections():
+            try:
+                items.extend(section.recentlyAdded(maxresults=limit))
+            except Exception:
+                pass  # a flaky section shouldn't drop the rest
+        items = sorted(items, key=_added_ts, reverse=True)[:limit]
+        return {"configured": True, "items": [_recent_item(i) for i in items]}
+    except Exception as exc:
+        return {"configured": True, "items": [], "error": str(exc)}
+
+
 @router.get("/plex/libraries")
 def get_plex_libraries():
     """Each library section with its top-level item count.
