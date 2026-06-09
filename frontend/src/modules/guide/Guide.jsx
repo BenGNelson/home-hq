@@ -62,10 +62,14 @@ function ContainerReference() {
         return (
           <div key={c.name} className="rounded-lg border border-slate-800 p-3">
             <div className="flex items-center justify-between gap-2">
-              <span className="font-medium text-slate-100">{c.name}</span>
+              <span className="font-medium text-slate-100">{note?.displayName ?? c.name}</span>
               <span className="shrink-0 text-xs text-slate-500">{c.status}</span>
             </div>
-            <p className="mt-0.5 truncate font-mono text-[11px] text-slate-500">{c.image}</p>
+            {!note?.hideImage && (
+              <p className="mt-0.5 truncate font-mono text-[11px] text-slate-500">
+                {note?.displayImage ?? c.image}
+              </p>
+            )}
             <p className="mt-1 text-sm">
               {note?.purpose ?? (
                 <span className="italic text-slate-500">
@@ -176,6 +180,32 @@ export default function Guide() {
           <strong>fetch single-item detail + posters on demand</strong> (viewed
           rarely, not searched). Posters are proxied so the Plex token never
           reaches the browser.
+        </p>
+      </Section>
+
+      <Section title="Network module">
+        <p>
+          Per-interface throughput, live. The backend reads cumulative byte
+          counters from the host’s <Code>/proc</Code> via <Code>/api/network</Code>;
+          the browser turns successive samples into in/out <strong>rates</strong>{' '}
+          and draws them on the same hand-rolled <Code>Graph</Code> the dashboard
+          uses. Interfaces get friendly labels, stacked full-width with a time
+          axis. Nothing is stored — rates are derived client-side, so the backend
+          stays stateless.
+        </p>
+      </Section>
+
+      <Section title="Storage health (RAID + drives)">
+        <p>
+          Two layers. <strong>Array health</strong> comes from <Code>/api/raid</Code>,
+          which parses the kernel’s software-RAID status — a healthy array reads
+          as all members up, a degraded one flags red. <strong>Per-drive SMART</strong>{' '}
+          comes from <Code>/api/smart</Code>: a privileged host timer collects each
+          disk’s SMART attributes once a day into a small JSON file the backend
+          reads read-only, so the app itself never needs disk privileges. The
+          Drives widget flags reallocated/pending sectors, high wear, and
+          overheating. A disk behind a USB bridge that can’t pass SMART through
+          simply shows “n/a”.
         </p>
       </Section>
 
