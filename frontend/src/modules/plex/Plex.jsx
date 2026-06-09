@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useApi, API_BASE } from '../../lib/useApi.js'
 import { Row } from '../../components/ui.jsx'
 import SyncControl from '../../components/SyncControl.jsx'
+import RecentlyAdded from './RecentlyAdded.jsx'
 
 // Pretty label for a library type.
 const TYPE_LABEL = { movie: 'Movies', show: 'TV', artist: 'Music', photo: 'Photos' }
@@ -73,6 +74,8 @@ export default function Plex() {
           </dl>
         )}
       </section>
+
+      {reachable && <RecentlyAdded />}
 
       {/* Libraries */}
       <section className="mb-4 rounded-xl border border-slate-800 bg-slate-900/50 p-4">

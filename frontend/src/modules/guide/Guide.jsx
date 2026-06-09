@@ -29,7 +29,6 @@ function Code({ children }) {
 
 const ENDPOINTS = [
   ['/api/health', 'Liveness + server name.'],
-  ['/api/summary', 'Per-subsystem health rollup (ok/warn/down) for the status bar.'],
   ['/api/system', 'CPU %, RAM used/total, uptime (psutil).'],
   ['/api/disk', 'Total / used / free for the storage array.'],
   ['/api/containers · /{name}', 'Container list, and one container’s live CPU/mem/net.'],
