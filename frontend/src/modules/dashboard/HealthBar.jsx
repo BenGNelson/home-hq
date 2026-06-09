@@ -1,4 +1,4 @@
-import { useApi } from '../../../lib/useApi.js'
+import { useApi } from '../../lib/useApi.js'
 
 // One pill per subsystem, ordered most-to-least critical.
 const ITEMS = [

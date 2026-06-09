@@ -1,4 +1,4 @@
-import { useApi, API_BASE } from '../../../lib/useApi.js'
+import { useApi, API_BASE } from '../../lib/useApi.js'
 
 // A horizontally-scrolling strip of poster art for the newest Plex additions.
 // Posters come through the backend art proxy (token stays server-side).
