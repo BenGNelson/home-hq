@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db import init_db
-from app.routers import backups, containers, disk, network, plex, system
+from app.routers import backups, containers, disk, network, plex, raid, system
 
 
 @asynccontextmanager
@@ -50,3 +50,4 @@ app.include_router(containers.router, prefix="/api")
 app.include_router(network.router, prefix="/api")
 app.include_router(backups.router, prefix="/api")
 app.include_router(plex.router, prefix="/api")
+app.include_router(raid.router, prefix="/api")
