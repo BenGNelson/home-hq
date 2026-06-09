@@ -51,6 +51,8 @@ backend/app/
     disk.py          # /api/disk
     containers.py    # /api/containers + /api/containers/{name}
     network.py       # /api/network  (host interface counters)
+    raid.py          # /api/raid     (software-RAID state from /proc/mdstat)
+    smart.py         # /api/smart    (per-drive SMART, from a host timer's JSON)
     plex.py          # /api/plex + library browser endpoints
 ```
 
@@ -67,6 +69,8 @@ Adding a module = add a router file and one `include_router` line.
 | `GET /api/containers` | name, status, image, uptime per container | Docker SDK over the socket |
 | `GET /api/containers/{name}` | one container's live stats (cpu/mem/net) | Docker SDK |
 | `GET /api/network` | per-interface byte counters | reads host `/proc/1/net/dev` |
+| `GET /api/raid` | software-RAID array state (healthy/degraded, rebuild %) | parses host `/proc/mdstat` |
+| `GET /api/smart` | per-drive SMART health; role-tagged (raid/system/other) | reads a host timer's `smart.json` |
 | `GET /api/backups` | list encrypted config backups (read-only) | reads BACKUP_DIR (under the RAID mount) |
 | `GET /api/plex` | reachable? streams, transcodes, bandwidth | `PlexAPI` client |
 | `GET /api/plex/libraries` | each library + item counts (+ key) | `PlexAPI` |
@@ -156,6 +160,22 @@ host still can't read its own backups. Retrieval is SSH/rsync + the private key,
 off-box. The Home HQ app stays unprivileged: it only **lists** the encrypted
 files (`/api/backups`, via the read-only RAID mount). The script + unit templates
 are committed and generic; the real path list and recipient live outside git.
+
+## Drive health (RAID + SMART)
+
+Two layers, split by how privileged the data is:
+
+- **RAID** (`/api/raid`) is read live from the host's `/proc/mdstat` (already
+  mounted for the network module) — no privilege needed — so a drive dropping
+  out of the array shows up within the widget's 30-second poll.
+- **SMART** (`/api/smart`) needs root + raw device access, which the container
+  deliberately lacks. So a host root timer (`scripts/smart-health.py`, daily)
+  dumps each disk's `smartctl -j` output to `smart.json`; the backend only
+  **reads** it (mounted `/smart` read-only) and summarizes — same split as the
+  config backup. The collector retries USB-NVMe bridge drivers for external
+  enclosures. The backend tags each drive `raid` / `system` / `other` (by
+  cross-referencing `/proc/mdstat`), so the UI can label the OS disk vs array
+  members and hide unreadable external disks.
 
 ---
 
