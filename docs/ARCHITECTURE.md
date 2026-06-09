@@ -64,6 +64,7 @@ Adding a module = add a router file and one `include_router` line.
 | Endpoint | Returns | How |
 |---|---|---|
 | `GET /api/health` | liveness + server name | trivial |
+| `GET /api/summary` | per-subsystem health rollup (ok/warn/down) for the status bar | aggregates the routers below |
 | `GET /api/system` | CPU %, RAM used/total, uptime | `psutil` |
 | `GET /api/disk` | total/used/free/% for the storage mount | `psutil.disk_usage` |
 | `GET /api/containers` | name, status, image, uptime per container | Docker SDK over the socket |
