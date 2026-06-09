@@ -11,6 +11,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Home HQ" />
     <title>Home HQ</title>
+    <!-- Apply the saved theme before paint so there's no flash of the default. -->
+    <script>
+      document.documentElement.dataset.theme =
+        localStorage.getItem('hq-theme') || 'slate'
+    </script>
   </head>
   <body>
     <div id="root"></div>

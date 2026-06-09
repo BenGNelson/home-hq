@@ -1,1 +1,85 @@
 @import "tailwindcss";
+
+/*
+  Theme picker. Tailwind v4 compiles color utilities to var(--color-…), so we
+  can reskin the whole app by overriding those variables under a [data-theme]
+  selector — no component changes. All neutrals are `slate`; the accent is
+  `emerald`. Each non-default theme redefines the slate ramp (backgrounds →
+  text) and, where it wants a different highlight, the emerald ramp.
+
+  Default (no data-theme, or data-theme="slate") = Tailwind's stock slate +
+  emerald. Status colors (rose/amber) and role tags (sky/violet) stay constant
+  across themes so warnings always read as warnings.
+*/
+
+/* Carbon — pure grayscale black, emerald accent kept. */
+:root[data-theme="carbon"] {
+  --color-slate-950: #000000;
+  --color-slate-900: #0b0b0b;
+  --color-slate-800: #1a1a1a;
+  --color-slate-700: #2b2b2b;
+  --color-slate-600: #3d3d3d;
+  --color-slate-500: #6e6e6e;
+  --color-slate-400: #9b9b9b;
+  --color-slate-300: #c2c2c2;
+  --color-slate-200: #d6d6d6;
+  --color-slate-100: #ebebeb;
+  --color-slate-50:  #f7f7f7;
+}
+
+/* Olive — warm dark green neutrals, lime accent. */
+:root[data-theme="olive"] {
+  --color-slate-950: #0d100a;
+  --color-slate-900: #141a0f;
+  --color-slate-800: #222a18;
+  --color-slate-700: #323c25;
+  --color-slate-600: #495538;
+  --color-slate-500: #6e7a55;
+  --color-slate-400: #939e78;
+  --color-slate-300: #b7c09c;
+  --color-slate-200: #cfd6ba;
+  --color-slate-100: #e4e9d6;
+  --color-slate-50:  #f3f6ec;
+  --color-emerald-300: #bef264;
+  --color-emerald-400: #a3e635;
+  --color-emerald-500: #84cc16;
+  --color-emerald-600: #65a30d;
+}
+
+/* Crimson — dark red-tinted neutrals, red accent. */
+:root[data-theme="crimson"] {
+  --color-slate-950: #150809;
+  --color-slate-900: #1d0d0f;
+  --color-slate-800: #2c1518;
+  --color-slate-700: #3f2024;
+  --color-slate-600: #5a3037;
+  --color-slate-500: #7e4a52;
+  --color-slate-400: #ad7a82;
+  --color-slate-300: #cda3aa;
+  --color-slate-200: #dec0c5;
+  --color-slate-100: #eedce0;
+  --color-slate-50:  #faf0f2;
+  --color-emerald-300: #fca5a5;
+  --color-emerald-400: #f87171;
+  --color-emerald-500: #ef4444;
+  --color-emerald-600: #dc2626;
+}
+
+/* Midnight — deep indigo neutrals, indigo accent. */
+:root[data-theme="indigo"] {
+  --color-slate-950: #0a0a1c;
+  --color-slate-900: #11132e;
+  --color-slate-800: #1e2142;
+  --color-slate-700: #2d3160;
+  --color-slate-600: #41478a;
+  --color-slate-500: #5d63b0;
+  --color-slate-400: #848bce;
+  --color-slate-300: #abb0de;
+  --color-slate-200: #c6c9ea;
+  --color-slate-100: #dee0f4;
+  --color-slate-50:  #f0f1fb;
+  --color-emerald-300: #a5b4fc;
+  --color-emerald-400: #818cf8;
+  --color-emerald-500: #6366f1;
+  --color-emerald-600: #4f46e5;
+}
