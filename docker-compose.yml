@@ -27,20 +27,35 @@ services:
       - "homehq-data:/data"
     restart: unless-stopped
 
-  # --- frontend: the shell + dashboard (build step 4). ---
-  # DEV mode: runs the Vite dev server with hot reload. The source is
-  # bind-mounted so edits on the host reload live in the browser. Vite proxies
-  # /api to the backend (see frontend/vite.config.js), so everything is one
-  # origin. A production image (static build served by Nginx) replaces this
-  # later — same /api contract, so no app code changes when we switch.
+  # --- frontend: production build served by nginx (the always-on face). ---
+  # Multi-stage build → static PWA behind nginx, which also proxies /api to the
+  # backend, so the browser sees one origin. This is what `tailscale serve`
+  # fronts (host port 5173). For hot-reload development use the "dev" profile
+  # (frontend-dev below).
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: home-hq-frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # --- frontend-dev: Vite dev server with hot reload (opt-in). ---
+  # Only starts with `docker compose --profile dev up frontend-dev`. Listens on
+  # host port 5174 so it can run alongside the production frontend; reach it by
+  # LAN IP:5174 while iterating. Source is bind-mounted for live reload.
+  frontend-dev:
+    profiles: ["dev"]
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: home-hq-frontend-dev
     env_file: .env
     ports:
-      - "5173:5173"
+      - "5174:5173"
     volumes:
       - ./frontend:/app          # live source for hot reload
       - /app/node_modules        # keep the image's deps; don't shadow with host

@@ -165,7 +165,35 @@ Frontend + backend each in a container, wired by one `docker-compose.yml`.
 
 - The backend mounts the host **Docker socket** (read the note below) and the
   **storage mount** read-only, so it can report container and disk status.
-- Run everything with `docker compose up --build`.
+- Run everything with `docker compose up --build -d`.
+
+### Frontend: production vs. dev
+
+The always-on `frontend` service is a **production build served by nginx**
+(multi-stage `frontend/Dockerfile`: Vite build → static files on nginx). nginx
+serves the SPA (with an index.html fallback for client-side routes) and
+reverse-proxies `/api` to the backend, so the browser sees one origin — the same
+contract the dev server's Vite proxy provides, so no app code changes between
+the two.
+
+For hot-reload development, `frontend-dev` (compose **`dev` profile**) runs the
+Vite dev server on host port 5174, alongside production on 5173:
+
+```bash
+docker compose up -d                          # production (nginx) on :5173
+docker compose --profile dev up -d frontend-dev   # + hot-reload on :5174
+```
+
+### PWA
+
+The production build is an installable Progressive Web App (`vite-plugin-pwa`):
+a web manifest (`frontend/vite.config.js`) plus a service worker that precaches
+the built app shell, so it installs to a phone home screen and launches
+fullscreen. The service worker intentionally does **not** cache `/api` — live
+server data always hits the network (`navigateFallbackDenylist`). Icons are
+rasterized from `public/favicon.svg` by `frontend/scripts/gen-icons.mjs` (run
+manually if the favicon changes). Installability requires HTTPS, which the
+Tailscale `serve` HTTPS hostname provides.
 
 ### A note on the Docker socket
 
