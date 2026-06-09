@@ -1,6 +1,15 @@
 @import "tailwindcss";
 
 /*
+  Paint the root background with the (themed) darkest neutral so no white ever
+  shows through — behind the iOS status bar in the installed PWA, and during
+  overscroll bounce. Uses the theme variable so it tracks the active theme.
+*/
+html {
+  background-color: var(--color-slate-950);
+}
+
+/*
   Theme picker. Tailwind v4 compiles color utilities to var(--color-…), so we
   can reskin the whole app by overriding those variables under a [data-theme]
   selector — no component changes. All neutrals are `slate`; the accent is

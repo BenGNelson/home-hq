@@ -74,7 +74,7 @@ export default function Shell({ modules, children }) {
         {/* Top bar — persistent so the theme picker sits top-right on every
             screen. The hamburger + title only appear on mobile (where the
             sidebar is a drawer); on md+ only the theme control shows. */}
-        <header className="flex items-center gap-3 border-b border-slate-800 bg-slate-900/50 px-4 py-3">
+        <header className="flex items-center gap-3 border-b border-slate-800 bg-slate-900/50 px-4 pb-3 [padding-top:calc(env(safe-area-inset-top)+0.75rem)]">
           <div className="flex items-center gap-3 md:hidden">
             <button
               type="button"
