@@ -43,8 +43,9 @@ class Settings(BaseSettings):
     smart_json_path: str = "/smart/smart.json"
 
     # --- In-app README viewer (repo docs mounted read-only into the container) ---
-    readme_path: str = "/app/README.md"
-    readme_assets_dir: str = "/app/docs/img"
+    # Under /readme, not /app — see the mount note in docker-compose.yml.
+    readme_path: str = "/readme/README.md"
+    readme_assets_dir: str = "/readme/docs/img"
 
     model_config = SettingsConfigDict(
         # In local (non-Docker) dev, also read a .env file sitting next to the repo.

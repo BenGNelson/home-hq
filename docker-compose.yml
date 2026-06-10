@@ -30,8 +30,11 @@ services:
       - "${SMART_DIR:-/var/lib/home-hq}:/smart:ro"
       # The project README + its screenshots, read-only — powers the in-app
       # README viewer (/api/readme). A live view of the real files, no copy.
-      - "./README.md:/app/README.md:ro"
-      - "./docs:/app/docs:ro"
+      # Mounted under /readme (NOT /app): the test runner bind-mounts ./backend
+      # over /app, and a nested mount target there would make Docker create a
+      # stray host file at the mount source.
+      - "./README.md:/readme/README.md:ro"
+      - "./docs:/readme/docs:ro"
     restart: unless-stopped
 
   # --- frontend: production build served by nginx (the always-on face). ---
