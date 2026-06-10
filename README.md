@@ -37,17 +37,41 @@ widget can always render something sensible even when a subsystem is down.
 
 ## Screenshots
 
-<!--
-  Add screenshots/GIFs here, e.g.:
-  ![Dashboard](docs/img/dashboard.png)
+> All screenshots are rendered against generic sample data — no real host,
+> media, or personal information.
 
-  PRIVACY NOTE before adding any image: scrub host-identifying details —
-  the browser URL bar (hostname/tailnet), the SERVER_NAME shown in the header,
-  any real media titles or container names you'd rather not publish. Crop or
-  blur as needed. The goal is to show the engineering, not your machine.
--->
+### Dashboard
 
-_Coming soon._
+![Home HQ dashboard](docs/img/dashboard.png)
+
+### Five built-in themes
+
+One dashboard, all five palettes — Slate · Carbon · Olive · Crimson · Midnight:
+
+![Theme palettes](docs/img/themes.png)
+
+### Modules
+
+<table>
+  <tr>
+    <td width="50%"><b>Plex library</b><br/><img src="docs/img/plex.png" alt="Plex module"/></td>
+    <td width="50%"><b>Containers</b><br/><img src="docs/img/containers.png" alt="Containers module"/></td>
+  </tr>
+  <tr>
+    <td width="50%"><b>Live network throughput</b><br/><img src="docs/img/network.png" alt="Network module"/></td>
+    <td width="50%"><b>Encrypted config backups</b><br/><img src="docs/img/backups.png" alt="Backups module"/></td>
+  </tr>
+</table>
+
+### Mobile (installable PWA)
+
+Responsive layout with a slide-in nav drawer; installs to the phone home screen.
+
+<p>
+  <img src="docs/img/mobile-dashboard.png" width="31%" alt="Mobile dashboard"/>
+  <img src="docs/img/mobile-nav.png" width="31%" alt="Mobile navigation drawer"/>
+  <img src="docs/img/mobile-plex.png" width="31%" alt="Mobile Plex module"/>
+</p>
 
 ---
 
