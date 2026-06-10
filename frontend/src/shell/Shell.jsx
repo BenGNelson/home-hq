@@ -69,22 +69,29 @@ export default function Shell({ modules, children }) {
           ))}
         </nav>
 
-        {/* Footer: project docs, set apart from the module nav and pinned to the
-            bottom. Not a module — it's reference material about the project. */}
-        <div className="mt-auto border-t border-slate-800 pt-3">
-          <NavLink
-            to="/readme"
-            className={({ isActive }) =>
-              `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
-                isActive
-                  ? 'bg-slate-800 text-white'
-                  : 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300'
-              }`
-            }
-          >
-            <span className="text-base leading-none">❏</span>
-            <span>README</span>
-          </NavLink>
+        {/* Footer: reference docs, set apart from the module nav and pinned to
+            the bottom. Not modules — the Server Guide documents the host, the
+            README documents the project. */}
+        <div className="mt-auto space-y-1 border-t border-slate-800 pt-3">
+          {[
+            { to: '/server-guide', icon: '▤', label: 'Server Guide' },
+            { to: '/readme', icon: '❏', label: 'README' },
+          ].map((d) => (
+            <NavLink
+              key={d.to}
+              to={d.to}
+              className={({ isActive }) =>
+                `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
+                  isActive
+                    ? 'bg-slate-800 text-white'
+                    : 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300'
+                }`
+              }
+            >
+              <span className="text-base leading-none">{d.icon}</span>
+              <span>{d.label}</span>
+            </NavLink>
+          ))}
         </div>
       </aside>
 

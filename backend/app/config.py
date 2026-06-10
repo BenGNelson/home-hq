@@ -42,10 +42,14 @@ class Settings(BaseSettings):
     # --- SMART drive health (collected by a host root timer; we only read it) ---
     smart_json_path: str = "/smart/smart.json"
 
-    # --- In-app README viewer (repo docs mounted read-only into the container) ---
-    # Under /readme, not /app — see the mount note in docker-compose.yml.
+    # --- In-app doc viewers (files mounted read-only into the container) ---
+    # Under /readme & /srv-guide, not /app — see the mount note in
+    # docker-compose.yml (the test runner bind-mounts ./backend over /app).
     readme_path: str = "/readme/README.md"
     readme_assets_dir: str = "/readme/docs/img"
+    # The host's own server guide (markdown). Defaults to the committed example;
+    # point SERVER_GUIDE_FILE at your real (gitignored) doc to show that instead.
+    server_guide_path: str = "/srv-guide/SERVER_GUIDE.md"
 
     model_config = SettingsConfigDict(
         # In local (non-Docker) dev, also read a .env file sitting next to the repo.

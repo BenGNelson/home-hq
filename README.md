@@ -27,11 +27,17 @@ the surface area grows without the core getting messier.
 | **Containers** | Every Docker container with live status, image, uptime, and per-container CPU/mem/network detail. |
 | **Network** | Live per-interface throughput graphs, with rates computed client-side from cumulative counters (the backend stays stateless). |
 | **Backups** | Lists the host's `age`-encrypted config backups (the encrypt step is a privileged host script; the app only reads the output). |
-| **How it works** | An in-app living guide explaining each module, endpoint, and the technologies behind them. |
+| **Under the Hood** | An in-app living guide explaining each module, endpoint, and the technologies behind them. |
+| **Server Guide** | Renders your own server's markdown operations doc in-app (set `SERVER_GUIDE_FILE`); ships with an example template. |
 
 Every endpoint that touches an external system (Docker, Plex, a mount) **degrades
 gracefully** — it returns an `available: false` state instead of erroring, so a
 widget can always render something sensible even when a subsystem is down.
+
+**Three docs, three audiences:** this **README** explains the *project* (for
+anyone evaluating or installing it); **Under the Hood** explains the *software*
+(in-app, for understanding how Home HQ works); the **Server Guide** documents
+*your machine* (your own markdown ops doc, kept private, rendered in-app).
 
 ---
 

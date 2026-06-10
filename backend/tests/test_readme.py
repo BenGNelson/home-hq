@@ -16,6 +16,20 @@ def test_readme_degrades_when_missing(client, monkeypatch, tmp_path):
     assert body == {"available": False, "markdown": ""}
 
 
+def test_server_guide_served_when_present(client, monkeypatch, tmp_path):
+    f = tmp_path / "SERVER_GUIDE.md"
+    f.write_text("# My Server\n\nNotes.")
+    monkeypatch.setattr(settings, "server_guide_path", str(f))
+    body = client.get("/api/server-guide").json()
+    assert body["available"] is True
+    assert body["markdown"].startswith("# My Server")
+
+
+def test_server_guide_degrades_when_missing(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(settings, "server_guide_path", str(tmp_path / "nope.md"))
+    assert client.get("/api/server-guide").json() == {"available": False, "markdown": ""}
+
+
 def test_asset_served_from_dir(client, monkeypatch, tmp_path):
     (tmp_path / "shot.png").write_bytes(b"\x89PNG\r\n\x1a\n")
     monkeypatch.setattr(settings, "readme_assets_dir", str(tmp_path))

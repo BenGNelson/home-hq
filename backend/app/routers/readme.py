@@ -1,13 +1,15 @@
 """
-The in-app README viewer.
+In-app markdown doc viewers.
 
   GET /readme            — the project README as markdown text.
   GET /readme/asset/{n}  — an image the README references (a screenshot), served
                            from the docs image dir so it renders in the app.
+  GET /server-guide      — the host's own server guide as markdown text.
 
-Both files are mounted read-only into the container (see docker-compose.yml),
-so this stays a live view of the real README — no copy, no drift. Both endpoints
-degrade gracefully when the files aren't present (e.g. a non-Docker dev run).
+The files are mounted read-only into the container (see docker-compose.yml), so
+these stay live views of the real files — no copy, no drift. Every endpoint
+degrades gracefully when its file isn't present (e.g. a non-Docker dev run, or no
+server guide configured).
 """
 import os
 
@@ -17,6 +19,14 @@ from fastapi.responses import FileResponse, Response
 from app.config import settings
 
 router = APIRouter()
+
+
+def _read_markdown(path: str) -> dict:
+    try:
+        with open(path, encoding="utf-8") as f:
+            return {"available": True, "markdown": f.read()}
+    except OSError:
+        return {"available": False, "markdown": ""}
 
 # Explicit image content-types — Python's mimetypes doesn't always know .webp,
 # and the README's theme animation is a webp, so don't rely on guessing.
@@ -32,11 +42,12 @@ _ASSET_TYPES = {
 
 @router.get("/readme")
 def get_readme():
-    try:
-        with open(settings.readme_path, encoding="utf-8") as f:
-            return {"available": True, "markdown": f.read()}
-    except OSError:
-        return {"available": False, "markdown": ""}
+    return _read_markdown(settings.readme_path)
+
+
+@router.get("/server-guide")
+def get_server_guide():
+    return _read_markdown(settings.server_guide_path)
 
 
 @router.get("/readme/asset/{name}")

@@ -74,6 +74,7 @@ Adding a module = add a router file and one `include_router` line.
 | `GET /api/backups` | list encrypted config backups (read-only) | reads BACKUP_DIR (under the RAID mount) |
 | `GET /api/readme` | the project README as markdown (in-app viewer) | reads the README mounted read-only |
 | `GET /api/readme/asset/{name}` | a screenshot the README references | serves from the mounted docs image dir (bare filename only) |
+| `GET /api/server-guide` | the host's own server guide as markdown | reads the SERVER_GUIDE_FILE mounted read-only (defaults to a committed example) |
 | `GET /api/plex` | reachable? streams, transcodes, bandwidth | `PlexAPI` client |
 | `GET /api/plex/now-playing` | active streams: who/what/where, progress, transcode | `PlexAPI` sessions |
 | `GET /api/plex/recently-added` | newest items across libraries (poster strip) | `PlexAPI` |

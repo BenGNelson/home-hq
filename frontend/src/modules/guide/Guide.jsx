@@ -31,6 +31,7 @@ const ENDPOINTS = [
   ['/api/smart', 'Per-drive SMART health, collected daily by a host timer.'],
   ['/api/backups', 'Lists the age-encrypted config backups (read-only).'],
   ['/api/readme · /asset/{n}', 'The project README (markdown) + its screenshots, for the in-app viewer.'],
+  ['/api/server-guide', 'The host’s own server guide (markdown), for the Server Guide page.'],
   [
     '/api/plex · …',
     'Status (streams/transcodes), now-playing sessions, recently added, libraries, background sync, cached library items & show episodes, on-demand item detail, and a poster proxy.',
@@ -125,10 +126,11 @@ function ContainerReference() {
 export default function Guide() {
   return (
     <div className="max-w-3xl">
-      <h2 className="mb-1 text-xl font-semibold">How it works</h2>
+      <h2 className="mb-1 text-xl font-semibold">Under the Hood</h2>
       <p className="mb-4 text-xs text-slate-400">
-        A living guide to how Home HQ fits together — kept in the app so it’s never
-        out of reach.
+        How the Home HQ <em>software</em> fits together — architecture, modules,
+        and the tech behind them. (For how this <em>server</em> is set up, see the
+        Server Guide; to run it yourself, see the README.)
       </p>
 
       <Section title="Overview">

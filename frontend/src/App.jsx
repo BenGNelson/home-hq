@@ -10,6 +10,7 @@ import Network from './modules/network/Network.jsx'
 import Backups from './modules/backups/Backups.jsx'
 import Guide from './modules/guide/Guide.jsx'
 import Readme from './modules/readme/Readme.jsx'
+import ServerGuide from './modules/server-guide/ServerGuide.jsx'
 
 // The module registry. Each module declares its nav entry here and a matching
 // <Route> below. Adding a module = one entry + one route, nothing else.
@@ -20,7 +21,7 @@ const modules = [
   { id: 'containers', label: 'Containers', path: '/containers', icon: '▣' },
   { id: 'network', label: 'Network', path: '/network', icon: '⇅' },
   { id: 'backups', label: 'Backups', path: '/backups', icon: '⤓' },
-  { id: 'guide', label: 'How it works', path: '/guide', icon: 'ⓘ' },
+  { id: 'guide', label: 'Under the Hood', path: '/guide', icon: 'ⓘ' },
 ]
 
 export default function App() {
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="/backups" element={<Backups />} />
         <Route path="/guide" element={<Guide />} />
         <Route path="/readme" element={<Readme />} />
+        <Route path="/server-guide" element={<ServerGuide />} />
       </Routes>
     </Shell>
   )
