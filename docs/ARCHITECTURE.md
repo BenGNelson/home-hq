@@ -138,6 +138,16 @@ Key shared pieces: `useApi(path, interval)` polls and exposes
 for movies and episodes; live graphs derive rates client-side from cumulative
 counters so the backend stays stateless.
 
+`lib/hostLocal.js` merges an optional, gitignored `host.local.jsx` at runtime
+(via `import.meta.glob`, so the build works with or without it) — per-container
+descriptions for the guide, plus an opt-in `url` that renders a **quick-link**
+to a container's web UI (Containers tab, dashboard widget, and guide). Links are
+built against `window.location.hostname`, so the same entry resolves whether the
+box is reached over the LAN or by its Tailscale name; it's opt-in per container
+because not every published port is a web UI, and only what a reverse proxy
+fronts is reachable over the tailnet. Committed code stays generic — the real
+links live only in the gitignored file.
+
 ## Plex library browser (the one stateful feature)
 
 A **sync** job (`POST /api/plex/sync`, background thread) walks Plex once and

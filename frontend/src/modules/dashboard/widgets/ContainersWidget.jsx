@@ -1,5 +1,6 @@
 import { useApi } from '../../../lib/useApi.js'
 import { formatUptime } from '../../../lib/format.js'
+import { containerUrl } from '../../../lib/hostLocal.js'
 import Widget from './Widget.jsx'
 
 export default function ContainersWidget() {
@@ -16,17 +17,31 @@ export default function ContainersWidget() {
           <p className="text-sm text-amber-400">Docker unavailable</p>
         ) : (
           <ul className="divide-y divide-slate-800 text-sm">
-            {list.map((c) => (
-              <li key={c.name} className="flex items-center justify-between py-1.5">
-                <span className="flex items-center gap-2 truncate">
-                  <Dot ok={c.status === 'running'} />
-                  <span className="truncate text-slate-200">{c.name}</span>
-                </span>
-                <span className="ml-2 shrink-0 text-xs text-slate-400">
-                  {c.status === 'running' ? formatUptime(c.uptime_seconds) : c.status}
-                </span>
-              </li>
-            ))}
+            {list.map((c) => {
+              const link = containerUrl(c.name)
+              return (
+                <li key={c.name} className="flex items-center justify-between py-1.5">
+                  <span className="flex items-center gap-2 truncate">
+                    <Dot ok={c.status === 'running'} />
+                    {link ? (
+                      <a
+                        href={link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="truncate text-emerald-400 hover:underline"
+                      >
+                        {c.name} ↗
+                      </a>
+                    ) : (
+                      <span className="truncate text-slate-200">{c.name}</span>
+                    )}
+                  </span>
+                  <span className="ml-2 shrink-0 text-xs text-slate-400">
+                    {c.status === 'running' ? formatUptime(c.uptime_seconds) : c.status}
+                  </span>
+                </li>
+              )
+            })}
           </ul>
         ))}
     </Widget>

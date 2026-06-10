@@ -1,12 +1,6 @@
 import { useApi } from '../../lib/useApi.js'
 import { Spinner } from '../../components/ui.jsx'
-
-// Optional, gitignored host-specific notes (e.g. what each container is for).
-// Loaded via import.meta.glob so the build works whether or not the file exists
-// — committed code stays generic; your instance merges in private detail.
-const hostMods = import.meta.glob('./host.local.jsx', { eager: true })
-const host = Object.values(hostMods)[0] ?? {}
-const containerNotes = host.containerNotes ?? {}
+import { containerNotes, containerUrl } from '../../lib/hostLocal.js'
 
 function Section({ title, children }) {
   return (
@@ -42,6 +36,30 @@ const ENDPOINTS = [
   ],
 ]
 
+// Plain-language one-liners for the tools named on this page, so the guide
+// doubles as a learning reference. Generic — no host specifics.
+const GLOSSARY = [
+  ['React', 'A UI library: build the interface from small, reusable components that re-render when their data changes.'],
+  ['Vite', 'A frontend build tool — a fast dev server with instant hot-reload while you code, plus a bundler that packages the app into small, optimized static files for production.'],
+  ['Tailwind CSS', 'Utility-first CSS: style by composing tiny classes (flex, p-4, text-sm) right in the markup instead of writing separate stylesheets.'],
+  ['React Router', 'Client-side routing: swaps pages by URL without a full page reload — the module registry maps each route to a module.'],
+  ['PWA + service worker', 'A Progressive Web App installs to your home screen and launches fullscreen; a background service-worker script precaches the app shell so it loads instantly — but never caches live /api data.'],
+  ['FastAPI', 'A Python web framework for building JSON APIs quickly, with automatic request validation and interactive docs.'],
+  ['pydantic-settings', 'Reads and validates configuration from environment variables into a typed object — the one place host values enter the backend.'],
+  ['psutil', 'A Python library that reads system metrics — CPU, memory, disk, uptime — straight from the OS.'],
+  ['Docker', 'Packages an app with everything it needs into a container that runs the same on any machine.'],
+  ['Docker Compose', 'Describes a multi-container app in one YAML file and starts them together.'],
+  ['Docker socket', 'The local API that Docker listens on; mounting it lets the backend ask Docker about containers (used read-only here).'],
+  ['nginx', 'A fast web server / reverse proxy: in production it serves the built static frontend and forwards /api calls to the backend.'],
+  ['SQLite', 'A complete SQL database that lives in a single file — no separate database server to run.'],
+  ['age', 'A modern file-encryption tool. It encrypts to a public key, so only the matching private key (kept off the server) can decrypt.'],
+  ['WireGuard', 'A fast, modern VPN protocol; the VPN gateway uses it to build an encrypted tunnel.'],
+  ['Tailscale', 'A mesh VPN that gives each device a private address, so you can reach the server from anywhere without opening ports to the internet.'],
+  ['RAID (RAID5)', 'Combines several disks for capacity plus redundancy; a RAID5 array keeps working even if one disk fails.'],
+  ['SMART', 'Self-monitoring data that drives expose — temperature, wear, reallocated sectors — used to catch a failing disk early.'],
+  ['systemd timer', "Linux's built-in scheduler (a modern cron) that runs a task on a schedule, like the daily SMART collector."],
+]
+
 // The live, host-specific part: real containers from the API + your notes.
 function ContainerReference() {
   const { data, error, loading } = useApi('/containers', 30000)
@@ -59,11 +77,24 @@ function ContainerReference() {
       </p>
       {list.map((c) => {
         const note = containerNotes[c.name]
+        const link = containerUrl(c.name)
         return (
           <div key={c.name} className="rounded-lg border border-slate-800 p-3">
             <div className="flex items-center justify-between gap-2">
               <span className="font-medium text-slate-100">{note?.displayName ?? c.name}</span>
-              <span className="shrink-0 text-xs text-slate-500">{c.status}</span>
+              <span className="flex shrink-0 items-center gap-2 text-xs text-slate-500">
+                {link && (
+                  <a
+                    href={link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-emerald-400 hover:underline"
+                  >
+                    open ↗
+                  </a>
+                )}
+                {c.status}
+              </span>
             </div>
             {!note?.hideImage && (
               <p className="mt-0.5 truncate font-mono text-[11px] text-slate-500">
@@ -227,6 +258,27 @@ export default function Guide() {
           holds the real values; <Code>.env.example</Code> documents them with
           placeholders. Nothing secret or host-identifying is committed.
         </p>
+      </Section>
+
+      <Section title="Glossary — what each piece is">
+        <p>
+          Plain-language one-liners for the tools named above, so this page
+          doubles as a learning reference.
+        </p>
+        <div className="overflow-hidden rounded-lg border border-slate-800">
+          <table className="w-full text-xs">
+            <tbody className="divide-y divide-slate-800">
+              {GLOSSARY.map(([term, def]) => (
+                <tr key={term}>
+                  <td className="whitespace-nowrap px-3 py-2 align-top font-medium text-slate-200">
+                    {term}
+                  </td>
+                  <td className="px-3 py-2 text-slate-400">{def}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Section>
 
       <Section title="Containers on this server">

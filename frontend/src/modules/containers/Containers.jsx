@@ -4,6 +4,7 @@ import { useCounterRate } from '../../lib/useRates.js'
 import { Row, Bar, Spinner } from '../../components/ui.jsx'
 import { Graph } from '../../components/Graph.jsx'
 import { formatBytes, formatRate, formatUptime } from '../../lib/format.js'
+import { containerUrl } from '../../lib/hostLocal.js'
 
 function Dot({ ok }) {
   return (
@@ -25,6 +26,7 @@ function ContainerDetail({ name }) {
   if (loading || !data) return <Spinner label="loading container…" />
   if (data.found === false) return <p className="text-sm text-slate-500">not found</p>
 
+  const link = containerUrl(name)
   const healthColor =
     data.health === 'healthy'
       ? 'text-emerald-400'
@@ -38,6 +40,16 @@ function ContainerDetail({ name }) {
         <Dot ok={data.status === 'running'} />
         <h3 className="text-base font-semibold">{data.name}</h3>
         {loading && <span className="text-xs text-slate-500">…</span>}
+        {link && (
+          <a
+            href={link}
+            target="_blank"
+            rel="noreferrer"
+            className="ml-auto rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-emerald-400 transition hover:bg-slate-800"
+          >
+            Open ↗
+          </a>
+        )}
       </div>
 
       <dl className="space-y-2 text-sm">
@@ -132,6 +144,11 @@ export default function Containers() {
                   <span className="flex items-center gap-2 truncate">
                     <Dot ok={c.status === 'running'} />
                     <span className="truncate text-slate-200">{c.name}</span>
+                    {containerUrl(c.name) && (
+                      <span className="shrink-0 text-xs text-slate-500" title="has a web UI">
+                        ↗
+                      </span>
+                    )}
                   </span>
                   <span className="ml-2 shrink-0 text-xs text-slate-400">
                     {c.status === 'running' ? formatUptime(c.uptime_seconds) : c.status}
