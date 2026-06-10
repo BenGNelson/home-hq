@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     # --- SMART drive health (collected by a host root timer; we only read it) ---
     smart_json_path: str = "/smart/smart.json"
 
+    # --- In-app README viewer (repo docs mounted read-only into the container) ---
+    readme_path: str = "/app/README.md"
+    readme_assets_dir: str = "/app/docs/img"
+
     model_config = SettingsConfigDict(
         # In local (non-Docker) dev, also read a .env file sitting next to the repo.
         # In Docker, the values come from the environment instead (compose injects them),

@@ -9,6 +9,7 @@ import Containers from './modules/containers/Containers.jsx'
 import Network from './modules/network/Network.jsx'
 import Backups from './modules/backups/Backups.jsx'
 import Guide from './modules/guide/Guide.jsx'
+import Readme from './modules/readme/Readme.jsx'
 
 // The module registry. Each module declares its nav entry here and a matching
 // <Route> below. Adding a module = one entry + one route, nothing else.
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/network" element={<Network />} />
         <Route path="/backups" element={<Backups />} />
         <Route path="/guide" element={<Guide />} />
+        <Route path="/readme" element={<Readme />} />
       </Routes>
     </Shell>
   )

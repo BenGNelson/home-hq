@@ -28,6 +28,10 @@ services:
       # SMART health JSON written by the host timer (scripts/smart-health.py),
       # read-only — the container never runs smartctl itself.
       - "${SMART_DIR:-/var/lib/home-hq}:/smart:ro"
+      # The project README + its screenshots, read-only — powers the in-app
+      # README viewer (/api/readme). A live view of the real files, no copy.
+      - "./README.md:/app/README.md:ro"
+      - "./docs:/app/docs:ro"
     restart: unless-stopped
 
   # --- frontend: production build served by nginx (the always-on face). ---

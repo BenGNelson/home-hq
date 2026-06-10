@@ -20,6 +20,7 @@ from app.routers import (
     network,
     plex,
     raid,
+    readme,
     smart,
     system,
 )
@@ -60,4 +61,5 @@ app.include_router(network.router, prefix="/api")
 app.include_router(backups.router, prefix="/api")
 app.include_router(plex.router, prefix="/api")
 app.include_router(raid.router, prefix="/api")
+app.include_router(readme.router, prefix="/api")
 app.include_router(smart.router, prefix="/api")

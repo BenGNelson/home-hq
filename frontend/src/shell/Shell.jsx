@@ -40,7 +40,7 @@ export default function Shell({ modules, children }) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-56 shrink-0 transform border-r border-slate-800 bg-slate-900 p-4 transition-transform md:static md:translate-x-0 md:bg-slate-900/50 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 transform flex-col border-r border-slate-800 bg-slate-900 p-4 transition-transform md:static md:translate-x-0 md:bg-slate-900/50 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -68,6 +68,24 @@ export default function Shell({ modules, children }) {
             </NavLink>
           ))}
         </nav>
+
+        {/* Footer: project docs, set apart from the module nav and pinned to the
+            bottom. Not a module — it's reference material about the project. */}
+        <div className="mt-auto border-t border-slate-800 pt-3">
+          <NavLink
+            to="/readme"
+            className={({ isActive }) =>
+              `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
+                isActive
+                  ? 'bg-slate-800 text-white'
+                  : 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300'
+              }`
+            }
+          >
+            <span className="text-base leading-none">❏</span>
+            <span>README</span>
+          </NavLink>
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
