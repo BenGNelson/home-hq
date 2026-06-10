@@ -22,6 +22,17 @@ def test_asset_served_from_dir(client, monkeypatch, tmp_path):
     r = client.get("/api/readme/asset/shot.png")
     assert r.status_code == 200
     assert r.content.startswith(b"\x89PNG")
+    assert r.headers["content-type"] == "image/png"
+
+
+def test_webp_asset_gets_image_content_type(client, monkeypatch, tmp_path):
+    # The theme animation is a webp; it must be served as image/webp (not the
+    # octet-stream Python's mimetypes would otherwise guess) so it renders.
+    (tmp_path / "themes.webp").write_bytes(b"RIFF....WEBP")
+    monkeypatch.setattr(settings, "readme_assets_dir", str(tmp_path))
+    r = client.get("/api/readme/asset/themes.webp")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/webp"
 
 
 def test_missing_asset_is_404(client, monkeypatch, tmp_path):

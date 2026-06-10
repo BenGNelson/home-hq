@@ -46,9 +46,9 @@ widget can always render something sensible even when a subsystem is down.
 
 ### Five built-in themes
 
-One dashboard, all five palettes — Slate · Carbon · Olive · Crimson · Midnight:
+One dashboard, cycling through all five palettes — Slate · Carbon · Olive · Crimson · Midnight:
 
-![Theme palettes](docs/img/themes.png)
+![Theme palettes cycling](docs/img/themes.webp)
 
 ### Modules
 

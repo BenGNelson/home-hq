@@ -18,6 +18,17 @@ from app.config import settings
 
 router = APIRouter()
 
+# Explicit image content-types — Python's mimetypes doesn't always know .webp,
+# and the README's theme animation is a webp, so don't rely on guessing.
+_ASSET_TYPES = {
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+}
+
 
 @router.get("/readme")
 def get_readme():
@@ -36,4 +47,5 @@ def get_readme_asset(name: str):
     path = os.path.join(settings.readme_assets_dir, name)
     if not os.path.isfile(path):
         return Response(status_code=404)
-    return FileResponse(path)
+    media_type = _ASSET_TYPES.get(os.path.splitext(name)[1].lower())
+    return FileResponse(path, media_type=media_type)
