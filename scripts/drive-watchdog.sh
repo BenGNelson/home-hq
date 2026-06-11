@@ -35,13 +35,19 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Load config from the repo .env unless already set in the environment.
+# Load only the WATCHDOG_* settings from the repo .env (values already in the
+# environment win). We deliberately DON'T `source` the whole file: this runs as a
+# root daemon, and the .env holds unrelated secrets plus values with spaces (e.g.
+# a printer name) that aren't valid shell — sourcing would execute them. Reading
+# our own keys is both safer and tolerant of any other line.
 ENV_FILE="${ENV_FILE:-$SCRIPT_DIR/../.env}"
 if [[ -f "$ENV_FILE" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$ENV_FILE"
-  set +a
+  while IFS='=' read -r key val; do
+    [[ "$key" == WATCHDOG_* ]] || continue
+    val="${val%$'\r'}"                  # tolerate CRLF line endings
+    val="${val#[\"\']}"; val="${val%[\"\']}"   # strip optional surrounding quotes
+    [[ -n "${!key:-}" ]] || printf -v "$key" '%s' "$val"
+  done < "$ENV_FILE"
 fi
 
 MOUNT="${WATCHDOG_MOUNT:?WATCHDOG_MOUNT not set (the mount point to watch)}"
