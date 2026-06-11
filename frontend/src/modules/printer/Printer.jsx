@@ -2,6 +2,7 @@ import { useApi } from '../../lib/useApi.js'
 import { formatMinutes } from '../../lib/format.js'
 import { printerUnavailableMessage } from '../../lib/printer.js'
 import StateBadge from './StateBadge.jsx'
+import { FilamentSpool } from './Filament.jsx'
 
 // The Printer module: live telemetry from a Bambu printer over LAN MQTT.
 // Read-only for now (temps, progress, AMS, errors); controls + camera later.
@@ -99,28 +100,28 @@ function Telemetry({ p }) {
         )}
       </div>
 
-      {/* Temperatures */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <TempCard label="Nozzle" temp={p.nozzle} />
-        <TempCard label="Bed" temp={p.bed} />
-        <TempCard label="Chamber" temp={{ current: p.chamber, target: null }} />
-      </div>
-
-      {/* AMS filament */}
+      {/* AMS filament — front and center, big color swatches */}
       {p.ams?.length > 0 && (
         <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-          <h3 className="mb-3 text-sm font-medium text-slate-300">Filament (AMS)</h3>
-          <div className="space-y-3">
+          <h3 className="mb-4 text-sm font-medium text-slate-300">Filament (AMS)</h3>
+          <div className="space-y-4">
             {p.ams.map((unit) => (
-              <div key={unit.id} className="flex flex-wrap gap-2">
+              <div key={unit.id} className="flex flex-wrap gap-4">
                 {unit.trays.map((tray) => (
-                  <Spool key={tray.slot} tray={tray} />
+                  <FilamentSpool key={tray.slot} tray={tray} />
                 ))}
               </div>
             ))}
           </div>
         </div>
       )}
+
+      {/* Temperatures */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <TempCard label="Nozzle" temp={p.nozzle} />
+        <TempCard label="Bed" temp={p.bed} />
+        <TempCard label="Chamber" temp={{ current: p.chamber, target: null }} />
+      </div>
 
       {/* HMS errors */}
       {p.hms?.length > 0 && (
@@ -163,22 +164,3 @@ function TempCard({ label, temp }) {
   )
 }
 
-function Spool({ tray }) {
-  const empty = !tray.type
-  return (
-    <div
-      className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs ${
-        tray.active ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-slate-800 bg-slate-900/40'
-      }`}
-    >
-      <span
-        className="inline-block h-3 w-3 rounded-full ring-1 ring-slate-600"
-        style={{ backgroundColor: tray.color ? `#${tray.color}` : 'transparent' }}
-      />
-      <span className="text-slate-300">{empty ? 'empty' : tray.type}</span>
-      {tray.remain != null && tray.remain >= 0 && (
-        <span className="text-slate-500">{tray.remain}%</span>
-      )}
-    </div>
-  )
-}

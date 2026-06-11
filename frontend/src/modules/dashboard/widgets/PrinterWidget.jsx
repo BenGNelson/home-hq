@@ -3,6 +3,7 @@ import { formatMinutes } from '../../../lib/format.js'
 import { printerUnavailableMessage } from '../../../lib/printer.js'
 import Widget from './Widget.jsx'
 import StateBadge from '../../printer/StateBadge.jsx'
+import { FilamentDots } from '../../printer/Filament.jsx'
 
 // Compact printer summary for the dashboard. Hides itself entirely when no
 // printer is configured, so the dashboard stays clean on setups without one.
@@ -48,6 +49,8 @@ export default function PrinterWidget() {
               <span>Bed {fmtTemp(p.bed?.current)}</span>
               {p.chamber != null && <span>Chamber {fmtTemp(p.chamber)}</span>}
             </div>
+
+            <FilamentDots ams={p.ams} />
           </div>
         ))}
     </Widget>
