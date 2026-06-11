@@ -31,11 +31,12 @@ function Unavailable({ reason }) {
       <p className="text-amber-400">{printerUnavailableMessage(reason)}</p>
       {reason === 'not_configured' && (
         <p className="mt-2 text-sm text-slate-400">
-          Enable LAN Mode on the printer, then set{' '}
+          Set{' '}
           <code className="rounded bg-slate-800 px-1">PRINTER_HOST</code>,{' '}
-          <code className="rounded bg-slate-800 px-1">PRINTER_SERIAL</code> and{' '}
-          <code className="rounded bg-slate-800 px-1">PRINTER_ACCESS_CODE</code> in{' '}
-          <code className="rounded bg-slate-800 px-1">.env</code> and restart the backend.
+          <code className="rounded bg-slate-800 px-1">PRINTER_ACCESS_CODE</code> and{' '}
+          <code className="rounded bg-slate-800 px-1">PRINTER_SERIAL</code> in{' '}
+          <code className="rounded bg-slate-800 px-1">.env</code> (from the printer’s
+          Network &amp; Device screens — no LAN-Only mode needed) and restart the backend.
         </p>
       )}
       {reason === 'offline' && (
