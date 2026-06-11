@@ -1,4 +1,4 @@
-import { printerStatus } from '../../lib/printer.js'
+import { printerBadge } from '../../lib/printer.js'
 
 // Full class strings (no string interpolation) so Tailwind's scanner keeps them.
 const TONE = {
@@ -9,13 +9,18 @@ const TONE = {
   slate: 'bg-slate-700/40 text-slate-300 ring-slate-600/40',
 }
 
-export default function StateBadge({ state }) {
-  const { label, tone } = printerStatus(state)
+// Accepts the printer snapshot (preferred) or a bare `state` string. A finished
+// print also shows a muted "· N ago" so a stale "Finished" reads as old, not new.
+export default function StateBadge({ printer, state }) {
+  const { label, tone, sub } = printerBadge(printer ?? { state })
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${TONE[tone]}`}
-    >
-      {label}
+    <span className="inline-flex items-center gap-2">
+      <span
+        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${TONE[tone]}`}
+      >
+        {label}
+      </span>
+      {sub && <span className="text-xs text-slate-500">· {sub}</span>}
     </span>
   )
 }

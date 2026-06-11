@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { printerStatus, printerUnavailableMessage, colorName } from './printer.js'
+import {
+  printerStatus,
+  printerBadge,
+  finishedAgo,
+  printerUnavailableMessage,
+  colorName,
+} from './printer.js'
 
 describe('printerStatus', () => {
   it('maps known states to label + tone', () => {
@@ -16,6 +22,46 @@ describe('printerStatus', () => {
 
   it('handles null/undefined', () => {
     expect(printerStatus(null)).toEqual({ label: 'Unknown', tone: 'slate' })
+  })
+})
+
+describe('finishedAgo', () => {
+  it('formats seconds into a short relative string', () => {
+    expect(finishedAgo(0)).toBe('just now')
+    expect(finishedAgo(59)).toBe('just now')
+    expect(finishedAgo(60)).toBe('1m ago')
+    expect(finishedAgo(5 * 60)).toBe('5m ago')
+    expect(finishedAgo(2 * 3600)).toBe('2h ago')
+    expect(finishedAgo(25 * 3600)).toBe('1d ago')
+  })
+
+  it('returns null for missing/garbage input', () => {
+    expect(finishedAgo(null)).toBeNull()
+    expect(finishedAgo(undefined)).toBeNull()
+    expect(finishedAgo(NaN)).toBeNull()
+  })
+})
+
+describe('printerBadge', () => {
+  it('passes non-finished states straight through with no sub', () => {
+    expect(printerBadge({ state: 'RUNNING' })).toEqual({ label: 'Printing', tone: 'sky' })
+  })
+
+  it('adds a "finished N ago" sub but keeps green while recent', () => {
+    const b = printerBadge({ state: 'FINISH', finished_ago_seconds: 5 * 60 })
+    expect(b.label).toBe('Finished')
+    expect(b.tone).toBe('emerald')
+    expect(b.sub).toBe('5m ago')
+  })
+
+  it('softens to a neutral tone once the finish is stale', () => {
+    const b = printerBadge({ state: 'FINISH', finished_ago_seconds: 3 * 3600 })
+    expect(b.tone).toBe('slate')
+    expect(b.sub).toBe('3h ago')
+  })
+
+  it('shows a plain Finished badge when elapsed is unknown', () => {
+    expect(printerBadge({ state: 'FINISH' })).toEqual({ label: 'Finished', tone: 'emerald' })
   })
 })
 

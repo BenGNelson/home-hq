@@ -10,7 +10,7 @@ import time
 
 import pytest
 
-from app.printer import PrinterClient, _deep_merge, parse_state
+from app.printer import PrinterClient, _deep_merge, next_finished_at, parse_state
 
 # A representative merged `print` object (what we hold after pushall + deltas).
 SAMPLE_PRINT = {
@@ -135,6 +135,41 @@ def test_snapshot_available_with_fresh_data():
     assert snap["available"] is True
     assert snap["printer"]["progress"] == 42
     assert snap["printer"]["state"] == "RUNNING"
+    # No finish stamp while printing → no elapsed field.
+    assert "finished_ago_seconds" not in snap["printer"]
+
+
+def test_snapshot_reports_finished_elapsed():
+    c = PrinterClient(host="10.0.0.5", serial="ABC", access_code="x")
+    c._connected = True
+    c._state = {**SAMPLE_PRINT, "gcode_state": "FINISH"}
+    c._last_message_at = time.time()
+    c._finished_at = time.time() - 7200  # finished 2h ago
+    snap = c.snapshot()
+    assert snap["available"] is True
+    assert snap["printer"]["state"] == "FINISH"
+    assert 7195 <= snap["printer"]["finished_ago_seconds"] <= 7205
+
+
+# --- finish-time tracking (drives the "finished N ago" UI) ---
+
+
+def test_next_finished_at_stamps_on_entry_and_holds():
+    # Enters FINISH → stamped now; stays FINISH → preserved.
+    t0 = 1000.0
+    stamped = next_finished_at("RUNNING", "FINISH", None, t0)
+    assert stamped == t0
+    held = next_finished_at("FINISH", "FINISH", stamped, t0 + 500)
+    assert held == t0  # not re-stamped while it sits there
+
+
+def test_next_finished_at_clears_when_leaving_terminal():
+    assert next_finished_at("FINISH", "PREPARE", 1000.0, 2000.0) is None
+    assert next_finished_at("FINISH", "RUNNING", 1000.0, 2000.0) is None
+
+
+def test_next_finished_at_covers_failed_too():
+    assert next_finished_at("RUNNING", "FAILED", None, 1234.0) == 1234.0
 
 
 def test_endpoint_degrades_when_unconfigured(client):

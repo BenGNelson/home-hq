@@ -41,6 +41,32 @@ _MQTT_USERNAME = "bblp"
 # snapshot as stale (printer powered off / off the network).
 _STALE_AFTER_SECONDS = 60
 
+# States the printer sits in after a job ends. It keeps reporting (so the
+# snapshot never goes stale) and can't tell the plate's been cleared, so it
+# stays here until the next print. We timestamp the moment it *enters* one so
+# the UI can show "finished N ago" instead of a misleadingly fresh "Finished".
+_TERMINAL_STATES = {"FINISH", "FAILED"}
+
+
+def next_finished_at(
+    prev_state: str | None,
+    new_state: str | None,
+    prev_finished_at: float | None,
+    now: float,
+) -> float | None:
+    """Track when the printer entered a terminal (finished/failed) state.
+
+    Stamped on entry, preserved while it stays terminal, cleared once it leaves.
+    Pure so it's unit-testable. (A backend restart while already finished
+    re-stamps to 'now' — the true finish time isn't in the telemetry, an
+    accepted edge case.)
+    """
+    if new_state in _TERMINAL_STATES:
+        if prev_state in _TERMINAL_STATES and prev_finished_at is not None:
+            return prev_finished_at
+        return now
+    return None
+
 # Human-readable labels for the printer's "current stage" code. Stage is only
 # surfaced for noteworthy sub-states (heating, leveling, pausing…). The nominal
 # values -1 (idle) and 0 (plain printing) are deliberately left unmapped → None,
@@ -191,6 +217,8 @@ class PrinterClient:
         self._state: dict = {}  # merged raw `print` object
         self._connected = False
         self._last_message_at: float | None = None
+        self._prev_gcode_state: str | None = None
+        self._finished_at: float | None = None  # when it entered FINISH/FAILED
         self._client: mqtt.Client | None = None
         self._seq = itertools.count(1)  # sequence_id for outgoing commands
 
@@ -274,6 +302,11 @@ class PrinterClient:
         with self._lock:
             _deep_merge(self._state, print_update)
             self._last_message_at = time.time()
+            new_state = self._state.get("gcode_state")
+            self._finished_at = next_finished_at(
+                self._prev_gcode_state, new_state, self._finished_at, self._last_message_at
+            )
+            self._prev_gcode_state = new_state
 
     # --- read side (request thread) ----------------------------------------
 
@@ -285,6 +318,7 @@ class PrinterClient:
         with self._lock:
             connected = self._connected
             last = self._last_message_at
+            finished_at = self._finished_at
             state_copy = json.loads(json.dumps(self._state)) if self._state else {}
 
         if not state_copy or last is None:
@@ -302,7 +336,10 @@ class PrinterClient:
                 "last_state": state_copy.get("gcode_state"),
             }
 
-        return {"available": True, "name": self._name, "printer": parse_state(state_copy)}
+        printer = parse_state(state_copy)
+        if finished_at is not None and printer.get("state") in _TERMINAL_STATES:
+            printer["finished_ago_seconds"] = max(0, int(time.time() - finished_at))
+        return {"available": True, "name": self._name, "printer": printer}
 
     # --- write side: commands ---------------------------------------------
 

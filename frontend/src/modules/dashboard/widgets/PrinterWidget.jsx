@@ -23,7 +23,7 @@ export default function PrinterWidget() {
         ) : (
           <div className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
-              <StateBadge state={p.state} />
+              <StateBadge printer={p} />
               {printing && p.remaining_min != null && (
                 <span className="text-xs text-slate-400">{formatMinutes(p.remaining_min)} left</span>
               )}

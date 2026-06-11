@@ -69,7 +69,7 @@ function Telemetry({ p, camera }) {
       {/* Status header */}
       <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <StateBadge state={p.state} />
+          <StateBadge printer={p} />
           {p.stage && <span className="text-sm text-slate-400">{p.stage}</span>}
           {p.file && (
             <span className="ml-auto truncate text-sm text-slate-300" title={p.file}>

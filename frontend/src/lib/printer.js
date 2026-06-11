@@ -16,6 +16,40 @@ export function printerStatus(state) {
   return STATES[state] ?? { label: state || 'Unknown', tone: 'slate' }
 }
 
+// Once a print finishes, the printer sits in FINISH indefinitely — it can't tell
+// the plate's been cleared. After this long we fade the badge from celebratory
+// green to neutral so a hours-old "Finished" stops drawing the eye.
+const FINISHED_SOFTEN_AFTER_SECONDS = 30 * 60
+
+// Short relative time for "finished N ago": "just now", "5m ago", "2h ago".
+export function finishedAgo(seconds) {
+  if (seconds == null || !Number.isFinite(seconds)) return null
+  const s = Math.max(0, Math.floor(seconds))
+  if (s < 60) return 'just now'
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
+}
+
+// Badge label + tone + optional sub-line for a printer snapshot. Most states map
+// straight through printerStatus(); a finished print additionally carries a
+// "finished N ago" sub and, once stale, a softened neutral tone.
+export function printerBadge(printer) {
+  const state = printer?.state
+  const base = printerStatus(state)
+  const ago = printer?.finished_ago_seconds
+  if (state === 'FINISH' && ago != null && Number.isFinite(ago)) {
+    return {
+      ...base,
+      tone: ago >= FINISHED_SOFTEN_AFTER_SECONDS ? 'slate' : base.tone,
+      sub: finishedAgo(ago),
+    }
+  }
+  return base
+}
+
 // Friendly message for an unavailable printer, keyed by the backend's reason.
 const REASONS = {
   not_configured: 'No printer configured',
