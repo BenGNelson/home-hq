@@ -23,6 +23,7 @@ this file is fully generic and safe to commit.
 
 from __future__ import annotations
 
+import itertools
 import json
 import logging
 import ssl
@@ -191,6 +192,7 @@ class PrinterClient:
         self._connected = False
         self._last_message_at: float | None = None
         self._client: mqtt.Client | None = None
+        self._seq = itertools.count(1)  # sequence_id for outgoing commands
 
     # --- lifecycle ---------------------------------------------------------
 
@@ -293,6 +295,39 @@ class PrinterClient:
             return {"available": False, "reason": "offline", "name": self._name, "connected": connected}
 
         return {"available": True, "name": self._name, "printer": parse_state(state_copy)}
+
+    # --- write side: commands ---------------------------------------------
+
+    def send_command(self, action: str) -> bool:
+        """Publish a control command to the printer. Returns False if we can't
+        (not connected). Raises ValueError for an unknown action."""
+        seq = str(next(self._seq))
+        if action == "pause":
+            payload = {"print": {"command": "pause", "sequence_id": seq}}
+        elif action == "resume":
+            payload = {"print": {"command": "resume", "sequence_id": seq}}
+        elif action == "stop":
+            payload = {"print": {"command": "stop", "sequence_id": seq}}
+        elif action in ("light_on", "light_off"):
+            payload = {
+                "system": {
+                    "command": "ledctrl",
+                    "led_node": "chamber_light",
+                    "led_mode": "on" if action == "light_on" else "off",
+                    "led_on_time": 500,
+                    "led_off_time": 500,
+                    "loop_times": 0,
+                    "interval_time": 0,
+                    "sequence_id": seq,
+                }
+            }
+        else:
+            raise ValueError(f"unknown action: {action}")
+
+        if self._client is None or not self._connected:
+            return False
+        self._client.publish(self._request_topic(), json.dumps(payload))
+        return True
 
 
 # Process-wide singleton, wired up in app lifespan (main.py). Created lazily so

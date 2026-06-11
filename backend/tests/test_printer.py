@@ -5,7 +5,10 @@ mapper and drive `PrinterClient` by setting its cached state directly, the same
 way an incoming MQTT message would.
 """
 
+import json
 import time
+
+import pytest
 
 from app.printer import PrinterClient, _deep_merge, parse_state
 
@@ -138,3 +141,58 @@ def test_endpoint_degrades_when_unconfigured(client):
     body = client.get("/api/printer").json()
     assert body["available"] is False
     assert body["reason"] == "not_configured"
+
+
+# --- control commands ---
+
+
+class _FakeMqtt:
+    def __init__(self):
+        self.published = []
+
+    def publish(self, topic, payload):
+        self.published.append((topic, payload))
+
+
+def _connected_client():
+    c = PrinterClient(host="10.0.0.5", serial="SER", access_code="x")
+    c._client = _FakeMqtt()
+    c._connected = True
+    return c
+
+
+def test_send_command_pause_publishes_to_request_topic():
+    c = _connected_client()
+    assert c.send_command("pause") is True
+    topic, payload = c._client.published[0]
+    assert topic == "device/SER/request"
+    assert json.loads(payload)["print"]["command"] == "pause"
+
+
+def test_send_command_light_toggles_ledctrl():
+    c = _connected_client()
+    c.send_command("light_off")
+    body = json.loads(c._client.published[0][1])
+    assert body["system"]["command"] == "ledctrl"
+    assert body["system"]["led_node"] == "chamber_light"
+    assert body["system"]["led_mode"] == "off"
+
+
+def test_send_command_returns_false_when_not_connected():
+    c = PrinterClient(host="10.0.0.5", serial="SER", access_code="x")  # no _client
+    assert c.send_command("pause") is False
+
+
+def test_send_command_rejects_unknown_action():
+    c = _connected_client()
+    with pytest.raises(ValueError):
+        c.send_command("self_destruct")
+
+
+def test_command_endpoint_rejects_unknown_action(client):
+    assert client.post("/api/printer/command", json={"action": "boom"}).status_code == 400
+
+
+def test_command_endpoint_503_when_not_connected(client):
+    # Unconfigured client (blanked env) can't send → 503, never a 500.
+    assert client.post("/api/printer/command", json={"action": "pause"}).status_code == 503

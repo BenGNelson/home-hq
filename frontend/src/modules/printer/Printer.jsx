@@ -131,6 +131,12 @@ function Telemetry({ p, camera }) {
         )}
       </div>
 
+      {/* Controls */}
+      <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+        <h3 className="mb-3 text-sm font-medium text-slate-300">Controls</h3>
+        <Controls p={p} />
+      </div>
+
       {/* AMS filament — front and center, big color swatches */}
       {p.ams?.length > 0 && (
         <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
@@ -175,6 +181,88 @@ function Telemetry({ p, camera }) {
         {p.fans?.aux != null && <span>Aux fan {p.fans.aux}%</span>}
         {p.light != null && <span>Light {p.light ? 'on' : 'off'}</span>}
       </div>
+    </div>
+  )
+}
+
+// Full class strings per tone so Tailwind's scanner keeps them.
+const BTN_TONE = {
+  amber: 'bg-amber-500/15 text-amber-300 ring-amber-500/40 hover:bg-amber-500/25',
+  emerald: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/40 hover:bg-emerald-500/25',
+  rose: 'bg-rose-500/20 text-rose-200 ring-rose-500/50 hover:bg-rose-500/30',
+  roseOutline: 'text-rose-300 ring-rose-500/40 hover:bg-rose-500/10',
+  slate: 'bg-slate-700/40 text-slate-200 ring-slate-600/50 hover:bg-slate-700/60',
+}
+
+function Btn({ tone, ...rest }) {
+  return (
+    <button
+      className={`rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition-colors disabled:opacity-50 ${BTN_TONE[tone]}`}
+      {...rest}
+    />
+  )
+}
+
+function Controls({ p }) {
+  const [busy, setBusy] = useState(null)
+  const [confirmStop, setConfirmStop] = useState(false)
+
+  // Auto-cancel a pending stop confirmation if not clicked again shortly.
+  useEffect(() => {
+    if (!confirmStop) return
+    const id = setTimeout(() => setConfirmStop(false), 4000)
+    return () => clearTimeout(id)
+  }, [confirmStop])
+
+  const send = async (action) => {
+    setBusy(action)
+    try {
+      await fetch(`${API_BASE}/printer/command`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+    } catch {
+      /* the next poll reflects the real state regardless */
+    }
+    setBusy(null)
+    setConfirmStop(false)
+  }
+
+  const running = p.state === 'RUNNING'
+  const paused = p.state === 'PAUSE'
+  const active = running || paused
+  const disabled = busy !== null
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {running && (
+        <Btn tone="amber" disabled={disabled} onClick={() => send('pause')}>
+          Pause
+        </Btn>
+      )}
+      {paused && (
+        <Btn tone="emerald" disabled={disabled} onClick={() => send('resume')}>
+          Resume
+        </Btn>
+      )}
+      {active &&
+        (confirmStop ? (
+          <Btn tone="rose" disabled={disabled} onClick={() => send('stop')}>
+            Confirm stop?
+          </Btn>
+        ) : (
+          <Btn tone="roseOutline" disabled={disabled} onClick={() => setConfirmStop(true)}>
+            Stop
+          </Btn>
+        ))}
+      <Btn
+        tone="slate"
+        disabled={disabled}
+        onClick={() => send(p.light ? 'light_off' : 'light_on')}
+      >
+        {p.light ? 'Light off' : 'Light on'}
+      </Btn>
     </div>
   )
 }

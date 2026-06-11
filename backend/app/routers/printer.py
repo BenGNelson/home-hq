@@ -10,13 +10,22 @@ returns available:false with a reason, never an error.
 (app.camera), which only connects while frames are actually being requested.
 """
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, HTTPException, Response
+from pydantic import BaseModel
 
 from app.camera import get_camera
 from app.config import settings
 from app.printer import get_client
 
 router = APIRouter()
+
+# Allowlisted control actions. light_* are harmless; pause/resume/stop act on a
+# live print, so the frontend guards stop behind a confirm step.
+_ALLOWED_ACTIONS = {"pause", "resume", "stop", "light_on", "light_off"}
+
+
+class PrinterCommand(BaseModel):
+    action: str
 
 
 @router.get("/printer")
@@ -43,3 +52,15 @@ def get_printer_camera():
         media_type="image/jpeg",
         headers={"Cache-Control": "no-store"},
     )
+
+
+@router.post("/printer/command")
+def post_printer_command(cmd: PrinterCommand):
+    if cmd.action not in _ALLOWED_ACTIONS:
+        raise HTTPException(status_code=400, detail="unknown action")
+    client = get_client()
+    if client is None:
+        raise HTTPException(status_code=503, detail="printer not configured")
+    if not client.send_command(cmd.action):
+        raise HTTPException(status_code=503, detail="printer not connected")
+    return {"ok": True}
