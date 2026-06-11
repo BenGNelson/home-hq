@@ -130,8 +130,13 @@ The repo holds **logic**; the machine holds **values**.
 ## Frontend design
 
 React + Vite + Tailwind (v4). A **module registry** in `App.jsx` is the single
-seam the platform grows along — each entry declares a nav item + route; the
-`Shell` renders the sidebar (a slide-in drawer on phones) and the active page.
+seam the platform grows along — each entry declares a nav item (with a `group`)
++ route; `lib/nav.js`'s pure `groupModules()` folds the flat list into ordered,
+labeled sidebar sections, and the `Shell` renders them (a slide-in drawer on
+phones) plus the active page. The shell is an **app-shell layout**: the viewport
+is bounded (`h-screen`) so the sidebar and the content scroll independently —
+the Docs section stays pinned at the bottom regardless of page length. The
+`Docs` group (reference material) renders apart at the bottom.
 
 ```
 frontend/src/

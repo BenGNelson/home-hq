@@ -175,13 +175,15 @@ backend** and an **entry in the frontend registry** — nothing else changes.
 
 ```jsx
 const modules = [
-  { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: '▦' },
+  { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: '▦', group: 'Overview' },
   // ...
-  { id: 'foo', label: 'Foo', path: '/foo', icon: '★' },   // ← new module
+  { id: 'foo', label: 'Foo', path: '/foo', icon: '★', group: 'System' },   // ← new module
 ]
 ```
 
-The `Shell` picks up the nav entry automatically; the route renders your page.
+The `group` decides which labeled sidebar section it lands in (sections render in
+the order their groups first appear). The `Shell` picks up the nav entry
+automatically; the route renders your page.
 Use the shared `useApi(path, interval)` hook to poll your endpoint and get
 `{ data, error, loading }` for free.
 

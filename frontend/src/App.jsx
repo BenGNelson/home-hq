@@ -16,16 +16,21 @@ import ServerGuide from './modules/server-guide/ServerGuide.jsx'
 
 // The module registry. Each module declares its nav entry here and a matching
 // <Route> below. Adding a module = one entry + one route, nothing else.
+// `group` decides which labeled sidebar section it lands in (Shell renders the
+// sections in the order groups first appear here). The Docs group is reference
+// material, not functional modules — Shell pins it to the bottom of the sidebar.
 // This is the seam the whole platform grows along.
 const modules = [
-  { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: '▦' },
-  { id: 'plex', label: 'Plex', path: '/plex', icon: '►' },
-  { id: 'containers', label: 'Containers', path: '/containers', icon: '▣' },
-  { id: 'printer', label: 'Printer', path: '/printer', icon: '⎙' },
-  { id: 'network', label: 'Network', path: '/network', icon: '⇅' },
-  { id: 'backups', label: 'Backups', path: '/backups', icon: '⤓' },
-  { id: 'alerts', label: 'Alerts', path: '/alerts', icon: '⚑' },
-  { id: 'guide', label: 'Under the Hood', path: '/guide', icon: 'ⓘ' },
+  { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: '▦', group: 'Overview' },
+  { id: 'plex', label: 'Plex', path: '/plex', icon: '►', group: 'Media' },
+  { id: 'containers', label: 'Containers', path: '/containers', icon: '▣', group: 'System' },
+  { id: 'network', label: 'Network', path: '/network', icon: '⇅', group: 'System' },
+  { id: 'backups', label: 'Backups', path: '/backups', icon: '⤓', group: 'System' },
+  { id: 'printer', label: '3D Printer', path: '/printer', icon: '⎙', group: 'Devices' },
+  { id: 'alerts', label: 'Alerts', path: '/alerts', icon: '⚑', group: 'Monitoring' },
+  { id: 'guide', label: 'Under the Hood', path: '/guide', icon: 'ⓘ', group: 'Docs' },
+  { id: 'server-guide', label: 'Your Server Guide', path: '/server-guide', icon: '▤', group: 'Docs' },
+  { id: 'readme', label: 'README', path: '/readme', icon: '❏', group: 'Docs' },
 ]
 
 export default function App() {
