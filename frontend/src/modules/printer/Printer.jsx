@@ -1,4 +1,5 @@
-import { useApi } from '../../lib/useApi.js'
+import { useState, useEffect } from 'react'
+import { useApi, API_BASE } from '../../lib/useApi.js'
 import { formatMinutes } from '../../lib/format.js'
 import { printerUnavailableMessage } from '../../lib/printer.js'
 import StateBadge from './StateBadge.jsx'
@@ -21,7 +22,35 @@ export default function Printer() {
         <Unavailable reason={data.reason} />
       )}
 
-      {data && data.available && <Telemetry p={data.printer} />}
+      {data && data.available && <Telemetry p={data.printer} camera={data.camera} />}
+    </div>
+  )
+}
+
+// Chamber camera: the backend serves one JPEG per request (connecting on demand),
+// so we just re-fetch with a cache-buster ~1/sec. Rides out the initial connect
+// latency before declaring it offline, and auto-recovers when frames return.
+function Camera() {
+  const [tick, setTick] = useState(0)
+  const [errs, setErrs] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000)
+    return () => clearInterval(id)
+  }, [])
+  const offline = errs >= 4
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-800 bg-black">
+      <img
+        src={`${API_BASE}/printer/camera?t=${tick}`}
+        alt="Chamber camera"
+        className="mx-auto block max-h-[60vh] w-full object-contain"
+        style={offline ? { display: 'none' } : undefined}
+        onLoad={() => setErrs(0)}
+        onError={() => setErrs((e) => e + 1)}
+      />
+      {offline && (
+        <p className="p-8 text-center text-sm text-slate-500">Camera offline</p>
+      )}
     </div>
   )
 }
@@ -50,7 +79,7 @@ function Unavailable({ reason }) {
   )
 }
 
-function Telemetry({ p }) {
+function Telemetry({ p, camera }) {
   const printing = p.state === 'RUNNING'
   const eta =
     printing && p.remaining_min != null
@@ -62,6 +91,8 @@ function Telemetry({ p }) {
 
   return (
     <div className="space-y-4">
+      {camera && <Camera />}
+
       {/* Status header */}
       <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
         <div className="flex flex-wrap items-center gap-3">

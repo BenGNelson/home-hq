@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     printer_access_code: str = ""  # LAN access code from the printer screen (secret)
     printer_name: str = "3D Printer"  # display label
     printer_mqtt_port: int = 8883  # Bambu LAN MQTT is TLS on 8883
+    # Chamber camera (separate TLS stream on :6000). Off by default — it needs
+    # its own network reachability (e.g. an extra port-forward) so it's opt-in.
+    printer_camera: bool = False
+    printer_camera_port: int = 6000
 
     # --- In-app doc viewers (files mounted read-only into the container) ---
     # Under /readme & /srv-guide, not /app — see the mount note in

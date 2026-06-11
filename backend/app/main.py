@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.camera import init_camera
 from app.config import settings
 from app.db import init_db
 from app.printer import init_client
@@ -43,10 +44,20 @@ async def lifespan(app: FastAPI):
         name=settings.printer_name,
     )
     client.start()
+    # Chamber camera reader (no-op unless PRINTER_CAMERA is enabled). Connects
+    # on demand and only while frames are being requested.
+    camera = init_camera(
+        host=settings.printer_host,
+        access_code=settings.printer_access_code,
+        port=settings.printer_camera_port,
+        enabled=settings.printer_camera,
+    )
+    camera.start()
     try:
         yield
     finally:
         client.stop()
+        camera.stop()
 
 
 app = FastAPI(title="Home HQ API", lifespan=lifespan)

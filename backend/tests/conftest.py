@@ -21,6 +21,7 @@ def _no_printer(monkeypatch):
     monkeypatch.setattr(settings, "printer_host", "")
     monkeypatch.setattr(settings, "printer_serial", "")
     monkeypatch.setattr(settings, "printer_access_code", "")
+    monkeypatch.setattr(settings, "printer_camera", False)
     yield
 
 
