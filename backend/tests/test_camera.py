@@ -4,7 +4,7 @@ import struct
 
 import pytest
 
-from app.camera import _recv_exact, build_auth_payload
+from app.camera import BOUNDARY, CameraClient, _recv_exact, build_auth_payload
 
 
 def test_auth_payload_layout():
@@ -31,3 +31,30 @@ def test_recv_exact_accumulates_across_chunks():
 def test_recv_exact_raises_when_stream_closes():
     with pytest.raises(ConnectionError):
         _recv_exact(_FakeSock([]), 4)
+
+
+def _seed_frame(cam, data, at=1.0):
+    """Drop a frame straight into the buffer (bypassing the network reader)."""
+    cam._frame = data
+    cam._frame_at = at
+
+
+def test_mjpeg_frames_emits_one_multipart_chunk_per_new_frame():
+    cam = CameraClient("host", "code", enabled=False)
+    _seed_frame(cam, b"jpegdata")
+    gen = cam.mjpeg_frames(timeout=0.01)
+    chunk = next(gen)
+    gen.close()
+
+    expected_head = (
+        f"--{BOUNDARY}\r\nContent-Type: image/jpeg\r\nContent-Length: 8\r\n\r\n".encode()
+    )
+    assert chunk.startswith(expected_head)
+    assert chunk.endswith(b"jpegdata\r\n")
+
+
+def test_mjpeg_frames_stops_when_client_stops():
+    cam = CameraClient("host", "code", enabled=False)
+    cam._stop = True
+    with pytest.raises(StopIteration):
+        next(cam.mjpeg_frames(timeout=0.01))

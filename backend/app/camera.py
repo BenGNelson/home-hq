@@ -9,8 +9,14 @@ length. We read those frames and keep the latest one in memory.
 
 To avoid fighting Bambu Studio's own live view (the printer allows few camera
 connections), the reader only holds the socket open *while the UI is actually
-asking for frames*: each request bumps a timestamp, and the reader disconnects
-after `idle_timeout` seconds with no requests, then sleeps until asked again.
+asking for frames*: every read of the latest frame (single-shot or streaming)
+bumps a timestamp, and the reader disconnects after `idle_timeout` seconds with
+no interest, then sleeps until asked again.
+
+Two ways to consume frames: `get_frame()` hands back the latest JPEG for a
+single request, and `mjpeg_frames()` yields a multipart MJPEG stream that pushes
+each new frame as it arrives (smoother than re-fetching, one connection). A
+threading.Condition lets the streamer block until the reader posts a new frame.
 
 Host + access code come from config/.env — nothing here is host-specific.
 """
@@ -23,11 +29,15 @@ import ssl
 import struct
 import threading
 import time
+from collections.abc import Iterator
 
 log = logging.getLogger("home-hq.camera")
 
 _USERNAME = "bblp"
 _HEADER_LEN = 16
+# Multipart boundary for the MJPEG (multipart/x-mixed-replace) response; the
+# router advertises the same token in the Content-Type so browsers swap frames.
+BOUNDARY = "frame"
 
 
 def build_auth_payload(access_code: str, username: str = _USERNAME) -> bytes:
@@ -59,7 +69,7 @@ class CameraClient:
         access_code: str,
         port: int = 6000,
         enabled: bool = False,
-        idle_timeout: int = 15,
+        idle_timeout: int = 10,
     ):
         self._host = host
         self._access_code = access_code
@@ -67,7 +77,9 @@ class CameraClient:
         self._idle_timeout = idle_timeout
         self._configured = bool(enabled and host and access_code)
 
-        self._lock = threading.Lock()
+        # Condition guards the frame buffer AND signals streamers when a fresh
+        # frame lands, so mjpeg_frames() can block instead of busy-polling.
+        self._cond = threading.Condition()
         self._frame: bytes | None = None
         self._frame_at: float | None = None
         self._last_access = 0.0
@@ -90,15 +102,45 @@ class CameraClient:
     def stop(self) -> None:
         self._stop = True
         self._wake.set()
+        with self._cond:
+            self._cond.notify_all()  # release any blocked MJPEG streamers
 
     # --- read side ---------------------------------------------------------
 
     def get_frame(self) -> tuple[bytes | None, float | None]:
         """Latest JPEG (+ its timestamp). Bumps interest so the reader connects."""
+        self._poke()
+        with self._cond:
+            return self._frame, self._frame_at
+
+    def mjpeg_frames(self, timeout: float = 8.0) -> Iterator[bytes]:
+        """Yield multipart MJPEG chunks, pushing each new frame as it arrives.
+
+        Bumps interest every iteration so the reader stays connected while a
+        client is watching. Blocks on the Condition until a frame newer than the
+        last one sent appears (or `timeout` elapses, which loops to re-assert
+        interest as a keepalive). The generator naturally ends when the client
+        disconnects — the next `yield` raises and the threadpool unwinds it.
+        """
+        head = f"--{BOUNDARY}\r\nContent-Type: image/jpeg\r\nContent-Length: ".encode()
+        last_sent = 0.0
+        while not self._stop:
+            self._poke()
+            with self._cond:
+                self._cond.wait_for(
+                    lambda: self._stop or (self._frame_at or 0.0) > last_sent,
+                    timeout=timeout,
+                )
+                frame, frame_at = self._frame, self._frame_at
+            if self._stop or frame is None or frame_at is None or frame_at <= last_sent:
+                continue  # timed out with no new frame — re-assert interest
+            last_sent = frame_at
+            yield head + str(len(frame)).encode() + b"\r\n\r\n" + frame + b"\r\n"
+
+    def _poke(self) -> None:
+        """Register interest so the reader connects / stays connected."""
         self._last_access = time.time()
         self._wake.set()
-        with self._lock:
-            return self._frame, self._frame_at
 
     def _idle(self) -> bool:
         return (time.time() - self._last_access) > self._idle_timeout
@@ -109,7 +151,7 @@ class CameraClient:
         while not self._stop:
             if self._idle():
                 # Nobody's watching — drop any stale frame and wait to be asked.
-                with self._lock:
+                with self._cond:
                     self._frame = None
                     self._frame_at = None
                 self._wake.wait(timeout=30)
@@ -141,9 +183,10 @@ class CameraClient:
                 if size <= 0 or size > 8_000_000:  # sanity guard
                     raise ValueError(f"implausible frame size {size}")
                 data = _recv_exact(sock, size)
-                with self._lock:
+                with self._cond:
                     self._frame = data
                     self._frame_at = time.time()
+                    self._cond.notify_all()  # wake any MJPEG streamers
         finally:
             sock.close()
             log.info("camera: disconnected")
@@ -154,10 +197,14 @@ _camera: CameraClient | None = None
 
 
 def init_camera(
-    host: str, access_code: str, port: int = 6000, enabled: bool = False
+    host: str,
+    access_code: str,
+    port: int = 6000,
+    enabled: bool = False,
+    idle_timeout: int = 10,
 ) -> CameraClient:
     global _camera
-    _camera = CameraClient(host, access_code, port, enabled)
+    _camera = CameraClient(host, access_code, port, enabled, idle_timeout)
     return _camera
 
 

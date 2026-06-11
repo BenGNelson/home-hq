@@ -75,7 +75,8 @@ Adding a module = add a router file and one `include_router` line.
 | `GET /api/raid` | software-RAID array state (healthy/degraded, rebuild %) | parses host `/proc/mdstat` |
 | `GET /api/smart` | per-drive SMART health; role-tagged (raid/system/other) | reads a host timer's `smart.json` |
 | `GET /api/printer` | live 3D-printer telemetry (state/progress/temps/AMS) | cached snapshot from a persistent MQTT client (Bambu LAN) |
-| `GET /api/printer/camera` | latest chamber-camera JPEG frame | on-demand TLS stream from the printer (:6000), reader holds the socket only while viewed |
+| `GET /api/printer/camera/stream` | live chamber-camera MJPEG feed | re-streams the printer's TLS frames (:6000) as `multipart/x-mixed-replace`; one connection, frames pushed as they arrive — what the UI uses |
+| `GET /api/printer/camera` | single latest chamber-camera JPEG frame | the same on-demand reader, one frame per request (snapshot/fallback) |
 | `POST /api/printer/command` | pause/resume/stop/light (allowlisted) | publishes over the MQTT connection |
 | `GET /api/backups` | list encrypted config backups (read-only) | reads BACKUP_DIR (under the RAID mount) |
 | `GET /api/readme` | the project README as markdown (in-app viewer) | reads the README mounted read-only |
@@ -219,11 +220,16 @@ committed.
 publishes an allowlisted command (pause/resume/stop/light) to the printer's
 request topic. **The chamber camera** (`app/camera.py`) is separate — the P1
 series has no RTSP, so it streams JPEG frames over an authenticated TLS socket
-on :6000. That reader connects *on demand* (only while the UI is fetching
-frames) and disconnects after a short idle, so it doesn't contend with Bambu
-Studio's own live view; `GET /api/printer/camera` returns the latest frame. The
-camera is opt-in (`PRINTER_CAMERA`) because it may need its own network
-reachability (e.g. a separate port-forward to the printer).
+on :6000. That reader connects *on demand* (only while the UI is watching) and
+disconnects after a short idle (`PRINTER_CAMERA_IDLE_TIMEOUT`), so it doesn't
+contend with Bambu Studio's own live view. The UI consumes it as a live MJPEG
+feed: `GET /api/printer/camera/stream` re-streams the frames as
+`multipart/x-mixed-replace`, so a plain `<img>` swaps them in place over one
+connection (no per-frame refetch); a streamer re-asserts interest as it plays so
+a watched feed never idles out. `GET /api/printer/camera` still returns a single
+latest frame as a snapshot/fallback. The camera is opt-in (`PRINTER_CAMERA`)
+because it may need its own network reachability (e.g. a separate port-forward to
+the printer).
 
 ---
 

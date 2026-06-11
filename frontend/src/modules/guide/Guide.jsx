@@ -30,7 +30,8 @@ const ENDPOINTS = [
   ['/api/raid', 'Software-RAID array health, parsed from /proc/mdstat.'],
   ['/api/smart', 'Per-drive SMART health, collected daily by a host timer.'],
   ['/api/printer', 'Live 3D-printer telemetry, cached from a persistent MQTT connection (Bambu LAN mode).'],
-  ['/api/printer/camera', 'Latest chamber-camera JPEG frame (opt-in; on-demand TLS stream on :6000).'],
+  ['/api/printer/camera/stream', 'Live chamber-camera MJPEG feed (opt-in; on-demand TLS stream on :6000).'],
+  ['/api/printer/camera', 'Single latest chamber-camera JPEG frame (snapshot/fallback).'],
   ['POST /api/printer/command', 'Pause / resume / stop / light — published over the MQTT connection.'],
   ['/api/backups', 'Lists the age-encrypted config backups (read-only).'],
   ['/api/readme · /asset/{n}', 'The project README (markdown) + its screenshots, for the in-app viewer.'],
@@ -255,9 +256,12 @@ export default function Guide() {
           <strong>chamber camera</strong> is separate: the P1 series has no RTSP, so
           it streams JPEG frames over an authenticated TLS socket on <Code>:6000</Code>.
           That reader connects only while you’re watching (so it doesn’t fight
-          Bambu Studio’s live view) and <Code>/api/printer/camera</Code> serves the
-          latest frame. It’s opt-in (<Code>PRINTER_CAMERA</Code>) since it may need
-          its own network reachability.
+          Bambu Studio’s live view). The UI shows it as a live MJPEG feed —{' '}
+          <Code>/api/printer/camera/stream</Code> re-streams the frames so a plain
+          image element swaps them in place over one connection — while{' '}
+          <Code>/api/printer/camera</Code> still serves a single frame as a snapshot.
+          It’s opt-in (<Code>PRINTER_CAMERA</Code>) since it may need its own network
+          reachability.
         </p>
       </Section>
 

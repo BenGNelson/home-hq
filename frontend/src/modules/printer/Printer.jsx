@@ -3,10 +3,11 @@ import { useApi, API_BASE } from '../../lib/useApi.js'
 import { formatMinutes } from '../../lib/format.js'
 import { printerUnavailableMessage } from '../../lib/printer.js'
 import StateBadge from './StateBadge.jsx'
+import CameraView from './Camera.jsx'
 import { FilamentSpool } from './Filament.jsx'
 
-// The Printer module: live telemetry from a Bambu printer over LAN MQTT.
-// Read-only for now (temps, progress, AMS, errors); controls + camera later.
+// The Printer module: live telemetry from a Bambu printer over LAN MQTT —
+// state, progress, AMS, temps, errors, controls, and the live chamber camera.
 export default function Printer() {
   const { data, error, loading } = useApi('/printer', 3000)
   const name = data?.name ?? '3D Printer'
@@ -23,34 +24,6 @@ export default function Printer() {
       )}
 
       {data && data.available && <Telemetry p={data.printer} camera={data.camera} />}
-    </div>
-  )
-}
-
-// Chamber camera: the backend serves one JPEG per request (connecting on demand),
-// so we just re-fetch with a cache-buster ~1/sec. Rides out the initial connect
-// latency before declaring it offline, and auto-recovers when frames return.
-function Camera() {
-  const [tick, setTick] = useState(0)
-  const [errs, setErrs] = useState(0)
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 1000)
-    return () => clearInterval(id)
-  }, [])
-  const offline = errs >= 4
-  return (
-    <div className="overflow-hidden rounded-xl border border-slate-800 bg-black">
-      <img
-        src={`${API_BASE}/printer/camera?t=${tick}`}
-        alt="Chamber camera"
-        className="mx-auto block max-h-[60vh] w-full object-contain"
-        style={offline ? { display: 'none' } : undefined}
-        onLoad={() => setErrs(0)}
-        onError={() => setErrs((e) => e + 1)}
-      />
-      {offline && (
-        <p className="p-8 text-center text-sm text-slate-500">Camera offline</p>
-      )}
     </div>
   )
 }
@@ -91,7 +64,7 @@ function Telemetry({ p, camera }) {
 
   return (
     <div className="space-y-4">
-      {camera && <Camera />}
+      {camera && <CameraView className="mx-auto max-h-[70vh]" />}
 
       {/* Status header */}
       <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">

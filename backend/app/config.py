@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     # its own network reachability (e.g. an extra port-forward) so it's opt-in.
     printer_camera: bool = False
     printer_camera_port: int = 6000
+    # Drop the camera connection this many seconds after the last frame request,
+    # freeing it for Bambu Studio. The MJPEG stream re-asserts interest each
+    # frame, so this only fires once nobody is actually watching.
+    printer_camera_idle_timeout: int = 10
 
     # --- In-app doc viewers (files mounted read-only into the container) ---
     # Under /readme & /srv-guide, not /app — see the mount note in

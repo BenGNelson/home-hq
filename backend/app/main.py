@@ -51,6 +51,7 @@ async def lifespan(app: FastAPI):
         access_code=settings.printer_access_code,
         port=settings.printer_camera_port,
         enabled=settings.printer_camera,
+        idle_timeout=settings.printer_camera_idle_timeout,
     )
     camera.start()
     try:
