@@ -214,7 +214,7 @@ home-hq/
     src/shell/        # responsive layout frame
     src/modules/      # one folder per module
     src/lib/          # useApi polling, rate math, format helpers
-  scripts/            # host-side helpers (backup, SMART collector, test runners)
+  scripts/            # host-side helpers (backup, SMART collector, drive watchdog, test runners)
   docs/ARCHITECTURE.md
   docker-compose.yml
   .env.example        # committed; copy to .env (gitignored) and fill in

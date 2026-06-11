@@ -199,6 +199,25 @@ Two layers, split by how privileged the data is:
   cross-referencing `/proc/mdstat`), so the UI can label the OS disk vs array
   members and hide unreadable external disks.
 
+### External-drive watchdog (host script)
+
+Some USB-to-SATA/NVMe bridges periodically **wedge** — a region of I/O starts
+erroring while the device stays "connected", blocking reads and writes — and the
+only fix is to power-cycle the bridge. `scripts/drive-watchdog.sh` is an optional
+host daemon (a systemd service with `Restart=always`, not a timer) that probes
+the mount on an interval and, on a confirmed wedge, runs the manual recovery
+automatically: lazy-unmount → software USB reset (`usbreset`, falling back to a
+sysfs authorized-toggle / driver re-bind) → filesystem repair → remount → verify.
+It's the same privileged-host / unprivileged-app split as backups and SMART: the
+script (root, on the host) does the unmount/reset/fsck; the container never does.
+
+It's fully generic — drive identity (mount, UUID, optional USB `vendor:product`,
+fstype, tuning) comes from `.env` under `WATCHDOG_*`, the repair tool is chosen by
+filesystem type (or overridden), and it writes a small atomic state JSON
+(`WATCHDOG_STATE_JSON`: health + last-recovery + recovery count) — the hook for a
+future Drives-widget tie-in, so the dashboard can surface a drive that SMART
+can't read through a USB bridge.
+
 ### The printer: the one push-based source
 
 Every endpoint above is **pull** — it gathers data when the request arrives. A

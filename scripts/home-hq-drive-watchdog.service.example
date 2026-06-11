@@ -1,0 +1,22 @@
+# Home HQ — external-drive watchdog (long-running daemon).
+# Watches a flaky USB drive and auto-recovers a wedged bridge. Opt-in: only
+# install this if you have such a drive (config lives in the repo .env under
+# WATCHDOG_*). Runs as root so it can unmount, reset USB, and fsck.
+#
+# Install:
+#   sudo cp scripts/home-hq-drive-watchdog.service.example \
+#           /etc/systemd/system/home-hq-drive-watchdog.service
+#   # edit ExecStart to your real repo path, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now home-hq-drive-watchdog
+[Unit]
+Description=Home HQ — external-drive watchdog (detect bridge wedge, auto-recover)
+After=local-fs.target
+
+[Service]
+ExecStart=/path/to/home-hq/scripts/drive-watchdog.sh
+Restart=always
+RestartSec=10
+User=root
+
+[Install]
+WantedBy=multi-user.target
