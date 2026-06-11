@@ -69,8 +69,8 @@ Adding a module = add a router file and one `include_router` line.
 | `GET /api/health` | liveness + server name | trivial |
 | `GET /api/system` | CPU %, RAM used/total, uptime | `psutil` |
 | `GET /api/disk` | total/used/free/% for the storage mount | `psutil.disk_usage` |
-| `GET /api/containers` | name, status, image, uptime per container | Docker SDK over the socket |
-| `GET /api/containers/{name}` | one container's live stats (cpu/mem/net) | Docker SDK |
+| `GET /api/containers` | name, status, image, uptime per container | Docker SDK → read-only socket proxy |
+| `GET /api/containers/{name}` | one container's live stats (cpu/mem/net) | Docker SDK → read-only socket proxy |
 | `GET /api/network` | per-interface byte counters | reads host `/proc/1/net/dev` |
 | `GET /api/raid` | software-RAID array state (healthy/degraded, rebuild %) | parses host `/proc/mdstat` |
 | `GET /api/smart` | per-drive SMART health; role-tagged (raid/system/other) | reads a host timer's `smart.json` |
@@ -231,8 +231,9 @@ reachability (e.g. a separate port-forward to the printer).
 
 Frontend + backend each in a container, wired by one `docker-compose.yml`.
 
-- The backend mounts the host **Docker socket** (read the note below) and the
-  **storage mount** read-only, so it can report container and disk status.
+- The backend reads container status through a **docker-socket-proxy** (read the
+  note below — it does not touch the raw socket) and mounts the **storage mount**
+  read-only for disk status.
 - Run everything with `docker compose up --build -d`.
 
 ### Frontend: production vs. dev
@@ -265,10 +266,19 @@ Tailscale `serve` HTTPS hostname provides.
 
 ### A note on the Docker socket
 
-Mounting the socket gives the backend visibility into all containers. A `:ro`
-mount protects the socket *file* but does not make the Docker API read-only.
-The proper hardening is a **docker-socket-proxy** that exposes only the
-read endpoints we need — planned as a later step.
+Mounting the raw socket would give the backend visibility into all containers —
+but a `:ro` mount only protects the socket *file*, not the Docker API, so a
+compromised backend could still create privileged containers and escape to the
+host. So the backend does **not** mount the socket. Instead a
+**`docker-socket-proxy`** (a tiny HAProxy) holds the socket and exposes only the
+read-only container endpoints (`CONTAINERS=1`, `POST=0`) on an `internal` Docker
+network. The backend talks to it via `DOCKER_HOST=tcp://docker-socket-proxy:2375`
+(`docker.from_env()` picks that up — no app code change). To stay within that
+allow-list we read each container's image *name* from the container data we
+already have, rather than calling the (forbidden) image-inspect endpoint. Net
+effect: a backend compromise can list containers and read stats, nothing more —
+no image/network/secret introspection, no writes, no host reach to the proxy
+(it isn't published or routable off its internal network).
 
 ---
 

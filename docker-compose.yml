@@ -9,15 +9,23 @@ services:
     # Inject all the .env values as environment variables in the container,
     # so config.py (pydantic-settings) reads them at startup.
     env_file: .env
+    # Reach the Docker API through the read-only socket proxy (below) instead of
+    # mounting the raw socket — so a backend compromise can't drive Docker (create
+    # privileged containers, mount the host FS, escape). docker.from_env() picks
+    # up DOCKER_HOST automatically, so no app code changes.
+    environment:
+      DOCKER_HOST: "tcp://docker-socket-proxy:2375"
+    depends_on:
+      - docker-socket-proxy
+    networks:
+      - default        # talk to frontend + reach the LAN/internet (Plex, printer)
+      - docker-proxy   # reach the socket proxy by name, on an isolated network
     ports:
       # host:container — reach the API at http://<your-host>:${API_PORT}
       - "${API_PORT}:8000"
     volumes:
-      # Docker socket — lets /api/containers query the host's containers.
-      # NOTE: ":ro" protects the socket *file*, but the Docker API over a
-      # unix socket is not truly read-only. A docker-socket-proxy is the
-      # proper hardening step — we'll add that later (see plan §7 guardrails).
-      - "${DOCKER_SOCKET}:/var/run/docker.sock:ro"
+      # (Docker access is via the docker-socket-proxy service — see DOCKER_HOST
+      # above — not a raw socket mount here.)
       # RAID mount, read-only — lets /api/disk report real usage for the array.
       - "${RAID_MOUNT}:${RAID_MOUNT}:ro"
       # Host /proc, read-only — lets /api/network read host interface counters
@@ -41,6 +49,29 @@ services:
       # path is ever committed — only the generic default lives here.
       - "${SERVER_GUIDE_FILE:-./docs/SERVER_GUIDE.example.md}:/srv-guide/SERVER_GUIDE.md:ro"
     restart: unless-stopped
+
+  # --- docker-socket-proxy: a locked-down gateway to the Docker API. ---
+  # The backend needs to LIST containers + read stats, but mounting the raw
+  # socket would hand it full control of the host's Docker (create privileged
+  # containers, mount the host filesystem, escape). This tiny HAProxy-based
+  # proxy holds the socket and exposes ONLY read-only container endpoints
+  # (CONTAINERS=1, POST=0 → no writes) on an internal network the backend reaches
+  # by name. Pinned by digest and kept off Watchtower since it's security-critical.
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.3.0@sha256:9e4b9e7517a6b660f2cc903a19b257b1852d5b3344794e3ea334ff00ae677ac2
+    container_name: home-hq-docker-proxy
+    environment:
+      CONTAINERS: 1   # allow GET /containers/* (list, inspect, stats)
+      POST: 0         # read-only: deny every write (create/start/stop/exec/...)
+    volumes:
+      - "${DOCKER_SOCKET}:/var/run/docker.sock:ro"
+    networks:
+      - docker-proxy
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
 
   # --- frontend: production build served by nginx (the always-on face). ---
   # Multi-stage build → static PWA behind nginx, which also proxies /api to the
@@ -77,6 +108,13 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+networks:
+  # Isolated network between the backend and the Docker socket proxy. `internal`
+  # = no route to the outside world, so the proxy can only ever be reached from
+  # within this compose project (the backend), never the host or the LAN.
+  docker-proxy:
+    internal: true
 
 volumes:
   homehq-data:

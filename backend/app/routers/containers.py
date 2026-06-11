@@ -1,10 +1,12 @@
 """
 /api/containers — list the host's Docker containers, and per-container detail.
 
-How it reaches Docker: docker-compose mounts the host's Docker socket into this
-container at the conventional path /var/run/docker.sock. `docker.from_env()`
-connects to that socket by default, so the SDK talks to the host's Docker daemon
-and sees every container on the host.
+How it reaches Docker: the backend does NOT mount the raw socket. Compose sets
+DOCKER_HOST to a read-only docker-socket-proxy that only permits GET /containers
+endpoints (list, inspect, stats), so `docker.from_env()` talks to that proxy.
+We therefore stick to container endpoints only — e.g. we read each container's
+image NAME from the container data we already have (attrs["Image"] /
+Config.Image) rather than calling the (forbidden) image-inspect endpoint.
 
 SECURITY: the detail endpoint deliberately exposes only operational facts
 (state, health, ports, resource usage). It NEVER returns environment variables,
@@ -12,8 +14,7 @@ bind-mount host paths, command args, or logs — those routinely contain secrets
 (tokens, passwords, VPN creds) and host paths, which must not reach a UI that
 will eventually be accessible over the tailnet.
 
-This endpoint only READS. See compose notes on hardening the socket with a
-docker-socket-proxy later.
+This endpoint only READS, and the proxy enforces that at the API level.
 """
 
 import time
@@ -118,7 +119,8 @@ def get_containers():
             {
                 "name": c.name,
                 "status": c.status,  # running / exited / paused / ...
-                "image": (c.image.tags[0] if c.image.tags else c.image.short_id),
+                # Image name straight from /containers/json — no image-inspect call.
+                "image": c.attrs.get("Image") or "unknown",
                 "uptime_seconds": _uptime_seconds(started_at) if c.status == "running" else None,
             }
         )
@@ -165,7 +167,9 @@ def get_container_detail(name: str):
         "found": True,
         "time": time.time(),
         "name": c.name,
-        "image": (c.image.tags[0] if c.image.tags else c.image.short_id),
+        # Image name from the inspect data we already have (Config.Image),
+        # avoiding the image-inspect endpoint the proxy doesn't permit.
+        "image": (attrs.get("Config", {}) or {}).get("Image") or "unknown",
         "status": c.status,
         "state": state.get("Status"),
         "health": (state.get("Health", {}) or {}).get("Status"),
