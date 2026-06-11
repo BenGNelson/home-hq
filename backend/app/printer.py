@@ -40,11 +40,11 @@ _MQTT_USERNAME = "bblp"
 # snapshot as stale (printer powered off / off the network).
 _STALE_AFTER_SECONDS = 60
 
-# A few human-readable labels for the printer's "current stage" code. Bambu
-# publishes many; we map the common ones and fall back to None for the rest.
+# Human-readable labels for the printer's "current stage" code. Stage is only
+# surfaced for noteworthy sub-states (heating, leveling, pausing…). The nominal
+# values -1 (idle) and 0 (plain printing) are deliberately left unmapped → None,
+# so they don't show a redundant/misleading label next to the main state badge.
 _STAGE_LABELS = {
-    -1: "Idle",
-    0: "Printing",
     1: "Auto bed leveling",
     2: "Heatbed preheating",
     3: "Sweeping XY mech mode",

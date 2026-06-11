@@ -14,8 +14,18 @@ def temp_db(tmp_path, monkeypatch):
     yield
 
 
+@pytest.fixture(autouse=True)
+def _no_printer(monkeypatch):
+    """Isolate tests from any real printer config in the ambient .env, so the app
+    lifespan never opens a live MQTT connection during the suite."""
+    monkeypatch.setattr(settings, "printer_host", "")
+    monkeypatch.setattr(settings, "printer_serial", "")
+    monkeypatch.setattr(settings, "printer_access_code", "")
+    yield
+
+
 @pytest.fixture
-def client():
+def client(_no_printer):
     """A FastAPI TestClient (its context runs the startup hook = init_db)."""
     from fastapi.testclient import TestClient
 

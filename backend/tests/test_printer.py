@@ -50,7 +50,7 @@ SAMPLE_PRINT = {
 def test_parse_state_maps_core_fields():
     m = parse_state(SAMPLE_PRINT)
     assert m["state"] == "RUNNING"
-    assert m["stage"] == "Printing"
+    assert m["stage"] is None  # stg_cur 0 = plain printing → no redundant label
     assert m["file"] == "benchy"
     assert m["progress"] == 42
     assert m["layer"] == 84 and m["total_layers"] == 200
@@ -76,6 +76,13 @@ def test_parse_state_maps_ams():
     assert first["remain"] == 80
     assert first["active"] is True  # tray_now == "0"
     assert unit["trays"][1]["active"] is False
+
+
+def test_parse_state_labels_special_stage():
+    # Noteworthy sub-states (not 0/-1) get a friendly label.
+    assert parse_state({**SAMPLE_PRINT, "stg_cur": 2})["stage"] == "Heatbed preheating"
+    # Idle / nominal codes stay unlabeled.
+    assert parse_state({**SAMPLE_PRINT, "stg_cur": -1})["stage"] is None
 
 
 def test_parse_state_is_defensive_on_empty():
