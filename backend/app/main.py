@@ -11,11 +11,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.alerting import init_manager
 from app.camera import init_camera
 from app.config import settings
 from app.db import init_db
 from app.printer import init_client
 from app.routers import (
+    alerts,
     backups,
     containers,
     disk,
@@ -55,11 +57,17 @@ async def lifespan(app: FastAPI):
         idle_timeout=settings.printer_camera_idle_timeout,
     )
     camera.start()
+    # Alerting engine: evaluates rules in the background and pushes notifications
+    # on state changes (no-op unless ALERTS_ENABLED). Started last so its first
+    # pass sees the other subsystems already up.
+    alerter = init_manager(settings.alert_interval)
+    alerter.start()
     try:
         yield
     finally:
         client.stop()
         camera.stop()
+        alerter.stop()
 
 
 app = FastAPI(title="Home HQ API", lifespan=lifespan)
@@ -93,3 +101,4 @@ app.include_router(raid.router, prefix="/api")
 app.include_router(readme.router, prefix="/api")
 app.include_router(smart.router, prefix="/api")
 app.include_router(watchdog.router, prefix="/api")
+app.include_router(alerts.router, prefix="/api")

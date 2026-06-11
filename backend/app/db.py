@@ -44,6 +44,22 @@ CREATE TABLE IF NOT EXISTS sync_meta (
     key   TEXT PRIMARY KEY,
     value TEXT
 );
+
+-- Alerting: the last-seen condition per rule (for edge-triggering) + a log.
+CREATE TABLE IF NOT EXISTS alert_state (
+    rule_id    TEXT PRIMARY KEY,
+    alert_key  TEXT,          -- NULL = ok; otherwise the firing condition's key
+    since      REAL,          -- when the current key began
+    updated_at REAL
+);
+CREATE TABLE IF NOT EXISTS alert_log (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts      REAL NOT NULL,
+    rule_id TEXT NOT NULL,
+    kind    TEXT NOT NULL,    -- fire | clear
+    message TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_alert_log_ts ON alert_log (ts);
 """
 
 
@@ -85,6 +101,44 @@ def init_db():
             "CREATE INDEX IF NOT EXISTS idx_media_grandparent"
             " ON media_items (grandparent_key)"
         )
+
+
+def get_alert_state(rule_id):
+    """The persisted condition for a rule, or None if it's never been seen."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT rule_id, alert_key, since FROM alert_state WHERE rule_id = ?",
+            (rule_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def set_alert_state(rule_id, alert_key, since):
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO alert_state (rule_id, alert_key, since, updated_at) "
+            "VALUES (?, ?, ?, ?) ON CONFLICT(rule_id) DO UPDATE SET "
+            "alert_key = excluded.alert_key, since = excluded.since, "
+            "updated_at = excluded.updated_at",
+            (rule_id, alert_key, since, since),
+        )
+
+
+def add_alert_log(ts, rule_id, kind, message):
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO alert_log (ts, rule_id, kind, message) VALUES (?, ?, ?, ?)",
+            (ts, rule_id, kind, message),
+        )
+
+
+def recent_alert_log(limit=20):
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT ts, rule_id, kind, message FROM alert_log ORDER BY ts DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
 
 def get_meta(key, default=None):

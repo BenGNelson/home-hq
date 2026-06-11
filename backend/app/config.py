@@ -46,6 +46,18 @@ class Settings(BaseSettings):
     # USB-bridged drive whose SMART can't be read through the enclosure.
     watchdog_state_path: str = "/smart/drive-watchdog.json"
 
+    # --- Alerting (push notifications via ntfy) ---
+    # Push lands on the phone over normal internet (no tailnet needed). The topic
+    # name is a shared secret — use an unguessable one. Empty topic disables push.
+    alerts_enabled: bool = False
+    ntfy_url: str = "https://ntfy.sh"
+    ntfy_topic: str = ""
+    ntfy_token: str = ""  # optional: self-hosted / reserved (auth) topics
+    alert_click_url: str = ""  # optional URL opened when a notification is tapped
+    alert_interval: int = 120  # seconds between rule evaluations
+    alert_disk_percent: int = 95  # warn when a filesystem is at/above this % full
+    alert_backup_max_age_days: int = 8  # warn if no fresh backup in this many days
+
     # --- 3D printer (Bambu, LAN mode) ---
     # All optional: if printer_host/serial/access_code are unset the MQTT client
     # never starts and /api/printer reports available:false ("not configured").

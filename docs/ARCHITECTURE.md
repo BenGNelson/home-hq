@@ -75,6 +75,8 @@ Adding a module = add a router file and one `include_router` line.
 | `GET /api/raid` | software-RAID array state (healthy/degraded, rebuild %) | parses host `/proc/mdstat` |
 | `GET /api/smart` | per-drive SMART health; role-tagged (raid/system/other) | reads a host timer's `smart.json` |
 | `GET /api/drive-watchdog` | watched external drive's health + recovery history | reads the host watchdog's state JSON (fills the SMART gap for USB enclosures) |
+| `GET /api/alerts` | push-alert config + every rule's current state + recent log | from the background alert engine |
+| `POST /api/alerts/test` | send a test push (confirm the pipe reaches the phone) | posts to ntfy |
 | `GET /api/printer` | live 3D-printer telemetry (state/progress/temps/AMS) | cached snapshot from a persistent MQTT client (Bambu LAN) |
 | `GET /api/printer/camera/stream` | live chamber-camera MJPEG feed | re-streams the printer's TLS frames (:6000) as `multipart/x-mixed-replace`; one connection, frames pushed as they arrive — what the UI uses |
 | `GET /api/printer/camera` | single latest chamber-camera JPEG frame | the same on-demand reader, one frame per request (snapshot/fallback) |
@@ -220,6 +222,26 @@ reads that file via the same `/smart` mount and serves it at
 `/api/drive-watchdog`, so the **Drives** widget shows the watched drive's health
 and self-recovery history — surfacing a drive that SMART can't read through a USB
 bridge.
+
+### Alerting (push notifications)
+
+Most of the app is pull-on-demand, but you don't want to *watch* the dashboard to
+learn a drive is failing. `app/alerting.py` is a background thread (started in the
+lifespan, no-op unless `ALERTS_ENABLED`) that every `ALERT_INTERVAL` seconds
+re-reads the same data the dashboard shows and pushes a phone notification when
+something crosses into a bad state. Channel is **ntfy** (`app/notify.py`, a one
+stdlib POST to `{NTFY_URL}/{NTFY_TOPIC}`) — push lands on the phone over normal
+internet, so **no tailnet is needed to receive alerts** (only to tap through to
+the dashboard).
+
+Each rule's `check()` returns a *key* identifying the current condition (or
+`None` for OK); we **edge-trigger** on key changes — `None→X` fires, `X→Y`
+re-fires (the problem changed), `X→None` sends a "resolved" for sustained
+conditions. State is persisted in SQLite (`alert_state`/`alert_log`) so a restart
+doesn't re-announce everything, and a rule's first-ever sighting is recorded
+*silently* so enabling alerts (or a finished print on the bed) doesn't spam.
+Rules carry their own emoji so alerts read at a glance: 💾 backup, 🚨 RAID, 💽
+SMART, 🗄️ capacity, 🔌 external drive, 📦 containers, 🖨️ printer.
 
 ### The printer: the one push-based source
 

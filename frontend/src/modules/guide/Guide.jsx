@@ -35,6 +35,7 @@ const ENDPOINTS = [
   ['/api/printer/camera', 'Single latest chamber-camera JPEG frame (snapshot/fallback).'],
   ['POST /api/printer/command', 'Pause / resume / stop / light — published over the MQTT connection.'],
   ['/api/backups', 'Lists the age-encrypted config backups (read-only).'],
+  ['/api/alerts', 'Push-alert config, each rule’s current state, and recent history (+ POST /test).'],
   ['/api/readme · /asset/{n}', 'The project README (markdown) + its screenshots, for the in-app viewer.'],
   ['/api/server-guide', 'The host’s own server guide (markdown), for the Server Guide page.'],
   [
