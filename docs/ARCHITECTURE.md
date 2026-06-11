@@ -74,6 +74,7 @@ Adding a module = add a router file and one `include_router` line.
 | `GET /api/network` | per-interface byte counters | reads host `/proc/1/net/dev` |
 | `GET /api/raid` | software-RAID array state (healthy/degraded, rebuild %) | parses host `/proc/mdstat` |
 | `GET /api/smart` | per-drive SMART health; role-tagged (raid/system/other) | reads a host timer's `smart.json` |
+| `GET /api/drive-watchdog` | watched external drive's health + recovery history | reads the host watchdog's state JSON (fills the SMART gap for USB enclosures) |
 | `GET /api/printer` | live 3D-printer telemetry (state/progress/temps/AMS) | cached snapshot from a persistent MQTT client (Bambu LAN) |
 | `GET /api/printer/camera/stream` | live chamber-camera MJPEG feed | re-streams the printer's TLS frames (:6000) as `multipart/x-mixed-replace`; one connection, frames pushed as they arrive — what the UI uses |
 | `GET /api/printer/camera` | single latest chamber-camera JPEG frame | the same on-demand reader, one frame per request (snapshot/fallback) |
@@ -214,9 +215,11 @@ script (root, on the host) does the unmount/reset/fsck; the container never does
 It's fully generic — drive identity (mount, UUID, optional USB `vendor:product`,
 fstype, tuning) comes from `.env` under `WATCHDOG_*`, the repair tool is chosen by
 filesystem type (or overridden), and it writes a small atomic state JSON
-(`WATCHDOG_STATE_JSON`: health + last-recovery + recovery count) — the hook for a
-future Drives-widget tie-in, so the dashboard can surface a drive that SMART
-can't read through a USB bridge.
+(`WATCHDOG_STATE_JSON`: health + last-recovery + recovery count). The backend
+reads that file via the same `/smart` mount and serves it at
+`/api/drive-watchdog`, so the **Drives** widget shows the watched drive's health
+and self-recovery history — surfacing a drive that SMART can't read through a USB
+bridge.
 
 ### The printer: the one push-based source
 

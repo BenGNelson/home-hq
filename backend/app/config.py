@@ -41,6 +41,10 @@ class Settings(BaseSettings):
 
     # --- SMART drive health (collected by a host root timer; we only read it) ---
     smart_json_path: str = "/smart/smart.json"
+    # State file written by the host external-drive watchdog (scripts/drive-
+    # watchdog.sh), read via the same /smart mount. Lets the Drives widget show a
+    # USB-bridged drive whose SMART can't be read through the enclosure.
+    watchdog_state_path: str = "/smart/drive-watchdog.json"
 
     # --- 3D printer (Bambu, LAN mode) ---
     # All optional: if printer_host/serial/access_code are unset the MQTT client

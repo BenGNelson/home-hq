@@ -26,6 +26,7 @@ from app.routers import (
     readme,
     smart,
     system,
+    watchdog,
 )
 
 
@@ -91,3 +92,4 @@ app.include_router(printer.router, prefix="/api")
 app.include_router(raid.router, prefix="/api")
 app.include_router(readme.router, prefix="/api")
 app.include_router(smart.router, prefix="/api")
+app.include_router(watchdog.router, prefix="/api")

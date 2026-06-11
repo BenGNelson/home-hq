@@ -1,5 +1,6 @@
 import { useApi } from '../../../lib/useApi.js'
 import { formatAgo, formatBytes } from '../../../lib/format.js'
+import { watchdogBadge } from '../../../lib/watchdog.js'
 import Widget from './Widget.jsx'
 
 // Health badge per drive: green OK, amber when there are warnings (e.g.
@@ -21,19 +22,23 @@ function roleTag(role) {
 
 export default function DrivesWidget() {
   const { data, error, loading } = useApi('/smart', 60000)
-  // Hide external/unreadable disks (e.g. the USB-bridged 4tex); show the OS
-  // disk and the RAID members, each tagged so it's clear which is which.
+  // The watchdog covers the gap SMART leaves: a USB-bridged external drive whose
+  // enclosure blocks SMART passthrough. So we hide SMART's unreadable 'other'
+  // disks here and show that drive's health from the watchdog instead, below.
+  const { data: wd } = useApi('/drive-watchdog', 60000)
   const drives = (data?.available ? data.drives : []).filter((d) => d.role !== 'other')
+  const watched = wd?.available ? wd : null
+  const empty = drives.length === 0 && !watched
 
   return (
     <Widget title="Drives" loading={loading} error={error}>
-      {data && !data.available && (
+      {data && empty && (
         <p className="text-sm text-slate-500">
           No SMART data yet — the host collector hasn’t run.
         </p>
       )}
 
-      {drives.length > 0 && (
+      {(drives.length > 0 || watched) && (
         <div className="space-y-2 text-sm">
           {drives.map((d) => {
             const b = badge(d)
@@ -82,6 +87,8 @@ export default function DrivesWidget() {
               </div>
             )
           })}
+
+          {watched && <WatchedDrive d={watched} />}
         </div>
       )}
 
@@ -89,5 +96,39 @@ export default function DrivesWidget() {
         <p className="mt-2 text-xs text-slate-600">as of {formatAgo(data.generated_at)}</p>
       )}
     </Widget>
+  )
+}
+
+// The externally-watched USB drive: health comes from the watchdog (SMART can't
+// read it through the bridge), with its self-recovery history shown inline.
+function WatchedDrive({ d }) {
+  const b = watchdogBadge(d)
+  return (
+    <div className="border-b border-slate-800 pb-2 last:border-0 last:pb-0">
+      <div className="flex items-center justify-between">
+        <span className="font-medium text-slate-200">
+          {d.label || 'External drive'}
+          <span className="ml-2 rounded bg-teal-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-teal-300">
+            EXT
+          </span>
+          {d.mount && (
+            <span className="ml-2 text-xs font-normal text-slate-500">{d.mount}</span>
+          )}
+        </span>
+        <span className={b.cls} title={d.note || ''}>
+          <span className="mr-1">●</span>
+          {b.label}
+        </span>
+      </div>
+      <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-slate-500">
+        {d.fstype && <span>{d.fstype}</span>}
+        {d.recovery_count > 0 && (
+          <span>
+            {d.recovery_count} auto-recover{d.recovery_count === 1 ? 'y' : 'ies'}
+          </span>
+        )}
+        {d.last_recovery && <span>last {formatAgo(d.last_recovery)}</span>}
+      </div>
+    </div>
   )
 }

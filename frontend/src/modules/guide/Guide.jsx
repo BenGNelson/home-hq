@@ -29,6 +29,7 @@ const ENDPOINTS = [
   ['/api/network', 'Per-interface byte counters (read from the host’s /proc).'],
   ['/api/raid', 'Software-RAID array health, parsed from /proc/mdstat.'],
   ['/api/smart', 'Per-drive SMART health, collected daily by a host timer.'],
+  ['/api/drive-watchdog', 'Health + auto-recovery history of a watched external drive (SMART can’t read USB enclosures).'],
   ['/api/printer', 'Live 3D-printer telemetry, cached from a persistent MQTT connection (Bambu LAN mode).'],
   ['/api/printer/camera/stream', 'Live chamber-camera MJPEG feed (opt-in; on-demand TLS stream on :6000).'],
   ['/api/printer/camera', 'Single latest chamber-camera JPEG frame (snapshot/fallback).'],
