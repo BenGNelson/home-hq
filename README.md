@@ -27,6 +27,7 @@ the surface area grows without the core getting messier.
 | **Containers** | Every Docker container with live status, image, uptime, and per-container CPU/mem/network detail. |
 | **Printer** | Live 3D-printer telemetry (Bambu Lab over local MQTT, no cloud) — print state, progress, layer count, time remaining, nozzle/bed/chamber temps, and AMS filament (color-named, in-use spool highlighted). Optional live **chamber camera** (MJPEG stream on the Printer page) and **controls** (pause/resume/stop with a confirm guard, light toggle). Reads on the LAN while the printer stays cloud-connected; the module hides itself until a printer is configured. |
 | **Network** | Live per-interface throughput graphs, with rates computed client-side from cumulative counters (the backend stays stateless). |
+| **Storage** | The disk deep-dive: capacity with a growth projection ("full in ~N weeks"), RAID array health in plain language, and per-drive SMART with temperature/wear **trend charts** from daily samples kept in SQLite. |
 | **Backups** | Lists the host's `age`-encrypted config backups (the encrypt step is a privileged host script; the app only reads the output). |
 | **Under the Hood** | An in-app living guide explaining each module, endpoint, and the technologies behind them. |
 | **Server Guide** | Renders your own server's markdown operations doc in-app (set `SERVER_GUIDE_FILE`); ships with an example template. |

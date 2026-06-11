@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     # catches the box/backend/internet going dark, which it can't self-report.
     healthcheck_ping_url: str = ""
 
+    # --- Storage trend history (in-app sampler → SQLite, powers the Storage page) ---
+    storage_history_interval: int = 3600  # seconds between trend samples
+    storage_history_days: int = 180  # retention + default query window (days)
+
     # --- 3D printer (Bambu, LAN mode) ---
     # All optional: if printer_host/serial/access_code are unset the MQTT client
     # never starts and /api/printer reports available:false ("not configured").

@@ -53,10 +53,12 @@ backend/app/
     network.py       # /api/network  (host interface counters)
     raid.py          # /api/raid     (software-RAID state from /proc/mdstat)
     smart.py         # /api/smart    (per-drive SMART, from a host timer's JSON)
+    storage.py       # /api/storage/trends  (SMART + capacity history)
     printer.py       # /api/printer  (cached snapshot from the MQTT client)
     plex.py          # /api/plex + library browser endpoints
   printer.py         # persistent MQTT client: telemetry parser + control commands
   camera.py          # on-demand chamber-camera reader (JPEG over TLS :6000)
+  storage_history.py # background sampler: daily SMART+capacity → SQLite; projection
 ```
 
 Each feature is an `APIRouter` included by `main.py` under the `/api` prefix.
@@ -75,6 +77,7 @@ Adding a module = add a router file and one `include_router` line.
 | `GET /api/raid` | software-RAID array state (healthy/degraded, rebuild %) | parses host `/proc/mdstat` |
 | `GET /api/smart` | per-drive SMART health; role-tagged (raid/system/other) | reads a host timer's `smart.json` |
 | `GET /api/drive-watchdog` | watched external drive's health + recovery history | reads the host watchdog's state JSON (fills the SMART gap for USB enclosures) |
+| `GET /api/storage/trends` | per-drive SMART history + capacity series + days-until-full projection | reads daily samples an in-app background thread records to SQLite |
 | `GET /api/alerts` | push-alert config + every rule's current state + recent log | from the background alert engine |
 | `POST /api/alerts/test` | send a test push (confirm the pipe reaches the phone) | posts to ntfy |
 | `GET /api/printer` | live 3D-printer telemetry (state/progress/temps/AMS) | cached snapshot from a persistent MQTT client (Bambu LAN) |
@@ -440,6 +443,15 @@ Short record of *why* things are the way they are, so future changes have contex
 - **Client-side rate computation.** Live network/throughput graphs derive rates
   from cumulative counters in the browser, so the backend stays stateless (no
   time-series storage) in this phase.
+- **Storage trends: an in-app sampler, not a host timer.** The early-failure
+  signal for disks is the *trend* (rising temperature/wear, growing usage), not a
+  point-in-time reading. The data is already exposed by `/api/smart`, `/api/raid`
+  and `/api/disk`; we only need to remember it over time. So rather than a
+  privileged host timer (like `smart-health.py`), a lightweight background thread
+  in the app upserts one row per UTC day into SQLite — idempotent, retention-
+  pruned, and unprivileged. This is the one deliberate exception to "backend stays
+  stateless": low-rate daily samples, not live counters. Capacity days-until-full
+  is a plain least-squares fit (`project_capacity`), no dependency.
 - **Module-local navigation.** Cross-library switching lives in the Plex module
   (a pill bar), not the global sidebar — the shell stays generic so every module
   isn't tempted to inject its own children into it.

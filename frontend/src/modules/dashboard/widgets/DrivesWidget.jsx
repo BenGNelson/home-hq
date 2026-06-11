@@ -1,24 +1,8 @@
 import { useApi } from '../../../lib/useApi.js'
 import { formatAgo, formatBytes } from '../../../lib/format.js'
 import { watchdogBadge } from '../../../lib/watchdog.js'
+import { smartBadge, roleTag } from '../../../lib/storage.js'
 import Widget from './Widget.jsx'
-
-// Health badge per drive: green OK, amber when there are warnings (e.g.
-// reallocated sectors) even if SMART still says "passed", red on FAILED,
-// grey when SMART couldn't be read (e.g. a USB bridge).
-function badge(d) {
-  if (!d.supported) return { label: 'n/a', cls: 'text-slate-500' }
-  if (d.passed === false) return { label: 'FAILED', cls: 'text-rose-400' }
-  if (d.warnings.length) return { label: 'warn', cls: 'text-amber-400' }
-  return { label: 'OK', cls: 'text-emerald-400' }
-}
-
-// A small tag identifying the drive's role on the box.
-function roleTag(role) {
-  if (role === 'raid') return { label: 'RAID', cls: 'bg-sky-500/15 text-sky-300' }
-  if (role === 'system') return { label: 'OS', cls: 'bg-violet-500/15 text-violet-300' }
-  return null
-}
 
 export default function DrivesWidget() {
   const { data, error, loading } = useApi('/smart', 60000)
@@ -41,7 +25,7 @@ export default function DrivesWidget() {
       {(drives.length > 0 || watched) && (
         <div className="space-y-2 text-sm">
           {drives.map((d) => {
-            const b = badge(d)
+            const b = smartBadge(d)
             const tag = roleTag(d.role)
             return (
               <div

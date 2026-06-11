@@ -11,6 +11,7 @@ rebuilds. Nothing host-specific or secret is stored here — only public-ish med
 metadata (titles, years, runtimes, resolutions). No file paths.
 """
 
+import json
 import os
 import sqlite3
 from contextlib import contextmanager
@@ -60,6 +61,20 @@ CREATE TABLE IF NOT EXISTS alert_log (
     message TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_alert_log_ts ON alert_log (ts);
+
+-- Storage trend history: one row per (UTC day, kind, subject) holding a JSON
+-- metrics blob. Powers the Storage page's SMART trends + capacity projection.
+-- Upserted by the in-app sampler (storage_history.py), so re-running a day just
+-- refreshes that day's row.
+CREATE TABLE IF NOT EXISTS storage_samples (
+    day     TEXT NOT NULL,   -- 'YYYY-MM-DD' (UTC) sample bucket
+    ts      REAL NOT NULL,   -- when recorded (epoch seconds)
+    kind    TEXT NOT NULL,   -- 'smart' | 'capacity'
+    subject TEXT NOT NULL,   -- drive name (smart) or mount path (capacity)
+    metrics TEXT NOT NULL,   -- JSON: metric name -> value
+    PRIMARY KEY (day, kind, subject)
+);
+CREATE INDEX IF NOT EXISTS idx_storage_samples ON storage_samples (kind, ts);
 """
 
 
@@ -139,6 +154,47 @@ def recent_alert_log(limit=20):
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+def record_storage_sample(day, ts, kind, subject, metrics):
+    """Upsert one day's trend sample for a drive/mount (metrics is a dict)."""
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO storage_samples (day, ts, kind, subject, metrics) "
+            "VALUES (?, ?, ?, ?, ?) ON CONFLICT(day, kind, subject) DO UPDATE SET "
+            "ts = excluded.ts, metrics = excluded.metrics",
+            (day, ts, kind, subject, json.dumps(metrics)),
+        )
+
+
+def storage_samples(kind, since_ts=None):
+    """Trend samples of one kind ('smart'|'capacity'), oldest first. Each row's
+    `metrics` JSON is decoded back into a dict."""
+    with get_conn() as conn:
+        if since_ts is not None:
+            rows = conn.execute(
+                "SELECT day, ts, subject, metrics FROM storage_samples "
+                "WHERE kind = ? AND ts >= ? ORDER BY ts ASC",
+                (kind, since_ts),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT day, ts, subject, metrics FROM storage_samples "
+                "WHERE kind = ? ORDER BY ts ASC",
+                (kind,),
+            ).fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["metrics"] = json.loads(d["metrics"])
+        out.append(d)
+    return out
+
+
+def prune_storage_samples(before_ts):
+    """Drop trend samples older than a cutoff (retention)."""
+    with get_conn() as conn:
+        conn.execute("DELETE FROM storage_samples WHERE ts < ?", (before_ts,))
 
 
 def get_meta(key, default=None):

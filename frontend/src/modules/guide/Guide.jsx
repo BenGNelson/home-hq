@@ -30,6 +30,7 @@ const ENDPOINTS = [
   ['/api/raid', 'Software-RAID array health, parsed from /proc/mdstat.'],
   ['/api/smart', 'Per-drive SMART health, collected daily by a host timer.'],
   ['/api/drive-watchdog', 'Health + auto-recovery history of a watched external drive (SMART can’t read USB enclosures).'],
+  ['/api/storage/trends', 'SMART + capacity history (daily samples) + a days-until-full projection — powers the Storage page.'],
   ['/api/printer', 'Live 3D-printer telemetry, cached from a persistent MQTT connection (Bambu LAN mode).'],
   ['/api/printer/camera/stream', 'Live chamber-camera MJPEG feed (opt-in; on-demand TLS stream on :6000).'],
   ['/api/printer/camera', 'Single latest chamber-camera JPEG frame (snapshot/fallback).'],
@@ -278,6 +279,15 @@ export default function Guide() {
           Drives widget flags reallocated/pending sectors, high wear, and
           overheating. A disk behind a USB bridge that can’t pass SMART through
           simply shows “n/a”.
+        </p>
+        <p className="mt-2">
+          The <strong>Storage page</strong> adds the <em>time</em> dimension. A
+          lightweight background thread records one SMART + capacity sample per
+          day into SQLite, and <Code>/api/storage/trends</Code> serves it back as
+          per-drive temperature/wear charts plus a capacity <strong>growth
+          projection</strong> — a least-squares fit of usage over time that
+          estimates “full in ~N weeks”. The trend is the real early-failure
+          signal; a single snapshot only tells you about right now.
         </p>
       </Section>
 

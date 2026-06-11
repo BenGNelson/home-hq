@@ -16,6 +16,7 @@ from app.camera import init_camera
 from app.config import settings
 from app.db import init_db
 from app.printer import init_client
+from app.storage_history import init_sampler
 from app.routers import (
     alerts,
     backups,
@@ -27,6 +28,7 @@ from app.routers import (
     raid,
     readme,
     smart,
+    storage,
     system,
     watchdog,
 )
@@ -62,12 +64,17 @@ async def lifespan(app: FastAPI):
     # pass sees the other subsystems already up.
     alerter = init_manager(settings.alert_interval)
     alerter.start()
+    # Storage trend sampler: records a daily SMART + capacity snapshot to SQLite
+    # so the Storage page can chart trends and project when the array fills up.
+    sampler = init_sampler(settings.storage_history_interval, settings.storage_history_days)
+    sampler.start()
     try:
         yield
     finally:
         client.stop()
         camera.stop()
         alerter.stop()
+        sampler.stop()
 
 
 app = FastAPI(title="Home HQ API", lifespan=lifespan)
@@ -100,5 +107,6 @@ app.include_router(printer.router, prefix="/api")
 app.include_router(raid.router, prefix="/api")
 app.include_router(readme.router, prefix="/api")
 app.include_router(smart.router, prefix="/api")
+app.include_router(storage.router, prefix="/api")
 app.include_router(watchdog.router, prefix="/api")
 app.include_router(alerts.router, prefix="/api")
