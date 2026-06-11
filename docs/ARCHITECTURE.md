@@ -241,7 +241,18 @@ conditions. State is persisted in SQLite (`alert_state`/`alert_log`) so a restar
 doesn't re-announce everything, and a rule's first-ever sighting is recorded
 *silently* so enabling alerts (or a finished print on the bed) doesn't spam.
 Rules carry their own emoji so alerts read at a glance: 💾 backup, 🚨 RAID, 💽
-SMART, 🗄️ capacity, 🔌 external drive, 📦 containers, 🖨️ printer.
+SMART, 🗄️ capacity, 🔌 external drive, 📦 containers, 🖨️ printer (done/failed),
+⏸ paused (catches filament runout — the stage reads "Changing filament"), ⚠️
+printer HMS faults, 🛰️ printer-offline-mid-print.
+
+Two of those deserve a note. **Printer-offline** fires *only* when the printer
+vanishes mid-print (last state RUNNING/PAUSE) — a dead telemetry pipe, a crash,
+or the upstream router's WAN IP drifting (which silently breaks the printer
+host); a normal power-down while idle stays quiet. And a **dead-man's switch**:
+each cycle the engine pings `HEALTHCHECK_PING_URL` (point it at an external check
+like Healthchecks.io). If the loop — or the whole box — dies, the pings stop and
+that external service alerts you. It's the one failure the app can't self-report,
+so it's deliberately watched from outside.
 
 ### The printer: the one push-based source
 

@@ -122,6 +122,8 @@ def test_snapshot_offline_when_stale():
     c._last_message_at = time.time() - 3600  # an hour ago
     snap = c.snapshot()
     assert snap["available"] is False and snap["reason"] == "offline"
+    # Carries the last-known state so an alerter can tell mid-print death apart.
+    assert snap["last_state"] == "RUNNING"
 
 
 def test_snapshot_available_with_fresh_data():

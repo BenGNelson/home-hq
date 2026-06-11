@@ -57,6 +57,10 @@ class Settings(BaseSettings):
     alert_interval: int = 120  # seconds between rule evaluations
     alert_disk_percent: int = 95  # warn when a filesystem is at/above this % full
     alert_backup_max_age_days: int = 8  # warn if no fresh backup in this many days
+    # Dead-man's switch: the engine pings this URL every tick. Point it at an
+    # external check (e.g. Healthchecks.io) that alerts YOU if the pings stop —
+    # catches the box/backend/internet going dark, which it can't self-report.
+    healthcheck_ping_url: str = ""
 
     # --- 3D printer (Bambu, LAN mode) ---
     # All optional: if printer_host/serial/access_code are unset the MQTT client

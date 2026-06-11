@@ -8,6 +8,8 @@ const EMOJI = {
   electric_plug: '🔌',
   package: '📦',
   printer: '🖨️',
+  warning: '⚠️',
+  satellite: '🛰️',
   desktop_computer: '🖥️',
   white_check_mark: '✅',
 }

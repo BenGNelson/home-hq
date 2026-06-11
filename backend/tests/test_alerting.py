@@ -7,6 +7,9 @@ from app.alerting import (
     _check_containers,
     _check_disk,
     _check_printer,
+    _check_printer_hms,
+    _check_printer_offline,
+    _check_printer_paused,
     _check_raid,
     _check_smart,
     _check_watchdog,
@@ -88,6 +91,28 @@ def test_printer_done_failed_running():
     assert _check_printer(pctx("RUNNING")) == (None, "")
 
 
+def test_printer_paused_surfaces_stage():
+    ctx = {"printer": {"available": True, "printer": {"state": "PAUSE", "stage": "Changing filament"}}}
+    key, msg = _check_printer_paused(ctx)
+    assert key == "paused" and "Changing filament" in msg
+    assert _check_printer_paused({"printer": {"available": True, "printer": {"state": "RUNNING"}}}) == (None, "")
+
+
+def test_printer_hms():
+    ctx = {"printer": {"available": True, "printer": {"hms": [{"code": "0300"}, {"code": "0500"}]}}}
+    key, msg = _check_printer_hms(ctx)
+    assert key == "hms:0300, 0500" and "0300" in msg
+    assert _check_printer_hms({"printer": {"available": True, "printer": {"hms": []}}}) == (None, "")
+
+
+def test_printer_offline_only_mid_print():
+    midprint = {"printer": {"available": False, "reason": "offline", "last_state": "RUNNING"}}
+    assert _check_printer_offline(midprint)[0] == "offline"
+    # idle power-down stays quiet; never-configured/no-data ignored
+    assert _check_printer_offline({"printer": {"available": False, "reason": "offline", "last_state": "IDLE"}}) == (None, "")
+    assert _check_printer_offline({"printer": {"available": False, "reason": "not_configured"}}) == (None, "")
+
+
 # --- edge-trigger behavior (db-backed, notify mocked) -----------------------
 
 
@@ -118,3 +143,25 @@ def test_edge_trigger_prime_fire_dedupe_clear(monkeypatch):
     mgr.evaluate()
     assert len(sent) == 2
     assert any(r["firing"] is False for r in mgr.status())
+
+
+def test_heartbeat_pings_when_configured(monkeypatch):
+    seen = {}
+
+    class _R:
+        def close(self):
+            seen["closed"] = True
+
+    monkeypatch.setattr(alerting.urllib.request, "urlopen", lambda url, timeout=None: (seen.__setitem__("url", url), _R())[1])
+    monkeypatch.setattr(settings, "healthcheck_ping_url", "https://hc.example/ping")
+    AlertManager(60)._heartbeat()
+    assert seen["url"] == "https://hc.example/ping"
+
+
+def test_heartbeat_noop_when_unset(monkeypatch):
+    def boom(*a, **k):
+        raise AssertionError("should not ping when no URL is set")
+
+    monkeypatch.setattr(alerting.urllib.request, "urlopen", boom)
+    monkeypatch.setattr(settings, "healthcheck_ping_url", "")
+    AlertManager(60)._heartbeat()  # no exception = pass

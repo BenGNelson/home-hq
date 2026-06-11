@@ -22,6 +22,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+import urllib.request
 from dataclasses import dataclass
 from typing import Callable
 
@@ -129,6 +130,42 @@ def _check_printer(ctx):
     return None, ""
 
 
+def _check_printer_paused(ctx):
+    """Catches filament runout (printer pauses, stage = 'Changing filament'),
+    user pauses, and fault pauses — all surface as gcode_state PAUSE."""
+    p = ctx.get("printer") or {}
+    if not p.get("available"):
+        return None, ""
+    pr = p.get("printer") or {}
+    if pr.get("state") == "PAUSE":
+        stage = pr.get("stage")
+        return "paused", f"Print paused{f': {stage}' if stage else ''}"
+    return None, ""
+
+
+def _check_printer_hms(ctx):
+    p = ctx.get("printer") or {}
+    if not p.get("available"):
+        return None, ""
+    hms = (p.get("printer") or {}).get("hms") or []
+    codes = [str(h.get("code")) for h in hms if h.get("code") is not None]
+    if codes:
+        joined = ", ".join(codes)
+        return "hms:" + joined, f"Printer fault (HMS): {joined}"
+    return None, ""
+
+
+def _check_printer_offline(ctx):
+    """Fire ONLY if the printer vanished mid-print — that's a dead pipe / crash /
+    eero-IP drift, the bad case. A power-down while idle is normal, so stay quiet."""
+    p = ctx.get("printer") or {}
+    if p.get("available") or p.get("reason") != "offline":
+        return None, ""
+    if p.get("last_state") in ("RUNNING", "PAUSE"):
+        return "offline", "Printer went offline mid-print — telemetry lost (check power / PRINTER_HOST / eero IP)"
+    return None, ""
+
+
 RULES = [
     Rule("backup", "Config backup", "floppy_disk", "high", True, _check_backup),
     Rule("raid", "RAID array", "rotating_light", "urgent", True, _check_raid),
@@ -137,6 +174,9 @@ RULES = [
     Rule("watchdog", "External drive", "electric_plug", "high", True, _check_watchdog),
     Rule("containers", "Containers", "package", "high", True, _check_containers),
     Rule("printer", "3D printer", "printer", "default", False, _check_printer),
+    Rule("printer_paused", "Print paused", "printer", "high", True, _check_printer_paused),
+    Rule("printer_hms", "Printer fault (HMS)", "warning", "high", True, _check_printer_hms),
+    Rule("printer_offline", "Printer telemetry", "satellite", "urgent", True, _check_printer_offline),
 ]
 
 
@@ -168,8 +208,21 @@ class AlertManager:
                 self.evaluate()
             except Exception as exc:  # never let the loop die
                 log.warning("alerting: evaluation error: %s", exc)
+            self._heartbeat()
             if self._stop.wait(self._interval):
                 return
+
+    def _heartbeat(self) -> None:
+        """Dead-man's switch: ping an external check each tick. If this loop (or
+        the whole box) dies, the pings stop and that external service alerts —
+        the one failure our own alerting can never self-report."""
+        url = settings.healthcheck_ping_url
+        if not url:
+            return
+        try:
+            urllib.request.urlopen(url, timeout=10).close()
+        except Exception as exc:  # best-effort; never disturb the loop
+            log.info("alerting: heartbeat ping failed: %s", exc)
 
     def build_context(self) -> dict:
         """Gather every data source once; one failing source can't break a tick."""

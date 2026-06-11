@@ -292,7 +292,15 @@ class PrinterClient:
 
         stale = (time.time() - last) > _STALE_AFTER_SECONDS
         if stale or not connected:
-            return {"available": False, "reason": "offline", "name": self._name, "connected": connected}
+            # Carry the last-known print state so an alerter can tell "went dark
+            # mid-print" (bad) from "powered off while idle" (normal).
+            return {
+                "available": False,
+                "reason": "offline",
+                "name": self._name,
+                "connected": connected,
+                "last_state": state_copy.get("gcode_state"),
+            }
 
         return {"available": True, "name": self._name, "printer": parse_state(state_copy)}
 
