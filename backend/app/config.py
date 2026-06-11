@@ -42,6 +42,16 @@ class Settings(BaseSettings):
     # --- SMART drive health (collected by a host root timer; we only read it) ---
     smart_json_path: str = "/smart/smart.json"
 
+    # --- 3D printer (Bambu, LAN mode) ---
+    # All optional: if printer_host/serial/access_code are unset the MQTT client
+    # never starts and /api/printer reports available:false ("not configured").
+    # The access code is a secret — it lives only in .env.
+    printer_host: str = ""  # printer's LAN IP / hostname
+    printer_serial: str = ""  # device serial (used in the MQTT topic)
+    printer_access_code: str = ""  # LAN access code from the printer screen (secret)
+    printer_name: str = "3D Printer"  # display label
+    printer_mqtt_port: int = 8883  # Bambu LAN MQTT is TLS on 8883
+
     # --- In-app doc viewers (files mounted read-only into the container) ---
     # Under /readme & /srv-guide, not /app — see the mount note in
     # docker-compose.yml (the test runner bind-mounts ./backend over /app).

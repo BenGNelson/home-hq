@@ -14,3 +14,8 @@ docker>=7.0
 # Plex client for /api/plex.
 # NOTE: PyPI package is "PlexAPI"; the Python import is "plexapi".
 PlexAPI>=4.15
+
+# MQTT client for /api/printer — the Bambu P1S publishes telemetry over a local
+# MQTT broker in LAN mode. We keep a persistent background connection and cache
+# the latest snapshot (the only push-based source; everything else is pull).
+paho-mqtt>=2.1

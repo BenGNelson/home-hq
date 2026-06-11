@@ -13,12 +13,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db import init_db
+from app.printer import init_client
 from app.routers import (
     backups,
     containers,
     disk,
     network,
     plex,
+    printer,
     raid,
     readme,
     smart,
@@ -31,7 +33,20 @@ async def lifespan(app: FastAPI):
     # Create the SQLite cache tables if they don't exist yet (used by the
     # Plex library browser). Idempotent. Runs once on startup.
     init_db()
-    yield
+    # Start the persistent printer MQTT client (a no-op if unconfigured). It
+    # connects in the background and caches telemetry for /api/printer.
+    client = init_client(
+        host=settings.printer_host,
+        serial=settings.printer_serial,
+        access_code=settings.printer_access_code,
+        port=settings.printer_mqtt_port,
+        name=settings.printer_name,
+    )
+    client.start()
+    try:
+        yield
+    finally:
+        client.stop()
 
 
 app = FastAPI(title="Home HQ API", lifespan=lifespan)
@@ -60,6 +75,7 @@ app.include_router(containers.router, prefix="/api")
 app.include_router(network.router, prefix="/api")
 app.include_router(backups.router, prefix="/api")
 app.include_router(plex.router, prefix="/api")
+app.include_router(printer.router, prefix="/api")
 app.include_router(raid.router, prefix="/api")
 app.include_router(readme.router, prefix="/api")
 app.include_router(smart.router, prefix="/api")

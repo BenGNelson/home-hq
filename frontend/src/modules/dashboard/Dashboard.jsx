@@ -2,6 +2,7 @@ import SystemWidget from './widgets/SystemWidget.jsx'
 import DiskWidget from './widgets/DiskWidget.jsx'
 import DrivesWidget from './widgets/DrivesWidget.jsx'
 import ContainersWidget from './widgets/ContainersWidget.jsx'
+import PrinterWidget from './widgets/PrinterWidget.jsx'
 import PlexWidget from './widgets/PlexWidget.jsx'
 
 // The Dashboard module: a responsive grid of independent widgets. Each widget
@@ -18,6 +19,7 @@ export default function Dashboard() {
         <DrivesWidget />
         <PlexWidget />
         <ContainersWidget />
+        <PrinterWidget />
       </div>
     </div>
   )

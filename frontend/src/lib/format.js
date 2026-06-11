@@ -88,6 +88,14 @@ export function formatAgo(epoch) {
   return `${Math.floor(h / 24)}d ago`
 }
 
+// Minutes -> "37m" / "1h 23m" (printer time-remaining is reported in minutes).
+export function formatMinutes(min) {
+  if (min == null) return '—'
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
+}
+
 export function formatUptime(seconds) {
   if (seconds == null) return '—'
   const d = Math.floor(seconds / 86400)

@@ -53,7 +53,9 @@ backend/app/
     network.py       # /api/network  (host interface counters)
     raid.py          # /api/raid     (software-RAID state from /proc/mdstat)
     smart.py         # /api/smart    (per-drive SMART, from a host timer's JSON)
+    printer.py       # /api/printer  (cached snapshot from the MQTT client)
     plex.py          # /api/plex + library browser endpoints
+  printer.py         # persistent MQTT client + pure telemetry parser (push source)
 ```
 
 Each feature is an `APIRouter` included by `main.py` under the `/api` prefix.
@@ -71,6 +73,7 @@ Adding a module = add a router file and one `include_router` line.
 | `GET /api/network` | per-interface byte counters | reads host `/proc/1/net/dev` |
 | `GET /api/raid` | software-RAID array state (healthy/degraded, rebuild %) | parses host `/proc/mdstat` |
 | `GET /api/smart` | per-drive SMART health; role-tagged (raid/system/other) | reads a host timer's `smart.json` |
+| `GET /api/printer` | live 3D-printer telemetry (state/progress/temps/AMS) | cached snapshot from a persistent MQTT client (Bambu LAN) |
 | `GET /api/backups` | list encrypted config backups (read-only) | reads BACKUP_DIR (under the RAID mount) |
 | `GET /api/readme` | the project README as markdown (in-app viewer) | reads the README mounted read-only |
 | `GET /api/readme/asset/{name}` | a screenshot the README references | serves from the mounted docs image dir (bare filename only) |
@@ -191,6 +194,23 @@ Two layers, split by how privileged the data is:
   enclosures. The backend tags each drive `raid` / `system` / `other` (by
   cross-referencing `/proc/mdstat`), so the UI can label the OS disk vs array
   members and hide unreadable external disks.
+
+### The printer: the one push-based source
+
+Every endpoint above is **pull** — it gathers data when the request arrives. A
+3D printer is different: in Bambu's LAN mode it *publishes* a telemetry blob to
+a local MQTT broker (TLS on :8883, auth = `bblp` + the printer's access code).
+So `app/printer.py` keeps a **persistent MQTT client** alive for the process
+lifetime (started/stopped from the FastAPI lifespan). It subscribes to
+`device/<serial>/report`, sends a `pushall` on connect to get the full state
+once, then **deep-merges** each subsequent partial delta into a cached state
+dict (guarded by a lock, since paho runs its own network thread). `/api/printer`
+just returns the latest cached snapshot, mapped through a pure `parse_state()`
+(the unit-tested core). Availability degrades like everything else: it reports
+`not_configured` (no env set), `no_data` (connected, nothing yet), or `offline`
+(no message within 60s / disconnected) instead of erroring. All host-specific
+values (host, serial, access code) come from `.env`; nothing printer-specific is
+committed. Read-only for now — controls and the chamber camera are deferred.
 
 ---
 

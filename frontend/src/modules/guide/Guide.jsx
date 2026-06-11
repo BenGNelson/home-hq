@@ -29,6 +29,7 @@ const ENDPOINTS = [
   ['/api/network', 'Per-interface byte counters (read from the host’s /proc).'],
   ['/api/raid', 'Software-RAID array health, parsed from /proc/mdstat.'],
   ['/api/smart', 'Per-drive SMART health, collected daily by a host timer.'],
+  ['/api/printer', 'Live 3D-printer telemetry, cached from a persistent MQTT connection (Bambu LAN mode).'],
   ['/api/backups', 'Lists the age-encrypted config backups (read-only).'],
   ['/api/readme · /asset/{n}', 'The project README (markdown) + its screenshots, for the in-app viewer.'],
   ['/api/server-guide', 'The host’s own server guide (markdown), for the Server Guide page.'],
@@ -60,6 +61,7 @@ const GLOSSARY = [
   ['RAID (RAID5)', 'Combines several disks for capacity plus redundancy; a RAID5 array keeps working even if one disk fails.'],
   ['SMART', 'Self-monitoring data that drives expose — temperature, wear, reallocated sectors — used to catch a failing disk early.'],
   ['systemd timer', "Linux's built-in scheduler (a modern cron) that runs a task on a schedule, like the daily SMART collector."],
+  ['MQTT', 'A lightweight publish/subscribe messaging protocol for devices. The 3D printer publishes its state to a local broker and the backend subscribes — the one push-based data source (everything else is pulled on request).'],
 ]
 
 // The live, host-specific part: real containers from the API + your notes.
@@ -226,6 +228,23 @@ export default function Guide() {
           uses. Interfaces get friendly labels, stacked full-width with a time
           axis. Nothing is stored — rates are derived client-side, so the backend
           stays stateless.
+        </p>
+      </Section>
+
+      <Section title="Printer module">
+        <p>
+          The one <strong>push-based</strong> source. In LAN mode a Bambu printer
+          publishes telemetry to a local MQTT broker, so instead of polling on
+          request the backend keeps a <strong>persistent MQTT connection</strong>{' '}
+          alive (started from the app lifespan). It subscribes to the printer’s
+          report topic, asks for a full state dump on connect, then deep-merges
+          each partial update into a cached snapshot. <Code>/api/printer</Code>{' '}
+          hands back that snapshot — state, progress, layer, time remaining,
+          nozzle/bed/chamber temps, and AMS filament. It degrades gracefully
+          (<em>not configured</em> / <em>connecting</em> / <em>offline</em>), and
+          the whole module hides itself when no printer is set. Host values
+          (address, serial, access code) live only in <Code>.env</Code>.
+          Read-only for now — controls and the chamber camera come later.
         </p>
       </Section>
 
