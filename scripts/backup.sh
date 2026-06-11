@@ -18,13 +18,18 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Load config from the repo .env unless already set in the environment.
+# Load just the backup-related keys from .env (values already in the environment
+# win). We deliberately DON'T `source` the whole file: under `set -e` a value
+# with a space (e.g. PRINTER_NAME=Bambu P1S) would make bash try to run a word as
+# a command and abort the backup. Reading our own keys is robust to any line.
 ENV_FILE="${ENV_FILE:-$SCRIPT_DIR/../.env}"
 if [[ -f "$ENV_FILE" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$ENV_FILE"
-  set +a
+  while IFS='=' read -r key val; do
+    [[ "$key" == AGE_* || "$key" == BACKUP_* ]] || continue
+    val="${val%$'\r'}"                  # tolerate CRLF line endings
+    val="${val#[\"\']}"; val="${val%[\"\']}"   # strip optional surrounding quotes
+    [[ -n "${!key:-}" ]] || printf -v "$key" '%s' "$val"
+  done < "$ENV_FILE"
 fi
 
 : "${AGE_RECIPIENT:?AGE_RECIPIENT not set (put the public key in .env)}"
