@@ -30,6 +30,8 @@ const ENDPOINTS = [
   ['/api/raid', 'Software-RAID array health, parsed from /proc/mdstat.'],
   ['/api/smart', 'Per-drive SMART health, collected daily by a host timer.'],
   ['/api/printer', 'Live 3D-printer telemetry, cached from a persistent MQTT connection (Bambu LAN mode).'],
+  ['/api/printer/camera', 'Latest chamber-camera JPEG frame (opt-in; on-demand TLS stream on :6000).'],
+  ['POST /api/printer/command', 'Pause / resume / stop / light — published over the MQTT connection.'],
   ['/api/backups', 'Lists the age-encrypted config backups (read-only).'],
   ['/api/readme · /asset/{n}', 'The project README (markdown) + its screenshots, for the in-app viewer.'],
   ['/api/server-guide', 'The host’s own server guide (markdown), for the Server Guide page.'],
@@ -244,7 +246,17 @@ export default function Guide() {
           (<em>not configured</em> / <em>connecting</em> / <em>offline</em>), and
           the whole module hides itself when no printer is set. Host values
           (address, serial, access code) live only in <Code>.env</Code>.
-          Read-only for now — controls and the chamber camera come later.
+        </p>
+        <p className="mt-2">
+          <strong>Controls</strong> (<Code>POST /api/printer/command</Code>) publish
+          pause/resume/stop/light over the same MQTT connection — allowlisted
+          server-side, with Stop behind a confirm step in the UI. The optional{' '}
+          <strong>chamber camera</strong> is separate: the P1 series has no RTSP, so
+          it streams JPEG frames over an authenticated TLS socket on <Code>:6000</Code>.
+          That reader connects only while you’re watching (so it doesn’t fight
+          Bambu Studio’s live view) and <Code>/api/printer/camera</Code> serves the
+          latest frame. It’s opt-in (<Code>PRINTER_CAMERA</Code>) since it may need
+          its own network reachability.
         </p>
       </Section>
 

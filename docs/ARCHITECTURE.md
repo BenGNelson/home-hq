@@ -55,7 +55,8 @@ backend/app/
     smart.py         # /api/smart    (per-drive SMART, from a host timer's JSON)
     printer.py       # /api/printer  (cached snapshot from the MQTT client)
     plex.py          # /api/plex + library browser endpoints
-  printer.py         # persistent MQTT client + pure telemetry parser (push source)
+  printer.py         # persistent MQTT client: telemetry parser + control commands
+  camera.py          # on-demand chamber-camera reader (JPEG over TLS :6000)
 ```
 
 Each feature is an `APIRouter` included by `main.py` under the `/api` prefix.
@@ -74,6 +75,8 @@ Adding a module = add a router file and one `include_router` line.
 | `GET /api/raid` | software-RAID array state (healthy/degraded, rebuild %) | parses host `/proc/mdstat` |
 | `GET /api/smart` | per-drive SMART health; role-tagged (raid/system/other) | reads a host timer's `smart.json` |
 | `GET /api/printer` | live 3D-printer telemetry (state/progress/temps/AMS) | cached snapshot from a persistent MQTT client (Bambu LAN) |
+| `GET /api/printer/camera` | latest chamber-camera JPEG frame | on-demand TLS stream from the printer (:6000), reader holds the socket only while viewed |
+| `POST /api/printer/command` | pause/resume/stop/light (allowlisted) | publishes over the MQTT connection |
 | `GET /api/backups` | list encrypted config backups (read-only) | reads BACKUP_DIR (under the RAID mount) |
 | `GET /api/readme` | the project README as markdown (in-app viewer) | reads the README mounted read-only |
 | `GET /api/readme/asset/{name}` | a screenshot the README references | serves from the mounted docs image dir (bare filename only) |
@@ -210,7 +213,17 @@ just returns the latest cached snapshot, mapped through a pure `parse_state()`
 `not_configured` (no env set), `no_data` (connected, nothing yet), or `offline`
 (no message within 60s / disconnected) instead of erroring. All host-specific
 values (host, serial, access code) come from `.env`; nothing printer-specific is
-committed. Read-only for now — controls and the chamber camera are deferred.
+committed.
+
+**Controls** reuse that same MQTT connection: `POST /api/printer/command`
+publishes an allowlisted command (pause/resume/stop/light) to the printer's
+request topic. **The chamber camera** (`app/camera.py`) is separate — the P1
+series has no RTSP, so it streams JPEG frames over an authenticated TLS socket
+on :6000. That reader connects *on demand* (only while the UI is fetching
+frames) and disconnects after a short idle, so it doesn't contend with Bambu
+Studio's own live view; `GET /api/printer/camera` returns the latest frame. The
+camera is opt-in (`PRINTER_CAMERA`) because it may need its own network
+reachability (e.g. a separate port-forward to the printer).
 
 ---
 

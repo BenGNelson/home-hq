@@ -25,7 +25,7 @@ the surface area grows without the core getting messier.
 | **Dashboard** | At-a-glance widgets: CPU/RAM/uptime, storage usage, RAID health, per-drive SMART, running containers, Plex now-playing + recently-added. |
 | **Plex** | A fast, searchable library browser backed by a local SQLite cache (movies, shows, episodes), with on-demand detail pages and token-safe proxied artwork. |
 | **Containers** | Every Docker container with live status, image, uptime, and per-container CPU/mem/network detail. |
-| **Printer** | Live 3D-printer telemetry (Bambu Lab over local MQTT, no cloud) — print state, progress, layer count, time remaining, nozzle/bed/chamber temps, and AMS filament. Reads on the LAN while the printer stays cloud-connected. Optional; the module hides itself until a printer is configured. |
+| **Printer** | Live 3D-printer telemetry (Bambu Lab over local MQTT, no cloud) — print state, progress, layer count, time remaining, nozzle/bed/chamber temps, and AMS filament (color-named, in-use spool highlighted). Optional **chamber camera** and **controls** (pause/resume/stop with a confirm guard, light toggle). Reads on the LAN while the printer stays cloud-connected; the module hides itself until a printer is configured. |
 | **Network** | Live per-interface throughput graphs, with rates computed client-side from cumulative counters (the backend stays stateless). |
 | **Backups** | Lists the host's `age`-encrypted config backups (the encrypt step is a privileged host script; the app only reads the output). |
 | **Under the Hood** | An in-app living guide explaining each module, endpoint, and the technologies behind them. |
