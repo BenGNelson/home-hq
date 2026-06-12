@@ -75,6 +75,17 @@ CREATE TABLE IF NOT EXISTS storage_samples (
     PRIMARY KEY (day, kind, subject)
 );
 CREATE INDEX IF NOT EXISTS idx_storage_samples ON storage_samples (kind, ts);
+
+-- What's-eating-space: the latest top-level usage breakdown of the storage mount.
+-- One row per UTC day (a daily du scan is expensive, so we cache it); the page
+-- reads the most recent. `entries` is a JSON list of {name, bytes}.
+CREATE TABLE IF NOT EXISTS space_usage (
+    day        TEXT PRIMARY KEY,  -- 'YYYY-MM-DD' (UTC) of the scan
+    scanned_at REAL NOT NULL,
+    root       TEXT NOT NULL,
+    total_bytes INTEGER,
+    entries    TEXT NOT NULL
+);
 """
 
 
@@ -195,6 +206,32 @@ def prune_storage_samples(before_ts):
     """Drop trend samples older than a cutoff (retention)."""
     with get_conn() as conn:
         conn.execute("DELETE FROM storage_samples WHERE ts < ?", (before_ts,))
+
+
+def record_space_usage(day, scanned_at, root, total_bytes, entries):
+    """Upsert one day's storage breakdown (entries is a list of dicts)."""
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO space_usage (day, scanned_at, root, total_bytes, entries) "
+            "VALUES (?, ?, ?, ?, ?) ON CONFLICT(day) DO UPDATE SET "
+            "scanned_at = excluded.scanned_at, root = excluded.root, "
+            "total_bytes = excluded.total_bytes, entries = excluded.entries",
+            (day, scanned_at, root, total_bytes, json.dumps(entries)),
+        )
+
+
+def latest_space_usage():
+    """The most recent storage breakdown, or None. `entries` is decoded back."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT day, scanned_at, root, total_bytes, entries FROM space_usage "
+            "ORDER BY scanned_at DESC LIMIT 1"
+        ).fetchone()
+    if not row:
+        return None
+    out = dict(row)
+    out["entries"] = json.loads(out["entries"])
+    return out
 
 
 def get_meta(key, default=None):

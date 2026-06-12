@@ -30,6 +30,22 @@ def shape_smart_series(rows):
     return by_drive
 
 
+@router.get("/storage/space")
+def get_space():
+    """Cached top-level usage breakdown of the storage mount (daily du scan).
+    available:false until the first background scan has run."""
+    latest = db.latest_space_usage()
+    if not latest:
+        return {"available": False}
+    return {
+        "available": True,
+        "scanned_at": latest["scanned_at"],
+        "root": latest["root"],
+        "total_bytes": latest["total_bytes"],
+        "entries": latest["entries"],
+    }
+
+
 @router.get("/storage/trends")
 def get_trends(days: int = 180):
     days = max(1, min(days, 730))

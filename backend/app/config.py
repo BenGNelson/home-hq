@@ -69,6 +69,11 @@ class Settings(BaseSettings):
     storage_history_interval: int = 3600  # seconds between trend samples
     storage_history_days: int = 180  # retention + default query window (days)
 
+    # --- What's-eating-space (cached daily `du` of the storage mount) ---
+    space_scan_enabled: bool = True  # set false to skip the heavy daily du scan
+    space_scan_interval: int = 3600  # how often the thread checks if a scan is due
+    space_scan_timeout: int = 900  # max seconds a single du may run
+
     # --- 3D printer (Bambu, LAN mode) ---
     # All optional: if printer_host/serial/access_code are unset the MQTT client
     # never starts and /api/printer reports available:false ("not configured").

@@ -60,6 +60,7 @@ backend/app/
   printer.py         # persistent MQTT client: telemetry parser + control commands
   camera.py          # on-demand chamber-camera reader (JPEG over TLS :6000)
   storage_history.py # background sampler: daily SMART+capacity → SQLite; projection
+  space_usage.py     # background daily `du` of the mount → cached breakdown
 ```
 
 Each feature is an `APIRouter` included by `main.py` under the `/api` prefix.
@@ -81,6 +82,7 @@ Adding a module = add a router file and one `include_router` line.
 | `GET /api/smart/{name}/attributes` | one drive's full SMART attribute table (or NVMe health log), on demand | reads `smart.json` (kept out of the polled list) |
 | `GET /api/drive-watchdog` | watched external drive's health + recent recovery events | reads the host watchdog's state JSON + its append-only event log (fills the SMART gap for USB enclosures) |
 | `GET /api/storage/trends` | per-drive SMART history + capacity series + days-until-full projection | reads daily samples an in-app background thread records to SQLite |
+| `GET /api/storage/space` | top-level "what's using space" breakdown of the mount | serves a cached daily `du` (a background thread scans; never on request) |
 | `GET /api/alerts` | push-alert config + every rule's current state + recent log | from the background alert engine |
 | `POST /api/alerts/test` | send a test push (confirm the pipe reaches the phone) | posts to ntfy |
 | `GET /api/printer` | live 3D-printer telemetry (state/progress/temps/AMS) | cached snapshot from a persistent MQTT client (Bambu LAN) |

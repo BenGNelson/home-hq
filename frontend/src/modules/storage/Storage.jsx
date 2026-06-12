@@ -29,6 +29,7 @@ export default function Storage() {
     <div className="space-y-4">
       <h2 className="text-xl font-semibold">Storage</h2>
       <Capacity disk={disk.data} projection={trends.data?.projection} />
+      <SpaceBreakdown />
       <RaidDetail raid={raid.data} />
       <DiskActivity />
       <Drives smart={smart.data} trends={trends.data} watched={watchdog.data} />
@@ -158,6 +159,62 @@ function Projection({ p }) {
         </>
       )}
     </p>
+  )
+}
+
+// --- What's using space (cached daily du breakdown) ---
+
+// A neutral palette so the largest few directories are easy to tell apart.
+const SPACE_COLORS = ['#38bdf8', '#34d399', '#a78bfa', '#f59e0b', '#f472b6', '#2dd4bf']
+
+function SpaceBreakdown() {
+  const { data, error, loading } = useApi('/storage/space', 300000)
+  if (loading && !data) {
+    return (
+      <Card title="What's using space">
+        <Spinner />
+      </Card>
+    )
+  }
+  if (error || !data || data.available === false) {
+    return (
+      <Card title="What's using space">
+        <p className="text-sm text-slate-500">
+          Breakdown pending — a daily background scan measures the array; check back
+          once it has run.
+        </p>
+      </Card>
+    )
+  }
+  const total = data.total_bytes || data.entries.reduce((s, e) => s + e.bytes, 0) || 1
+  return (
+    <Card title="What's using space">
+      <div className="space-y-2 text-sm">
+        {data.entries.map((e, i) => {
+          const pct = (e.bytes / total) * 100
+          return (
+            <div key={e.name}>
+              <div className="mb-0.5 flex items-baseline justify-between">
+                <span className="truncate text-slate-300">{e.name}</span>
+                <span className="ml-2 shrink-0 tabular-nums text-slate-400">
+                  {formatBytes(e.bytes)} <span className="text-slate-600">· {pct.toFixed(0)}%</span>
+                </span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+                <div
+                  className="h-full rounded-full"
+                  style={{ width: `${pct}%`, background: SPACE_COLORS[i % SPACE_COLORS.length] }}
+                />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <p className="mt-3 text-xs text-slate-600">
+        {formatBytes(total)} across {data.entries.length} folders · scanned{' '}
+        {formatAgo(data.scanned_at)}
+      </p>
+    </Card>
   )
 }
 
