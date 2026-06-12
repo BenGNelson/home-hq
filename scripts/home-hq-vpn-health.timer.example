@@ -1,12 +1,15 @@
 # Home HQ — refresh VPN egress health periodically.
 # Install: copy to /etc/systemd/system/home-hq-vpn-health.timer, then:
 #   sudo systemctl daemon-reload && sudo systemctl enable --now home-hq-vpn-health.timer
+# NOTE: systemd does not support trailing inline comments on a directive line —
+# keep comments on their own lines, or the value parse fails.
 [Unit]
 Description=Home HQ — periodic VPN egress health check
 
 [Timer]
-OnBootSec=2min
-OnUnitActiveSec=5min   # a leak is worth catching quickly; egress rarely changes
+# Every 5 minutes (wall clock) — a leak is worth catching quickly.
+OnCalendar=*:0/5
+# Catch up on the next boot if the machine was off at the scheduled time.
 Persistent=true
 
 [Install]
