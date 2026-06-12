@@ -1,5 +1,6 @@
 import { useApi } from '../../lib/useApi.js'
-import { formatBytes, formatAgo } from '../../lib/format.js'
+import { useDiskRates } from '../../lib/useRates.js'
+import { formatBytes, formatAgo, formatRate } from '../../lib/format.js'
 import { Row, Bar, Spinner } from '../../components/ui.jsx'
 import { Graph } from '../../components/Graph.jsx'
 import { watchdogBadge } from '../../lib/watchdog.js'
@@ -27,8 +28,60 @@ export default function Storage() {
       <h2 className="text-xl font-semibold">Storage</h2>
       <Capacity disk={disk.data} projection={trends.data?.projection} />
       <RaidDetail raid={raid.data} />
+      <DiskActivity />
       <Drives smart={smart.data} trends={trends.data} watched={watchdog.data} />
     </div>
+  )
+}
+
+// --- Live disk I/O throughput ---
+
+// md* is the software-RAID aggregate; everything else is a physical disk.
+function describeDisk(name) {
+  if (/^md\d+$/.test(name)) return 'RAID array (aggregate)'
+  return 'Physical disk'
+}
+
+function DiskActivity() {
+  const { rates, error } = useDiskRates(2000, 60)
+  const names = Object.keys(rates)
+  return (
+    <Card title="Disk activity">
+      {error ? (
+        <p className="text-sm text-rose-400">unavailable — {error}</p>
+      ) : names.length === 0 ? (
+        <p className="text-sm text-slate-500">sampling… (2s, ~2 min window)</p>
+      ) : (
+        <div className="space-y-4">
+          {names.map((name) => {
+            const r = rates[name]
+            const peak = Math.max(...r.readHistory, ...r.writeHistory, 1)
+            return (
+              <div key={name}>
+                <div className="mb-1 flex items-start justify-between gap-4">
+                  <div>
+                    <span className="font-mono text-sm text-slate-200">{name}</span>
+                    <span className="ml-2 text-xs text-slate-500">{describeDisk(name)}</span>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end text-xs tabular-nums">
+                    <span className="text-sky-400">↑ read {formatRate(r.readRate)}</span>
+                    <span className="text-amber-400">↓ write {formatRate(r.writeRate)}</span>
+                  </div>
+                </div>
+                <Graph
+                  heightClass="h-16"
+                  series={[
+                    { color: '#38bdf8', points: r.readHistory },
+                    { color: '#f59e0b', points: r.writeHistory },
+                  ]}
+                />
+                <div className="mt-1 text-[10px] text-slate-500">peak {formatRate(peak)}</div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </Card>
   )
 }
 

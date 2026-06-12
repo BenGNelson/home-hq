@@ -27,6 +27,7 @@ const ENDPOINTS = [
   ['/api/disk', 'Total / used / free for the storage array.'],
   ['/api/containers · /{name}', 'Container list, and one container’s live CPU/mem/net.'],
   ['/api/network', 'Per-interface byte counters (read from the host’s /proc).'],
+  ['/api/diskio', 'Per-disk read/write byte counters (/proc/diskstats); the Storage page graphs rates client-side.'],
   ['/api/raid', 'Software-RAID array health, parsed from /proc/mdstat.'],
   ['/api/smart', 'Per-drive SMART health, collected daily by a host timer.'],
   ['/api/drive-watchdog', 'Health + auto-recovery history of a watched external drive (SMART can’t read USB enclosures).'],

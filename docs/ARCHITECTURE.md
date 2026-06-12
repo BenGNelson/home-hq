@@ -51,6 +51,7 @@ backend/app/
     disk.py          # /api/disk
     containers.py    # /api/containers + /api/containers/{name}
     network.py       # /api/network  (host interface counters)
+    diskio.py        # /api/diskio   (per-disk I/O counters from /proc/diskstats)
     raid.py          # /api/raid     (software-RAID state from /proc/mdstat)
     smart.py         # /api/smart    (per-drive SMART, from a host timer's JSON)
     storage.py       # /api/storage/trends  (SMART + capacity history)
@@ -74,6 +75,7 @@ Adding a module = add a router file and one `include_router` line.
 | `GET /api/containers` | name, status, image, uptime per container | Docker SDK → read-only socket proxy |
 | `GET /api/containers/{name}` | one container's live stats (cpu/mem/net) | Docker SDK → read-only socket proxy |
 | `GET /api/network` | per-interface byte counters | reads host `/proc/1/net/dev` |
+| `GET /api/diskio` | per-disk cumulative read/write bytes (rates computed client-side) | parses host `/proc/diskstats` |
 | `GET /api/raid` | software-RAID array state (healthy/degraded, rebuild %) | parses host `/proc/mdstat` |
 | `GET /api/smart` | per-drive SMART health; role-tagged (raid/system/other) | reads a host timer's `smart.json` |
 | `GET /api/drive-watchdog` | watched external drive's health + recovery history | reads the host watchdog's state JSON (fills the SMART gap for USB enclosures) |

@@ -22,6 +22,7 @@ from app.routers import (
     backups,
     containers,
     disk,
+    diskio,
     network,
     plex,
     printer,
@@ -99,6 +100,7 @@ def health():
 # so system.py's "/system" becomes "/api/system".
 app.include_router(system.router, prefix="/api")
 app.include_router(disk.router, prefix="/api")
+app.include_router(diskio.router, prefix="/api")
 app.include_router(containers.router, prefix="/api")
 app.include_router(network.router, prefix="/api")
 app.include_router(backups.router, prefix="/api")

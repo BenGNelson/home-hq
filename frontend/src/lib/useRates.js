@@ -69,6 +69,70 @@ export function useNetworkRates(intervalMs = 2000, maxPoints = 60) {
   return { rates: state.rates, times: state.times, error }
 }
 
+// Polls /api/diskio and computes per-disk read/write rates between samples —
+// same approach as useNetworkRates (cumulative counters → client-side rates), so
+// the backend stays stateless. Returns { rates, times, error } where
+// rates[name] = { readRate, writeRate, readHistory[], writeHistory[] }.
+export function useDiskRates(intervalMs = 2000, maxPoints = 60) {
+  const [state, setState] = useState({ rates: {}, times: [] })
+  const [error, setError] = useState(null)
+  const prev = useRef(null)
+  const hist = useRef({ rates: {}, times: [] })
+
+  useEffect(() => {
+    let cancelled = false
+
+    const load = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/diskio`)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+        if (!data.available) throw new Error(data.error || 'unavailable')
+
+        if (prev.current) {
+          const dt = data.time - prev.current.time
+          if (dt > 0) {
+            const h = hist.current
+            const times = [...h.times, Date.now()].slice(-maxPoints)
+            const rates = { ...h.rates }
+            for (const disk of data.disks) {
+              const p = prev.current.map[disk.name]
+              if (!p) continue
+              const readRate = Math.max(0, (disk.read_bytes - p.read_bytes) / dt)
+              const writeRate = Math.max(0, (disk.write_bytes - p.write_bytes) / dt)
+              const cur = h.rates[disk.name] || { readHistory: [], writeHistory: [] }
+              rates[disk.name] = {
+                readRate,
+                writeRate,
+                readHistory: [...cur.readHistory, readRate].slice(-maxPoints),
+                writeHistory: [...cur.writeHistory, writeRate].slice(-maxPoints),
+              }
+            }
+            hist.current = { rates, times }
+            if (!cancelled) setState({ rates, times })
+          }
+        }
+        prev.current = {
+          time: data.time,
+          map: Object.fromEntries(data.disks.map((d) => [d.name, d])),
+        }
+        if (!cancelled) setError(null)
+      } catch (err) {
+        if (!cancelled) setError(err.message)
+      }
+    }
+
+    load()
+    const id = setInterval(load, intervalMs)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [intervalMs, maxPoints])
+
+  return { rates: state.rates, times: state.times, error }
+}
+
 // Derives rate + rolling history from a single pair of cumulative counters that
 // the caller refreshes (e.g. a polled container's net_rx/net_tx + its time).
 // Resets cleanly when the counters reset (e.g. a different container selected,
