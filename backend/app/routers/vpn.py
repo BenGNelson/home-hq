@@ -28,6 +28,34 @@ router = APIRouter()
 _STALE_AFTER_SECONDS = 900
 
 
+def _mask_ip(ip):
+    """Redact the host portion of the home IP so the page can show 'exit ≠ home'
+    contrast without ever sending the real address to the browser. The leak check
+    still uses the full IP (server-side, before this runs).
+    203.0.113.7 -> 203.0.•.•   |   IPv6 keeps only the first hextet."""
+    if not ip:
+        return ip
+    if ip.count(".") == 3:
+        a, b, _, _ = ip.split(".")
+        return f"{a}.{b}.•.•"
+    if ":" in ip:
+        return ip.split(":")[0] + ":•"
+    return "•"
+
+
+def _redact_home(home, home_ip):
+    """Strip the home endpoint down to non-identifying bits: a masked IP, the
+    ISP org, and country — dropping the precise city/region (the hometown is the
+    most identifying part). Returns None when there's no home data."""
+    if not home:
+        return None
+    return {
+        "ip": _mask_ip(home_ip),
+        "org": home.get("org"),
+        "country": home.get("country"),
+    }
+
+
 def summarize(data, now=None):
     """Map the raw state file into the API model. Pure + defensive.
 
@@ -60,7 +88,9 @@ def summarize(data, now=None):
         "container": data.get("container"),
         "container_running": container_running,
         "vpn": vpn or None,
-        "home": home or None,
+        # Home IP is masked here so the real address never reaches the browser;
+        # the leak verdict above was computed from the full IP.
+        "home": _redact_home(home, home_ip),
         "forwarded_port": data.get("forwarded_port"),
         "updated": updated,
     }

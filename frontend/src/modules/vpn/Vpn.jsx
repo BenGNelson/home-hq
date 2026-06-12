@@ -65,8 +65,8 @@ function Detail({ v }) {
           accent={!v.leak}
         />
         <Endpoint
-          title="Your home IP"
-          subtitle="your real connection — should differ from the exit"
+          title="Your home connection"
+          subtitle="your real connection (address masked) — should differ from the exit"
           ip={v.home}
           accent={false}
         />
