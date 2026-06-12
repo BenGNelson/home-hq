@@ -3,9 +3,9 @@
 _AI-assisted build._
 
 **A self-hosted personal platform for running your own server — a small shell that
-modules plug into, grown over time.** One dashboard for system health, storage,
-containers, network, media, and backups, all reproducible from this repo and
-configured entirely through the environment.
+modules plug into, grown over time.** One place for system health, storage,
+containers, network, media, VPN, a 3D printer, and push alerting — all
+reproducible from this repo and configured entirely through the environment.
 
 The platform *is* the project; it never "finishes." Each feature is a
 self-contained **module** that hangs off a common **shell** (nav + layout), so
@@ -30,6 +30,7 @@ the surface area grows without the core getting messier.
 | **VPN** | Egress **leak check** for a VPN-routed container — compares its public exit IP against the host's own and flags a leak if they match (exit vs home shown side by side, with the forwarded port). A host timer does the lookup the unprivileged app can't; a leak raises an urgent alert. |
 | **Storage** | The disk deep-dive: capacity with a growth projection ("full in ~N weeks") and a **what's-using-space breakdown**, RAID array health in plain language, **live per-disk I/O graphs**, and per-drive SMART with temperature/wear **trend charts** from daily samples kept in SQLite. |
 | **Backups** | Lists the host's `age`-encrypted config backups (the encrypt step is a privileged host script; the app only reads the output). |
+| **Alerts** | A background rule engine that watches the same data the dashboard shows and pushes a phone notification (via **ntfy**) when something crosses into a bad state — RAID degraded, a SMART warning, a container down, a print finished/failed, a VPN leak, and more. Edge-triggered (no spam), with a deep-link straight to the relevant page on tap and a dead-man's-switch heartbeat. |
 | **Under the Hood** | An in-app living guide explaining each module, endpoint, and the technologies behind them. |
 | **Server Guide** | Renders your own server's markdown operations doc in-app (set `SERVER_GUIDE_FILE`); ships with an example template. |
 
@@ -53,22 +54,38 @@ anyone evaluating or installing it); **Under the Hood** explains the *software*
 
 ![Home HQ dashboard](docs/img/dashboard.png)
 
+### 3D printer — live telemetry, controls & chamber camera
+
+![3D Printer module](docs/img/printer.png)
+
+### Storage — capacity projection, RAID & SMART trends
+
+![Storage module](docs/img/storage.png)
+
 ### Five built-in themes
 
 One dashboard, cycling through all five palettes — Slate · Carbon · Olive · Crimson · Midnight:
 
 ![Theme palettes cycling](docs/img/themes.webp)
 
-### Modules
+### More modules
 
 <table>
   <tr>
     <td width="50%"><b>Plex library</b><br/><img src="docs/img/plex.png" alt="Plex module"/></td>
-    <td width="50%"><b>Containers</b><br/><img src="docs/img/containers.png" alt="Containers module"/></td>
+    <td width="50%"><b>Plex insights</b><br/><img src="docs/img/plex-insights.png" alt="Plex insights module"/></td>
   </tr>
   <tr>
+    <td width="50%"><b>Containers</b><br/><img src="docs/img/containers.png" alt="Containers module"/></td>
     <td width="50%"><b>Live network throughput</b><br/><img src="docs/img/network.png" alt="Network module"/></td>
+  </tr>
+  <tr>
+    <td width="50%"><b>Push alerts</b><br/><img src="docs/img/alerts.png" alt="Alerts module"/></td>
+    <td width="50%"><b>VPN egress leak check</b><br/><img src="docs/img/vpn.png" alt="VPN module"/></td>
+  </tr>
+  <tr>
     <td width="50%"><b>Encrypted config backups</b><br/><img src="docs/img/backups.png" alt="Backups module"/></td>
+    <td width="50%"></td>
   </tr>
 </table>
 
@@ -103,12 +120,20 @@ Responsive layout with a slide-in nav drawer; installs to the phone home screen.
   the single seam the platform grows along; the `Shell` renders the sidebar
   (a slide-in drawer on phones) and the active page. Polls the API for live data.
 - **Backend** — FastAPI. Each feature is an `APIRouter` mounted under `/api`.
-  Data comes from `psutil` (system), the Docker SDK (containers), host `/proc`
-  (network + RAID), and `PlexAPI`. Every host-specific target is read from config.
+  Data comes from `psutil` (system), the Docker SDK via a read-only socket proxy
+  (containers), host `/proc` (network, disk I/O, RAID), `PlexAPI`, and the printer
+  over local MQTT (`paho-mqtt`). Every host-specific target is read from config.
   Interactive OpenAPI docs (Swagger UI / ReDoc) are auto-generated and served at
   `/api/docs`, `/api/redoc`, and `/api/openapi.json`.
-- **Data** — mostly live/ephemeral. The one stateful piece is a **SQLite cache**
-  for the Plex browser, so search/sort/pagination are instant and rebuildable.
+- **Background workers** — a few daemon threads started in the app lifespan: a
+  persistent printer MQTT client, the alert rule engine (pushes via ntfy), and
+  lightweight samplers that record SMART/capacity and Plex-activity history. Work
+  that needs root (SMART, the VPN egress check, the drive watchdog) lives in
+  **privileged host scripts** that write small state files the app reads —
+  keeping the app itself unprivileged.
+- **Data** — mostly live/ephemeral. The stateful pieces are all **SQLite**: the
+  Plex library cache (instant search/sort, rebuildable), plus history/log tables
+  for storage trends, Plex insights, print history, and the alert state.
 
 **The full design — endpoints, data flow, the config model, drive-health
 split, PWA, and a decision log explaining *why* each choice was made — is in
@@ -118,7 +143,7 @@ split, PWA, and a decision log explaining *why* each choice was made — is in
 
 `React` · `Vite` · `Tailwind CSS` · `react-router` · `vite-plugin-pwa` —
 `FastAPI` · `pydantic-settings` · `psutil` · `Docker SDK` · `PlexAPI` ·
-`SQLite` — `nginx` · `Docker Compose` · `pytest` · `Vitest`.
+`paho-mqtt` · `SQLite` — `nginx` · `Docker Compose` · `ntfy` · `pytest` · `Vitest`.
 
 ---
 
@@ -147,7 +172,12 @@ every value with placeholders only. Nothing secret is ever committed.
 | `API_PORT` | Host port the backend listens on |
 | `DOCKER_SOCKET` | Host Docker socket path, mounted into the backend |
 | `AGE_RECIPIENT` / `BACKUP_DIR` / `BACKUP_RETENTION` | Config-backup settings (optional) |
+| `PRINTER_HOST` / `PRINTER_SERIAL` / `PRINTER_ACCESS_CODE` | 3D-printer connection over local MQTT (optional; module hides if unset) |
+| `ALERTS_ENABLED` / `NTFY_URL` / `NTFY_TOPIC` | Push alerts via ntfy (optional) |
 | `VITE_API_BASE` | Base path the frontend uses to call the API |
+
+`.env.example` documents the full set (printer camera, alert thresholds, VPN
+state path, server-guide file, and more).
 
 ### Production vs. dev
 
@@ -179,9 +209,9 @@ backend** and an **entry in the frontend registry** — nothing else changes.
 
 ```jsx
 const modules = [
-  { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: '▦', group: 'Overview' },
+  { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: '🏠', group: 'Overview' },
   // ...
-  { id: 'foo', label: 'Foo', path: '/foo', icon: '★', group: 'System' },   // ← new module
+  { id: 'foo', label: 'Foo', path: '/foo', icon: '✨', group: 'System' },   // ← new module
 ]
 ```
 
