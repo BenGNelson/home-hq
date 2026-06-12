@@ -26,6 +26,27 @@ router = APIRouter()
 _STALE_AFTER_SECONDS = 180
 
 
+def read_events(path, limit=10):
+    """Last `limit` recovery events from the watchdog's append-only JSONL log,
+    newest first. Missing/garbage lines are skipped; missing file → []."""
+    try:
+        with open(path) as fh:
+            lines = fh.readlines()
+    except (FileNotFoundError, OSError):
+        return []
+    events = []
+    for line in lines[-limit:]:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            events.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    events.reverse()  # newest first
+    return events
+
+
 def summarize(data, now=None):
     """Map the raw state file into the API model. Pure + defensive."""
     now = time.time() if now is None else now
@@ -52,4 +73,6 @@ def get_drive_watchdog():
             data = json.load(fh)
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         return {"available": False}
-    return summarize(data)
+    result = summarize(data)
+    result["recoveries"] = read_events(settings.watchdog_events_path)
+    return result

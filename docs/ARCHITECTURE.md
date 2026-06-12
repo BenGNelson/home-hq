@@ -79,7 +79,7 @@ Adding a module = add a router file and one `include_router` line.
 | `GET /api/raid` | software-RAID array state (healthy/degraded, rebuild %) | parses host `/proc/mdstat` |
 | `GET /api/smart` | per-drive SMART health; role-tagged (raid/system/other) | reads a host timer's `smart.json` |
 | `GET /api/smart/{name}/attributes` | one drive's full SMART attribute table (or NVMe health log), on demand | reads `smart.json` (kept out of the polled list) |
-| `GET /api/drive-watchdog` | watched external drive's health + recovery history | reads the host watchdog's state JSON (fills the SMART gap for USB enclosures) |
+| `GET /api/drive-watchdog` | watched external drive's health + recent recovery events | reads the host watchdog's state JSON + its append-only event log (fills the SMART gap for USB enclosures) |
 | `GET /api/storage/trends` | per-drive SMART history + capacity series + days-until-full projection | reads daily samples an in-app background thread records to SQLite |
 | `GET /api/alerts` | push-alert config + every rule's current state + recent log | from the background alert engine |
 | `POST /api/alerts/test` | send a test push (confirm the pipe reaches the phone) | posts to ntfy |

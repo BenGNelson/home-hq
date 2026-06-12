@@ -454,6 +454,37 @@ function WatchedDrive({ d }) {
         SMART can’t be read through this drive’s USB bridge — health is from the
         auto-recovery watchdog instead.
       </p>
+      <RecoveryLog events={d.recoveries} />
+    </div>
+  )
+}
+
+// Recent wedge/recovery events from the watchdog's append-only log.
+const EVENT_STYLE = {
+  recovered: { cls: 'text-emerald-400', glyph: '✓' },
+  remounted: { cls: 'text-sky-400', glyph: '↻' },
+  'recovery-failed': { cls: 'text-rose-400', glyph: '✗' },
+}
+
+function RecoveryLog({ events }) {
+  if (!events || events.length === 0) return null
+  return (
+    <div className="mt-2">
+      <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-slate-500">
+        Recent recoveries
+      </p>
+      <ul className="space-y-1">
+        {events.map((e, i) => {
+          const s = EVENT_STYLE[e.event] || { cls: 'text-slate-400', glyph: '•' }
+          return (
+            <li key={i} className="flex items-baseline gap-2 text-xs">
+              <span className={`${s.cls} shrink-0`}>{s.glyph}</span>
+              <span className="shrink-0 tabular-nums text-slate-500">{formatAgo(e.ts)}</span>
+              <span className="text-slate-400">{e.detail || e.event}</span>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }

@@ -27,6 +27,8 @@
 #                      the device path as its last argument)
 #   WATCHDOG_LABEL     display label for logs/state         (optional)
 #   WATCHDOG_STATE_JSON where to write the state file       (optional)
+#   WATCHDOG_EVENTS_JSON append-only recovery-event log (JSONL) (optional;
+#                      a dashboard reads its tail for wedge/recovery history)
 #   WATCHDOG_LOG       log file                             (optional)
 #   WATCHDOG_CHECK_INTERVAL / _PROBE_TIMEOUT / _FAIL_THRESHOLD /
 #   WATCHDOG_COOLDOWN / _BACKOFF                            (optional tuning)
@@ -61,6 +63,7 @@ PRODUCT="${USB_ID##*:}"
 LABEL="${WATCHDOG_LABEL:-external-drive}"
 LOG_FILE="${WATCHDOG_LOG:-/var/log/home-hq-drive-watchdog.log}"
 STATE_JSON="${WATCHDOG_STATE_JSON:-/var/lib/home-hq/drive-watchdog.json}"
+EVENTS_JSON="${WATCHDOG_EVENTS_JSON:-/var/lib/home-hq/drive-watchdog-events.jsonl}"
 HEALTH_FILE="${MOUNT%/}/.home-hq-watchdog-probe"
 
 CHECK_INTERVAL="${WATCHDOG_CHECK_INTERVAL:-30}"   # seconds between probes
@@ -94,6 +97,21 @@ write_state() {
     "$LABEL" "$MOUNT" "$FSTYPE" "$healthy" "$(date +%s)" "$LAST_RECOVERY" "$RECOVERY_COUNT" "$note" \
     > "$tmp" 2>/dev/null || return 0
   mv -f "$tmp" "$STATE_JSON" 2>/dev/null && chmod 644 "$STATE_JSON" 2>/dev/null
+}
+
+# Append one recovery event as a JSON line (newest last). Best-effort; trimmed to
+# the most recent 200 so it can't grow without bound. A dashboard reads the tail
+# to show recent wedge/recovery history. `detail` must not contain a double quote.
+log_event() {
+  local event="$1" detail="${2:-}"
+  [[ -n "$EVENTS_JSON" ]] || return 0
+  mkdir -p "$(dirname "$EVENTS_JSON")" 2>/dev/null || return 0
+  printf '{"ts":%s,"event":"%s","label":"%s","detail":"%s"}\n' \
+    "$(date +%s)" "$event" "$LABEL" "$detail" >> "$EVENTS_JSON" 2>/dev/null || return 0
+  local tmp="${EVENTS_JSON}.tmp"
+  if tail -n 200 "$EVENTS_JSON" > "$tmp" 2>/dev/null; then
+    mv -f "$tmp" "$EVENTS_JSON" 2>/dev/null && chmod 644 "$EVENTS_JSON" 2>/dev/null
+  fi
 }
 
 # Healthy = mounted AND a small read+write+delete completes within PROBE_TIMEOUT.
@@ -181,6 +199,7 @@ recover_full() {
   reset_usb
   if ! wait_for_device; then
     log "ERROR: $BYUUID did not re-appear after reset"
+    log_event "recovery-failed" "device did not re-appear after USB reset"
     return 1
   fi
   log "Device back; repairing filesystem ($FSTYPE)"
@@ -192,9 +211,11 @@ recover_full() {
     LAST_RECOVERY="$(date +%s)"
     log "Recovery SUCCESS — $MOUNT is healthy again (total recoveries: $RECOVERY_COUNT)"
     write_state true "recovered"
+    log_event "recovered" "healthy again after umount/reset/repair (total: $RECOVERY_COUNT)"
     return 0
   fi
   log "Recovery did NOT restore health"
+  log_event "recovery-failed" "health not restored after reset and repair"
   return 1
 }
 
@@ -218,6 +239,7 @@ while true; do
       log "Remounted cleanly"
       fails=0; recover_fails=0
       write_state true "remounted"
+      log_event "remounted" "clean remount (drive was unmounted)"
       sleep "$COOLDOWN"
       continue
     fi

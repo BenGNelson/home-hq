@@ -31,7 +31,7 @@ const ENDPOINTS = [
   ['/api/raid', 'Software-RAID array health, parsed from /proc/mdstat.'],
   ['/api/smart', 'Per-drive SMART health, collected daily by a host timer.'],
   ['/api/smart/{drive}/attributes', 'One drive’s full SMART attribute table (on-demand, when a row is expanded).'],
-  ['/api/drive-watchdog', 'Health + auto-recovery history of a watched external drive (SMART can’t read USB enclosures).'],
+  ['/api/drive-watchdog', 'Health + recent auto-recovery events of a watched external drive (SMART can’t read USB enclosures).'],
   ['/api/storage/trends', 'SMART + capacity history (daily samples) + a days-until-full projection — powers the Storage page.'],
   ['/api/printer', 'Live 3D-printer telemetry, cached from a persistent MQTT connection (Bambu LAN mode).'],
   ['/api/printer/camera/stream', 'Live chamber-camera MJPEG feed (opt-in; on-demand TLS stream on :6000).'],

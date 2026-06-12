@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     # watchdog.sh), read via the same /smart mount. Lets the Drives widget show a
     # USB-bridged drive whose SMART can't be read through the enclosure.
     watchdog_state_path: str = "/smart/drive-watchdog.json"
+    # Append-only recovery-event log (JSONL) the watchdog writes; read via the
+    # same /smart mount so the Storage page can show recent wedge/recovery events.
+    watchdog_events_path: str = "/smart/drive-watchdog-events.jsonl"
 
     # --- Alerting (push notifications via ntfy) ---
     # Push lands on the phone over normal internet (no tailnet needed). The topic
