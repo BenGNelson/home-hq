@@ -293,6 +293,12 @@ The **VPN** page shows the exit vs home IPs side by side, and a leak raises an
 urgent push alert. The script is generic (`VPN_CONTAINER`, `VPN_IP_CHECK_URL`)
 and commits clean — no host or service specifics.
 
+The exit lookup tries a JSON geo service (ipinfo) first, then falls back to
+plain-text IP echoes (`VPN_IP_FALLBACK_URLS`): popular shared VPN exit IPs get
+HTTP 429'd by ipinfo's free tier regardless of our request rate, and without the
+fallback that would read as a false "down". The fallbacks return only the IP —
+which is exactly what the leak verdict compares — so geo/org just goes blank.
+
 ### Tailscale mesh status (host script)
 
 If the host is on a [Tailscale](https://tailscale.com) tailnet (the same mesh
