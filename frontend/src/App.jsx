@@ -24,18 +24,18 @@ import ServerGuide from './modules/server-guide/ServerGuide.jsx'
 // material, not functional modules — Shell pins it to the bottom of the sidebar.
 // This is the seam the whole platform grows along.
 const modules = [
-  { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: '▦', group: 'Overview' },
-  { id: 'plex', label: 'Plex', path: '/plex', icon: '►', group: 'Media' },
-  { id: 'plex-insights', label: 'Plex Insights', path: '/plex/insights', icon: '∿', group: 'Media' },
-  { id: 'containers', label: 'Containers', path: '/containers', icon: '▣', group: 'System' },
-  { id: 'network', label: 'Network', path: '/network', icon: '⇅', group: 'System' },
-  { id: 'vpn', label: 'VPN', path: '/vpn', icon: '⚿', group: 'System' },
-  { id: 'storage', label: 'Storage', path: '/storage', icon: '▥', group: 'System' },
-  { id: 'backups', label: 'Backups', path: '/backups', icon: '⤓', group: 'System' },
-  { id: 'printer', label: '3D Printer', path: '/printer', icon: '⎙', group: 'Devices' },
-  { id: 'alerts', label: 'Alerts', path: '/alerts', icon: '⚑', group: 'Monitoring' },
-  { id: 'guide', label: 'Under the Hood', path: '/guide', icon: 'ⓘ', group: 'Docs' },
-  { id: 'server-guide', label: 'Your Server Guide', path: '/server-guide', icon: '▤', group: 'Docs' },
+  { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: '🏠', group: 'Overview' },
+  { id: 'plex', label: 'Plex', path: '/plex', icon: '🎬', group: 'Media' },
+  { id: 'plex-insights', label: 'Plex Insights', path: '/plex/insights', icon: '📈', group: 'Media' },
+  { id: 'containers', label: 'Containers', path: '/containers', icon: '📦', group: 'System' },
+  { id: 'network', label: 'Network', path: '/network', icon: '🌐', group: 'System' },
+  { id: 'vpn', label: 'VPN', path: '/vpn', icon: '🔒', group: 'System' },
+  { id: 'storage', label: 'Storage', path: '/storage', icon: '💾', group: 'System' },
+  { id: 'backups', label: 'Backups', path: '/backups', icon: '🗜️', group: 'System' },
+  { id: 'printer', label: '3D Printer', path: '/printer', icon: '🖨️', group: 'Devices' },
+  { id: 'alerts', label: 'Alerts', path: '/alerts', icon: '🔔', group: 'Monitoring' },
+  { id: 'guide', label: 'Under the Hood', path: '/guide', icon: '🔧', group: 'Docs' },
+  { id: 'server-guide', label: 'Your Server Guide', path: '/server-guide', icon: '📖', group: 'Docs' },
   // External: the backend's own interactive OpenAPI docs (Swagger UI), served
   // at /api/docs through the same proxy as the API. `external` makes Shell
   // render a plain <a> that opens in a new tab — it's not a React route, so
