@@ -22,6 +22,33 @@ log = logging.getLogger("home-hq.notify")
 # ntfy priority: 1=min … 3=default … 5=urgent. We map friendly names.
 _PRIORITIES = {"min", "low", "default", "high", "urgent"}
 
+# Common Unicode punctuation → ASCII, so a stray em-dash / smart quote in a title
+# survives the latin-1-only HTTP header encoding intact instead of being dropped.
+_TRANSLITERATE = {
+    "—": "-", "–": "-",  # em / en dash
+    "‘": "'", "’": "'",  # curly single quotes
+    "“": '"', "”": '"',  # curly double quotes
+    "…": "...",                # ellipsis
+}
+
+
+def _header_safe(value: str) -> str:
+    """Coerce a header value to something latin-1 can encode.
+
+    HTTP headers are latin-1 only, so a non-ASCII char (em-dash, smart quote,
+    emoji) makes urllib raise mid-send. ntfy's Title/Tags ride as headers, so we
+    transliterate the common offenders and drop anything else still out of range
+    — a malformed title must never crash the alert loop. (See the em-dash bug:
+    a "Home HQ — …" title silently broke every alert.)
+    """
+    try:
+        value.encode("latin-1")
+        return value
+    except UnicodeEncodeError:
+        for bad, good in _TRANSLITERATE.items():
+            value = value.replace(bad, good)
+        return value.encode("latin-1", "ignore").decode("latin-1")
+
 
 def configured() -> bool:
     return bool(settings.ntfy_url and settings.ntfy_topic)
@@ -46,11 +73,11 @@ def notify(
     url = f"{settings.ntfy_url.rstrip('/')}/{settings.ntfy_topic}"
     headers: dict[str, str] = {}
     if title:
-        headers["Title"] = title
+        headers["Title"] = _header_safe(title)
     if priority in _PRIORITIES:
         headers["Priority"] = priority
     if tags:
-        headers["Tags"] = ",".join(tags)
+        headers["Tags"] = _header_safe(",".join(tags))
     click = click or settings.alert_click_url
     if click:
         headers["Click"] = click
@@ -60,9 +87,12 @@ def notify(
     req = urllib.request.Request(
         url, data=message.encode("utf-8"), headers=headers, method="POST"
     )
+    # Catch broadly: this runs in a background alert loop, and the docstring
+    # promises it never raises. A bad header (UnicodeEncodeError) or any other
+    # failure must degrade to False, not take the loop down.
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             return 200 <= resp.status < 300
-    except (urllib.error.URLError, OSError) as exc:
+    except Exception as exc:
         log.warning("notify: ntfy post failed: %s", exc)
         return False

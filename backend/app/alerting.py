@@ -285,7 +285,7 @@ class AlertManager:
             self._status = statuses
 
     def _fire(self, rule: Rule, message: str, now: float) -> None:
-        notify.notify(message, title=f"Home HQ — {rule.title}", priority=rule.priority, tags=[rule.emoji])
+        notify.notify(message, title=f"Home HQ - {rule.title}", priority=rule.priority, tags=[rule.emoji])
         db.add_alert_log(now, rule.id, "fire", message)
         log.info("alert FIRED [%s]: %s", rule.id, message)
 

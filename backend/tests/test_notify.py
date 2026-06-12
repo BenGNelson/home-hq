@@ -75,3 +75,32 @@ def test_returns_false_on_network_error(monkeypatch):
 
     monkeypatch.setattr(urllib.request, "urlopen", boom)
     assert notify.notify("hello") is False
+
+
+def test_header_safe_transliterates_and_stays_latin1():
+    # The exact bug: an em-dash title must survive into a latin-1-encodable header.
+    out = notify._header_safe("Home HQ — Drive SMART")
+    assert out == "Home HQ - Drive SMART"
+    out.encode("latin-1")  # must not raise
+    # Anything still non-latin-1 (e.g. an emoji) is dropped, never raises.
+    notify._header_safe("done 🖨️").encode("latin-1")
+
+
+def test_unicode_title_does_not_break_send(monkeypatch):
+    # Regression: a non-ASCII title used to raise UnicodeEncodeError mid-send and
+    # crash the whole alert loop. The header must encode and notify must succeed.
+    monkeypatch.setattr(settings, "ntfy_url", "https://ntfy.example")
+    monkeypatch.setattr(settings, "ntfy_topic", "t")
+    monkeypatch.setattr(settings, "ntfy_token", "")
+    monkeypatch.setattr(settings, "alert_click_url", "")
+
+    captured = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["title"] = dict(req.headers)["Title"]
+        captured["title"].encode("latin-1")  # the real http.client step
+        return _Resp(200)
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    assert notify.notify("body", title="Home HQ — Drive SMART") is True
+    assert captured["title"] == "Home HQ - Drive SMART"
