@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 import requests
 from fastapi import APIRouter, Response
 from plexapi.server import PlexServer
+from pydantic import BaseModel, Field
 
 from app import db
 from app.config import settings
@@ -28,12 +29,112 @@ from app.config import settings
 router = APIRouter()
 
 
+# Response models for the hand-built-shape endpoints. The endpoints returning
+# raw dict(r) SQLite rows (library items, episodes, item detail, export) are
+# deliberately left untyped: their columns are dynamic, and a response_model
+# would *filter* any unlisted one and break the library browser.
+
+# --- /plex (degrades; superset + exclude_none) ---
+class PlexStatusModel(BaseModel):
+    configured: bool = Field(description="True once a Plex token is set")
+    reachable: bool
+    streams: int | None = Field(default=None, description="Active stream count")
+    server_name: str | None = None
+    version: str | None = None
+    transcodes: int | None = None
+    bandwidth_kbps: int | None = None
+    error: str | None = None
+
+
+# --- /plex/now-playing (degrades) ---
+class SessionModel(BaseModel):
+    user: str | None = None
+    title: str | None = None
+    type: str | None = None
+    player: str | None = None
+    state: str | None = Field(default=None, description="playing / paused / buffering")
+    progress_percent: float | None = None
+    transcoding: bool | None = None
+    resolution: str | None = None
+
+
+class NowPlayingModel(BaseModel):
+    configured: bool
+    reachable: bool
+    sessions: list[SessionModel] = []
+    error: str | None = None
+
+
+# --- /plex/recently-added (degrades) ---
+class RecentItemModel(BaseModel):
+    rating_key: str
+    title: str
+    subtitle: str
+    type: str | None = None
+    added_at: int
+
+
+class RecentlyAddedModel(BaseModel):
+    configured: bool
+    items: list[RecentItemModel] = []
+    error: str | None = None
+
+
+# --- /plex/libraries (degrades) ---
+class LibraryModel(BaseModel):
+    key: str
+    title: str
+    type: str = Field(description="movie / show / artist / photo")
+    count: int
+    episodes: int | None = Field(default=None, description="Total episodes (show libraries only)")
+
+
+class LibrariesModel(BaseModel):
+    configured: bool
+    reachable: bool
+    libraries: list[LibraryModel] | None = None
+    error: str | None = None
+
+
+# --- /plex/insights (always full → NO exclude_none, keep nulls) ---
+class InsightSampleModel(BaseModel):
+    ts: float
+    streams: int
+    transcodes: int
+    bandwidth_kbps: int | None
+
+
+class InsightStatsModel(BaseModel):
+    samples: int
+    peak_streams: int
+    peak_bandwidth_kbps: int | None
+    active_share: float | None
+    transcode_share: float | None
+    stream_hours: float
+    busiest_hour: int | None
+
+
+class PlexInsightsModel(BaseModel):
+    hours: int
+    samples: list[InsightSampleModel]
+    stats: InsightStatsModel
+
+
+# --- /plex/sync/status (always full → NO exclude_none) ---
+class SyncStatusModel(BaseModel):
+    running: bool
+    status: str = Field(description="never / running / ok / error")
+    last_synced: int | None = None
+    item_count: int
+    error: str | None = None
+
+
 def _connect(timeout: int) -> PlexServer:
     """Open a Plex connection. Raises if unreachable/misconfigured."""
     return PlexServer(settings.plex_url, settings.plex_token, timeout=timeout)
 
 
-@router.get("/plex")
+@router.get("/plex", response_model=PlexStatusModel, response_model_exclude_none=True)
 def get_plex():
     if not settings.plex_token:
         return {"configured": False, "reachable": False, "streams": None}
@@ -135,7 +236,7 @@ def _session_detail(s):
     }
 
 
-@router.get("/plex/now-playing")
+@router.get("/plex/now-playing", response_model=NowPlayingModel, response_model_exclude_none=True)
 def plex_now_playing():
     """Currently-playing streams with per-session detail (who/what/where)."""
     if not settings.plex_token:
@@ -151,7 +252,7 @@ def plex_now_playing():
         return {"configured": True, "reachable": False, "sessions": [], "error": str(exc)}
 
 
-@router.get("/plex/insights")
+@router.get("/plex/insights", response_model=PlexInsightsModel)
 def plex_insights(hours: int = 24):
     """Plex activity trends over a recent window — concurrent streams, transcodes,
     and reserved bandwidth sampled by the in-app sampler (plex_history.py), plus
@@ -207,7 +308,7 @@ def _recent_item(it):
     }
 
 
-@router.get("/plex/recently-added")
+@router.get("/plex/recently-added", response_model=RecentlyAddedModel, response_model_exclude_none=True)
 def plex_recently_added(limit: int = 12):
     """Newest items across all libraries, for the dashboard poster strip."""
     if not settings.plex_token:
@@ -226,7 +327,7 @@ def plex_recently_added(limit: int = 12):
         return {"configured": True, "items": [], "error": str(exc)}
 
 
-@router.get("/plex/libraries")
+@router.get("/plex/libraries", response_model=LibrariesModel, response_model_exclude_none=True)
 def get_plex_libraries():
     """Each library section with its top-level item count.
 
@@ -403,7 +504,7 @@ def trigger_sync():
     return {"started": True}
 
 
-@router.get("/plex/sync/status")
+@router.get("/plex/sync/status", response_model=SyncStatusModel)
 def sync_status():
     last = db.get_meta("last_synced")
     return {
