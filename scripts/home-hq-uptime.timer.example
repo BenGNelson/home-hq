@@ -1,0 +1,16 @@
+# Home HQ — probe service availability periodically.
+# Install: copy to /etc/systemd/system/home-hq-uptime.timer, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now home-hq-uptime.timer
+# NOTE: systemd does not support trailing inline comments on a directive line —
+# keep comments on their own lines, or the value parse fails.
+[Unit]
+Description=Home HQ — periodic service-availability probe
+
+[Timer]
+# Every 2 minutes. Keep this in step with UPTIME_INTERVAL (display only).
+OnCalendar=*:0/2
+# Catch up on the next boot if the machine was off at the scheduled time.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

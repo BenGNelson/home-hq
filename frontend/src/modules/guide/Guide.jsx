@@ -29,6 +29,8 @@ const ENDPOINTS = [
   ['/api/network', 'Per-interface byte counters (read from the host’s /proc).'],
   ['/api/vpn', 'VPN egress leak check — exit IP vs home IP, from a host timer.'],
   ['/api/tailscale', 'Tailnet devices (online state, exit node, last seen), from a host timer running `tailscale status`.'],
+  ['/api/uptime', 'Per-service availability (status, uptime % 24h/7d, latency), from a host prober that can reach firewall-restricted services.'],
+  ['/api/storage/db', 'SQLite file size + per-table row counts — the local DB’s growth, with caps shown.'],
   ['/api/plex/insights', 'Plex activity trends over time (streams/transcodes/bandwidth) + stats.'],
   ['/api/diskio', 'Per-disk read/write byte counters (/proc/diskstats); the Storage page graphs rates client-side.'],
   ['/api/raid', 'Software-RAID array health, parsed from /proc/mdstat.'],

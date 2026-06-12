@@ -126,3 +126,18 @@ def test_plex_insights_and_sync_status_keep_nulls(client):
     sync = client.get("/api/plex/sync/status").json()
     for key in ("running", "status", "last_synced", "item_count", "error"):
         assert key in sync
+
+
+def test_db_stats_and_uptime_validate(client):
+    """Both always-full (keep nulls) — validate over HTTP and keep their shape."""
+    dbs = client.get("/api/storage/db")
+    assert dbs.status_code == 200
+    body = dbs.json()
+    assert "size_bytes" in body and isinstance(body["tables"], list)
+
+    up = client.get("/api/uptime")
+    assert up.status_code == 200
+    ub = up.json()
+    # No prober file in the test sandbox → not configured, but the full shape stays.
+    assert ub["configured"] is False and ub["targets"] == []
+    assert "stale" in ub and "interval" in ub

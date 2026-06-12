@@ -68,6 +68,19 @@ class TrendsModel(BaseModel):
     projection: ProjectionModel | None = Field(default=None, description="Growth projection, or null when there isn't enough signal")
 
 
+# --- /storage/db (SQLite size + per-table row counts; growth visibility) ---
+class DbTableModel(BaseModel):
+    name: str
+    rows: int
+    cap: int | None = Field(default=None, description="Hard row cap, if the table has one")
+
+
+class DbStatsModel(BaseModel):
+    size_bytes: int | None = Field(default=None, description="Size of the SQLite file")
+    path: str
+    tables: list[DbTableModel]
+
+
 def shape_smart_series(rows):
     """Group flat smart rows into {drive: {metric: [{day, ts, value}]}}."""
     by_drive: dict[str, dict[str, list]] = {}
@@ -94,6 +107,13 @@ def get_space():
         "total_bytes": latest["total_bytes"],
         "entries": latest["entries"],
     }
+
+
+@router.get("/storage/db", response_model=DbStatsModel)
+def get_db_stats():
+    """SQLite file size + per-table row counts, so the Storage page can show how
+    much the local DB is using and whether any sampler table is near its cap."""
+    return db.db_stats()
 
 
 @router.get("/storage/trends", response_model=TrendsModel)
