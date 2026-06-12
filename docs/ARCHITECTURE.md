@@ -81,6 +81,16 @@ Each `include_router` passes a `tags=[...]` so the endpoints group by domain
 flat list; the tag descriptions live in `main.py`'s `tags_metadata`. The
 sidebar's Docs group has an "API" link to `/api/docs`.
 
+**Typed responses (incremental).** Most endpoints return plain dicts (and many
+*degrade* to `{available: false}` when a source is down), so the schema shows
+them as generic objects. Endpoints with a **stable** shape get a Pydantic
+`response_model` for a typed, described schema — starting with `/api/system`
+(`SystemModel`) and `/api/health` (`HealthModel`). This doesn't change the data;
+it's a documentation win, added per-endpoint where a strict model is safe (a
+`response_model` *filters out* any field not in the model, so the degrading
+endpoints are intentionally left untyped until each gets a complete superset
+model).
+
 ### Endpoints
 
 | Endpoint | Returns | How |

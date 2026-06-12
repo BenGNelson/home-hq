@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
 from app.alerting import init_manager
 from app.camera import init_camera
@@ -140,7 +141,12 @@ app.add_middleware(
 )
 
 
-@app.get("/api/health", tags=["System"])
+class HealthModel(BaseModel):
+    status: str = Field(description="'ok' when the API process is responding")
+    server: str = Field(description="Configured display name for the host")
+
+
+@app.get("/api/health", tags=["System"], response_model=HealthModel)
 def health():
     """Liveness check — is the API process up and responding?"""
     return {"status": "ok", "server": settings.server_name}
