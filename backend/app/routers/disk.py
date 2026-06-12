@@ -12,13 +12,29 @@ so the dashboard can show a friendly "unavailable" state.
 
 import psutil
 from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
 from app.config import settings
 
 router = APIRouter()
 
 
-@router.get("/disk")
+# A superset response model: the data fields are Optional because this endpoint
+# degrades to {mount, available:false, error} when the mount can't be stat'd.
+# With response_model_exclude_none the null fields are omitted, so both the
+# success and failure shapes stay exactly as before — the model only types the
+# OpenAPI schema. (Same Tier-4 convention used across the degrading endpoints.)
+class DiskModel(BaseModel):
+    mount: str = Field(description="The storage mount this usage is for")
+    available: bool = Field(description="False when the mount couldn't be read")
+    error: str | None = Field(default=None, description="Why it was unavailable")
+    total_bytes: int | None = None
+    used_bytes: int | None = None
+    free_bytes: int | None = None
+    percent: float | None = Field(default=None, description="Used space as a percentage")
+
+
+@router.get("/disk", response_model=DiskModel, response_model_exclude_none=True)
 def get_disk():
     mount = settings.raid_mount
     try:

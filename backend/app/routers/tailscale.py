@@ -14,10 +14,40 @@ import json
 import time
 
 from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
 from app.config import settings
 
 router = APIRouter()
+
+
+class TailscaleDeviceModel(BaseModel):
+    hostname: str = Field(description="Display name (MagicDNS label when friendlier)")
+    dns_name: str = Field(description="Full MagicDNS name")
+    os: str = Field(description="Reported OS, e.g. linux/iOS")
+    online: bool
+    ip: str | None = Field(default=None, description="Tailscale IP (100.x)")
+    exit_node: bool = Field(description="True if this device is the exit node in use")
+    exit_node_option: bool = Field(description="True if it merely offers to be one")
+    last_seen: int | None = Field(default=None, description="Unix time last seen (peers only)")
+    self: bool = Field(description="True for the host this backend runs on")
+
+
+# Superset model. summarize() always returns the full key set; the Optionals
+# (self device when Tailscale is down, a null exit_node, a peer's last_seen) are
+# dropped by response_model_exclude_none, which the frontend reads identically.
+class TailscaleModel(BaseModel):
+    available: bool = Field(description="False when no state file exists yet")
+    status: str | None = Field(default=None, description="up | down | unavailable")
+    stale: bool | None = None
+    self: TailscaleDeviceModel | None = None
+    peers: list[TailscaleDeviceModel] = []
+    online_count: int | None = None
+    peer_count: int | None = None
+    tailnet: str | None = Field(default=None, description="Tailnet MagicDNS domain")
+    magicdns: bool | None = None
+    exit_node: str | None = Field(default=None, description="Hostname of the exit node in use, if any")
+    updated: int | None = None
 
 # The host timer refreshes every few minutes; older than this and we can't trust
 # the online/offline flags, so we mark the snapshot stale rather than lying.
@@ -95,6 +125,6 @@ def get_tailscale():
     return summarize(data)
 
 
-@router.get("/tailscale")
+@router.get("/tailscale", response_model=TailscaleModel, response_model_exclude_none=True)
 def tailscale():
     return get_tailscale()

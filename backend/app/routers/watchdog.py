@@ -16,10 +16,30 @@ import json
 import time
 
 from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
 from app.config import settings
 
 router = APIRouter()
+
+
+# Superset model. A missing/garbage state file returns just {available:false};
+# a present one adds the summarized fields + recovery log. The Optionals are
+# dropped by response_model_exclude_none so both shapes match the prior output.
+# `recoveries` stays a plain list of dicts so the event records pass through
+# verbatim (a typed model would silently filter any extra event keys).
+class WatchdogModel(BaseModel):
+    available: bool = Field(description="False when no watchdog state file exists")
+    label: str | None = Field(default=None, description="Drive label being watched")
+    mount: str | None = None
+    fstype: str | None = None
+    healthy: bool | None = None
+    stale: bool | None = Field(default=None, description="True if the watchdog hasn't reported recently")
+    last_check: int | None = None
+    last_recovery: int | None = None
+    recovery_count: int | None = None
+    note: str | None = None
+    recoveries: list[dict] | None = Field(default=None, description="Recent recovery events, newest first")
 
 # If the watchdog hasn't written in this long, treat its state as stale (it
 # writes every probe interval, ~30s by default, so a few minutes means it's off).
@@ -66,7 +86,7 @@ def summarize(data, now=None):
     }
 
 
-@router.get("/drive-watchdog")
+@router.get("/drive-watchdog", response_model=WatchdogModel, response_model_exclude_none=True)
 def get_drive_watchdog():
     try:
         with open(settings.watchdog_state_path) as fh:

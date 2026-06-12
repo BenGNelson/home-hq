@@ -18,10 +18,38 @@ import json
 import time
 
 from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
 from app.config import settings
 
 router = APIRouter()
+
+
+class VpnEndpointModel(BaseModel):
+    """One end of the comparison. The VPN exit carries city/region; the home end
+    is redacted to a masked IP + org + country, so all fields are Optional and
+    the absent ones are dropped (response_model_exclude_none)."""
+    ip: str | None = None
+    org: str | None = None
+    city: str | None = None
+    region: str | None = None
+    country: str | None = None
+
+
+# Superset model. A missing/garbage state file returns just {available:false};
+# otherwise summarize() fills the rest. Optionals dropped by exclude_none so the
+# shape is unchanged.
+class VpnModel(BaseModel):
+    available: bool = Field(description="False when no VPN state file exists")
+    status: str | None = Field(default=None, description="protected | leak | down")
+    leak: bool | None = Field(default=None, description="True when egress IP == home IP")
+    stale: bool | None = None
+    container: str | None = None
+    container_running: bool | None = None
+    vpn: VpnEndpointModel | None = Field(default=None, description="The VPN exit endpoint")
+    home: VpnEndpointModel | None = Field(default=None, description="The home endpoint (masked)")
+    forwarded_port: int | None = None
+    updated: int | None = None
 
 # The host timer writes every few minutes; if the file is older than this the
 # state is unknown (timer stopped), so we flag it stale rather than trusting it.
@@ -106,6 +134,6 @@ def get_vpn():
     return summarize(data)
 
 
-@router.get("/vpn")
+@router.get("/vpn", response_model=VpnModel, response_model_exclude_none=True)
 def vpn():
     return get_vpn()
