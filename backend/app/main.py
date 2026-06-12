@@ -34,6 +34,7 @@ from app.routers import (
     smart,
     storage,
     system,
+    tailscale,
     vpn,
     watchdog,
 )
@@ -160,6 +161,7 @@ app.include_router(diskio.router, prefix="/api", tags=["Storage"])
 app.include_router(containers.router, prefix="/api", tags=["System"])
 app.include_router(network.router, prefix="/api", tags=["Network"])
 app.include_router(vpn.router, prefix="/api", tags=["Network"])
+app.include_router(tailscale.router, prefix="/api", tags=["Network"])
 app.include_router(backups.router, prefix="/api", tags=["System"])
 app.include_router(plex.router, prefix="/api", tags=["Plex"])
 app.include_router(printer.router, prefix="/api", tags=["Printer"])

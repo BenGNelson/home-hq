@@ -1,0 +1,15 @@
+# Home HQ — Tailscale status collector (oneshot, run by the timer).
+# Install: copy to /etc/systemd/system/home-hq-tailscale.service and replace
+# /path/to/home-hq with the real checkout path. Reads `tailscale status --json`,
+# which works for any user on a host where Tailscale is up.
+[Unit]
+Description=Home HQ — collect Tailscale mesh status
+After=tailscaled.service
+Wants=tailscaled.service
+
+[Service]
+Type=oneshot
+ExecStart=/path/to/home-hq/scripts/tailscale-status.py
+# Override either of these if your setup differs:
+# Environment=TAILSCALE_BIN=tailscale
+# Environment=TAILSCALE_JSON=/var/lib/home-hq/tailscale.json
