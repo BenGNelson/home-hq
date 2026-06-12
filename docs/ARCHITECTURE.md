@@ -83,14 +83,24 @@ flat list; the tag descriptions live in `main.py`'s `tags_metadata`. The
 sidebar's Docs group has an "API" link to `/api/docs`.
 
 **Typed responses (incremental).** Most endpoints return plain dicts (and many
-*degrade* to `{available: false}` when a source is down), so the schema shows
-them as generic objects. Endpoints with a **stable** shape get a Pydantic
-`response_model` for a typed, described schema — starting with `/api/system`
-(`SystemModel`) and `/api/health` (`HealthModel`). This doesn't change the data;
-it's a documentation win, added per-endpoint where a strict model is safe (a
-`response_model` *filters out* any field not in the model, so the degrading
-endpoints are intentionally left untyped until each gets a complete superset
-model).
+*degrade* to `{available: false}` when a source is down), so the schema would
+otherwise show them as generic objects. Endpoints get a Pydantic `response_model`
+for a typed, described schema. Two patterns, both keeping the data unchanged:
+
+- **Stable-shape endpoints** (`/api/system`, `/api/health`) use a strict model.
+- **Degrading endpoints** (disk, network, diskio, raid, backups, drive-watchdog,
+  vpn, tailscale) use a **superset** model: `available` plus every data field as
+  `Optional`, paired with `response_model_exclude_none=True`. A bare
+  `response_model` would *filter out* any field not in the model; the superset
+  lists them all, and `exclude_none` then drops the ones that are null in a given
+  response — so both the lean `{available: false}` failure shape and the full
+  success shape go over the wire exactly as before. The only on-the-wire change
+  vs. an untyped dict is that an explicitly-`null` field is now *omitted*, which
+  every consumer already treats identically (it gates each field on
+  truthy / `!= null`).
+
+Still untyped (sprawling or dynamic shapes, lower payoff): the Plex endpoints,
+`/api/printer`, `/api/smart`, and `/api/storage/*`. Added per-endpoint as wanted.
 
 ### Endpoints
 

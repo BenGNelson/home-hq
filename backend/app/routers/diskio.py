@@ -15,8 +15,24 @@ import re
 import time
 
 from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
 router = APIRouter()
+
+
+class DiskStatModel(BaseModel):
+    name: str = Field(description="Block device name (e.g. sda, nvme0n1, md0)")
+    read_bytes: int = Field(description="Cumulative bytes read")
+    write_bytes: int = Field(description="Cumulative bytes written")
+
+
+# Same superset/exclude_none convention as /network — error/time omitted on the
+# path where they don't apply so the on-the-wire shape is unchanged.
+class DiskIoModel(BaseModel):
+    available: bool = Field(description="False when host /proc isn't mounted")
+    error: str | None = None
+    time: float | None = Field(default=None, description="Unix time of this sample")
+    disks: list[DiskStatModel] = []
 
 HOST_DISKSTATS = "/host/proc/diskstats"
 
@@ -54,7 +70,7 @@ def parse_diskstats(text: str) -> list[dict]:
     return disks
 
 
-@router.get("/diskio")
+@router.get("/diskio", response_model=DiskIoModel, response_model_exclude_none=True)
 def get_diskio():
     try:
         with open(HOST_DISKSTATS) as fh:

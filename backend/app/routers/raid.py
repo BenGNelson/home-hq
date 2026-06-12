@@ -19,8 +19,38 @@ A healthy array has active == configured and no `_`.
 import re
 
 from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
 router = APIRouter()
+
+
+class ResyncModel(BaseModel):
+    action: str = Field(description="recovery | resync | reshape | check")
+    percent: float = Field(description="Progress of the in-flight operation")
+    detail: str = Field(description="The raw mdstat progress line")
+
+
+class ArrayModel(BaseModel):
+    name: str = Field(description="Array device name (e.g. md0)")
+    state: str = Field(description="mdadm state, e.g. active")
+    level: str = Field(description="RAID level, e.g. raid5")
+    members: list[str] = Field(description="Member block devices")
+    failed: list[str] = Field(description="Members marked faulty (F)")
+    devices_total: int | None = Field(default=None, description="Configured device count")
+    devices_active: int | None = Field(default=None, description="Currently active devices")
+    status: str | None = Field(default=None, description="Per-device up/down map, e.g. UUU")
+    healthy: bool | None = Field(default=None, description="True when no member is down")
+    resync: ResyncModel | None = Field(default=None, description="In-progress rebuild, if any")
+
+
+# Superset model; arrays defaults to [] so it's present in both shapes. Per-array
+# Optionals (and a null resync) are dropped by response_model_exclude_none, which
+# the frontend consumes identically (it gates every one on truthy/!= null).
+class RaidModel(BaseModel):
+    available: bool = Field(description="False when /proc/mdstat isn't found")
+    error: str | None = None
+    arrays: list[ArrayModel] = []
+
 
 _MDSTAT_PATHS = ("/host/proc/mdstat", "/proc/mdstat")
 
@@ -106,7 +136,7 @@ def parse_mdstat(text):
     return arrays
 
 
-@router.get("/raid")
+@router.get("/raid", response_model=RaidModel, response_model_exclude_none=True)
 def get_raid():
     text = _read_mdstat()
     if text is None:

@@ -14,8 +14,25 @@ Counters are cumulative; the frontend samples this endpoint and computes rates
 import time
 
 from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
 router = APIRouter()
+
+
+class InterfaceModel(BaseModel):
+    name: str = Field(description="Interface name (e.g. eth0)")
+    rx_bytes: int = Field(description="Cumulative bytes received")
+    tx_bytes: int = Field(description="Cumulative bytes transmitted")
+
+
+# Superset model; interfaces defaults to [] so it's present in both shapes.
+# error/time are Optional and omitted (response_model_exclude_none) on the path
+# where they don't apply, keeping the success/failure shapes byte-for-byte.
+class NetworkModel(BaseModel):
+    available: bool = Field(description="False when host /proc isn't mounted")
+    error: str | None = None
+    time: float | None = Field(default=None, description="Unix time of this sample")
+    interfaces: list[InterfaceModel] = []
 
 # PID 1 lives in the host network namespace, so its net/dev = host counters.
 HOST_NET_DEV = "/host/proc/1/net/dev"
@@ -49,7 +66,7 @@ def _read_net_dev(path: str) -> list[dict]:
     return interfaces
 
 
-@router.get("/network")
+@router.get("/network", response_model=NetworkModel, response_model_exclude_none=True)
 def get_network():
     try:
         interfaces = _read_net_dev(HOST_NET_DEV)
