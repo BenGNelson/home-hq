@@ -10,20 +10,60 @@ Config.Image) rather than calling the (forbidden) image-inspect endpoint.
 
 SECURITY: the detail endpoint deliberately exposes only operational facts
 (state, health, ports, resource usage). It NEVER returns environment variables,
-bind-mount host paths, command args, or logs — those routinely contain secrets
-(tokens, passwords, VPN creds) and host paths, which must not reach a UI that
-will eventually be accessible over the tailnet.
+bind-mount host paths, or command args — those routinely contain secrets
+(tokens, passwords, VPN creds) and host paths.
 
-This endpoint only READS, and the proxy enforces that at the API level.
+Container LOGS are served by a separate endpoint (/containers/{name}/logs).
+Logs capture an app's raw stdout/stderr, so they CAN contain whatever it prints
+(an accidentally-logged secret, or activity like torrent names). This is an
+informed reversal of the original "never expose logs" stance, sound only because
+the whole UI is reachable only over the LAN/tailnet (UFW drops public traffic;
+no Tailscale funnel) and the tailnet is single-user. As a guard, CONTAINER_LOGS_
+EXCLUDE lists containers whose logs are withheld (e.g. a VPN or torrent client —
+the most sensitive, and the ones you'd debug over SSH instead).
+
+This router only READS, and the proxy enforces that at the API level.
 """
 
+import re
 import time
 from datetime import datetime, timezone
 
 import docker
 from fastapi import APIRouter
 
+from app.config import settings
+
 router = APIRouter()
+
+# Bounds for the logs endpoint's tail length.
+_LOGS_TAIL_DEFAULT = 200
+_LOGS_TAIL_MAX = 2000
+
+# Many apps colorize their logs with ANSI escapes; a browser <pre> can't render
+# them, so they'd show as literal "[31m" noise. Strip them server-side.
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _excluded_log_names() -> set[str]:
+    """Container names (lowercased) whose logs are withheld, from config."""
+    return {n.strip().lower() for n in (settings.container_logs_exclude or "").split(",") if n.strip()}
+
+
+def _clamp_tail(tail) -> int:
+    """Coerce a requested tail length into [1, _LOGS_TAIL_MAX], default on junk."""
+    try:
+        n = int(tail)
+    except (TypeError, ValueError):
+        return _LOGS_TAIL_DEFAULT
+    return max(1, min(n, _LOGS_TAIL_MAX))
+
+
+def _decode_log_lines(raw) -> list[str]:
+    """Bytes from the Docker logs API -> a list of text lines, with ANSI color
+    escapes stripped (a browser <pre> can't render them)."""
+    text = raw.decode("utf-8", "replace") if isinstance(raw, (bytes, bytearray)) else str(raw)
+    return _ANSI_RE.sub("", text).splitlines()
 
 
 def _uptime_seconds(started_at: str) -> int | None:
@@ -185,4 +225,42 @@ def get_container_detail(name: str):
         "mem_percent": mem_percent,
         "net_rx_bytes": net_rx,
         "net_tx_bytes": net_tx,
+    }
+
+
+@router.get("/containers/{name}/logs")
+def get_container_logs(name: str, tail: int = _LOGS_TAIL_DEFAULT):
+    """Recent stdout/stderr for one container (last `tail` lines, timestamped).
+
+    Read-only and tail-limited. Containers named in CONTAINER_LOGS_EXCLUDE are
+    withheld (see the module docstring) — sensitive ones like a VPN/torrent
+    client. Reachable only over the LAN/tailnet, never the public internet.
+    """
+    tail = _clamp_tail(tail)
+
+    if name.lower() in _excluded_log_names():
+        return {
+            "available": False,
+            "excluded": True,
+            "name": name,
+            "reason": "Logs are disabled for this container.",
+        }
+
+    try:
+        client = docker.from_env()
+        c = client.containers.get(name)
+        # timestamps=True prefixes each line with an RFC3339 time; tail caps it so
+        # we never stream a whole history. stream=False returns the bytes at once.
+        raw = c.logs(tail=tail, timestamps=True, stdout=True, stderr=True, stream=False)
+    except docker.errors.NotFound:
+        return {"found": False}
+    except docker.errors.DockerException as exc:
+        return {"available": False, "error": str(exc)}
+
+    return {
+        "available": True,
+        "found": True,
+        "name": c.name,
+        "tail": tail,
+        "lines": _decode_log_lines(raw),
     }

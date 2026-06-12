@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useApi } from '../../lib/useApi.js'
+import { useState, useEffect, useCallback } from 'react'
+import { useApi, API_BASE } from '../../lib/useApi.js'
 import { useCounterRate } from '../../lib/useRates.js'
 import { Row, Bar, Spinner } from '../../components/ui.jsx'
 import { Graph } from '../../components/Graph.jsx'
@@ -111,6 +111,92 @@ function ContainerDetail({ name }) {
             ))}
           </ul>
         </div>
+      )}
+
+      <LogsSection name={name} />
+    </div>
+  )
+}
+
+// Collapsible recent-logs panel. Mounts (and only then fetches) on demand, so
+// opening a container doesn't pull logs you didn't ask for. Manual refresh +
+// tail-length control rather than auto-polling — logs are bulky.
+function LogsSection({ name }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="border-t border-slate-800 pt-3">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-2 text-xs uppercase tracking-wide text-slate-500 transition hover:text-slate-300"
+      >
+        <span className={`transition-transform ${open ? 'rotate-90' : ''}`}>▸</span>
+        Logs
+      </button>
+      {open && <ContainerLogs name={name} />}
+    </div>
+  )
+}
+
+const TAIL_OPTIONS = [100, 200, 500, 1000]
+
+function ContainerLogs({ name }) {
+  const [tail, setTail] = useState(200)
+  const [state, setState] = useState({ loading: true, error: null, data: null })
+
+  const load = useCallback(async () => {
+    setState((s) => ({ ...s, loading: true }))
+    try {
+      const res = await fetch(`${API_BASE}/containers/${name}/logs?tail=${tail}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setState({ loading: false, error: null, data: await res.json() })
+    } catch (err) {
+      setState({ loading: false, error: err.message, data: null })
+    }
+  }, [name, tail])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const { loading, error, data } = state
+  const excluded = data && data.available === false && data.excluded
+  const notFound = data && data.found === false
+  const failed = data && data.available === false && !data.excluded
+  const lines = data?.lines ?? []
+
+  return (
+    <div className="mt-2 space-y-2">
+      <div className="flex items-center gap-2 text-xs">
+        <span className="text-slate-500">tail</span>
+        <select
+          value={tail}
+          onChange={(e) => setTail(Number(e.target.value))}
+          className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-slate-300"
+        >
+          {TAIL_OPTIONS.map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={load}
+          disabled={loading}
+          className="rounded border border-slate-700 px-2 py-0.5 text-slate-300 transition hover:bg-slate-800 disabled:opacity-50"
+        >
+          {loading ? '…' : 'Refresh'}
+        </button>
+      </div>
+
+      {excluded && <p className="text-xs text-amber-400">{data.reason}</p>}
+      {notFound && <p className="text-xs text-slate-500">container not found</p>}
+      {failed && <p className="text-xs text-rose-400">unavailable — {data.error}</p>}
+      {error && <p className="text-xs text-rose-400">unavailable — {error}</p>}
+
+      {data && data.available && (
+        <pre className="max-h-96 overflow-auto rounded-lg border border-slate-800 bg-slate-950 p-3 text-[11px] leading-relaxed text-slate-300">
+          {lines.length ? lines.join('\n') : <span className="text-slate-600">no log output</span>}
+        </pre>
       )}
     </div>
   )

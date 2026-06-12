@@ -25,7 +25,7 @@ const ENDPOINTS = [
   ['/api/health', 'Liveness + server name.'],
   ['/api/system', 'CPU %, RAM used/total, uptime (psutil).'],
   ['/api/disk', 'Total / used / free for the storage array.'],
-  ['/api/containers · /{name}', 'Container list, and one container’s live CPU/mem/net.'],
+  ['/api/containers · /{name} · /{name}/logs', 'Container list, one container’s live CPU/mem/net, and its recent logs (tail-limited; sensitive ones excludable).'],
   ['/api/network', 'Per-interface byte counters (read from the host’s /proc).'],
   ['/api/vpn', 'VPN egress leak check — exit IP vs home IP, from a host timer.'],
   ['/api/tailscale', 'Tailnet devices (online state, exit node, last seen), from a host timer running `tailscale status`.'],

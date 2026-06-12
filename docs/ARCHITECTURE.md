@@ -49,7 +49,7 @@ backend/app/
   routers/
     system.py        # /api/system
     disk.py          # /api/disk
-    containers.py    # /api/containers + /api/containers/{name}
+    containers.py    # /api/containers + /api/containers/{name} + /{name}/logs
     network.py       # /api/network  (host interface counters)
     vpn.py           # /api/vpn      (VPN egress leak check, from a host timer's JSON)
     tailscale.py     # /api/tailscale (tailnet device list, from a host timer's JSON)
@@ -111,6 +111,7 @@ Still untyped (sprawling or dynamic shapes, lower payoff): the Plex endpoints,
 | `GET /api/disk` | total/used/free/% for the storage mount | `psutil.disk_usage` |
 | `GET /api/containers` | name, status, image, uptime per container | Docker SDK → read-only socket proxy |
 | `GET /api/containers/{name}` | one container's live stats (cpu/mem/net) | Docker SDK → read-only socket proxy |
+| `GET /api/containers/{name}/logs?tail=N` | recent stdout/stderr (tail-limited, timestamped) | Docker SDK → read-only socket proxy; honors `CONTAINER_LOGS_EXCLUDE` |
 | `GET /api/network` | per-interface byte counters | reads host `/proc/1/net/dev` |
 | `GET /api/vpn` | VPN egress leak check (exit IP vs home IP) | reads a host timer's `vpn.json` |
 | `GET /api/tailscale` | tailnet devices (online state, exit node, last seen) | reads a host timer's `tailscale.json` |
@@ -433,6 +434,19 @@ already have, rather than calling the (forbidden) image-inspect endpoint. Net
 effect: a backend compromise can list containers and read stats, nothing more —
 no image/network/secret introspection, no writes, no host reach to the proxy
 (it isn't published or routable off its internal network).
+
+**Container logs** ride the same proxy (`GET /containers/{id}/logs` is a
+container endpoint, so `CONTAINERS=1` already permits it — no extra grant). The
+detail endpoint still withholds env vars, mounts, and command args, but a
+separate `/containers/{name}/logs` endpoint serves recent stdout/stderr on
+demand. That's an informed reversal of the original "never expose logs" stance:
+logs can contain whatever an app prints (an accidentally-logged secret, or
+activity like torrent names), so it's only sound because the UI is reachable
+only over the LAN/tailnet (UFW drops public traffic; no funnel) and the tailnet
+is single-user. `CONTAINER_LOGS_EXCLUDE` withholds named containers (a VPN or
+torrent client — the most sensitive and the ones you'd `docker logs` over SSH
+anyway). The endpoint is read-only and tail-limited; it never streams full
+history.
 
 ---
 

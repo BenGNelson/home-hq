@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     # SQLite cache for the Plex library browser (lives on a Docker volume so it
     # survives rebuilds). Not a secret, but configurable for non-Docker dev.
     db_path: str = "/data/homehq.db"
+    # Container log viewer: a comma-separated list of container names whose logs
+    # the /api/containers/{name}/logs endpoint refuses to return. Logs can carry
+    # secrets/activity an app prints to stdout, so list the sensitive ones here
+    # (e.g. a VPN or torrent client). Empty = every container's logs are readable
+    # (still only over the LAN/tailnet — never the public internet).
+    container_logs_exclude: str = ""
 
     # --- Config backup (read-only listing; backups are created by a host script) ---
     backup_dir: str = ""  # where encrypted backups land (under RAID_MOUNT)
