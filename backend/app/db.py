@@ -100,6 +100,17 @@ CREATE TABLE IF NOT EXISTS space_usage (
     total_bytes INTEGER,
     entries    TEXT NOT NULL
 );
+
+-- Plex activity samples: periodic snapshots of concurrent streams / transcodes /
+-- reserved bandwidth, recorded by the in-app sampler (plex_history.py). Powers
+-- the Plex insights page (load + bandwidth trends). Pruned by retention.
+CREATE TABLE IF NOT EXISTS plex_samples (
+    ts             REAL NOT NULL,    -- when recorded (epoch seconds)
+    streams        INTEGER NOT NULL,
+    transcodes     INTEGER NOT NULL,
+    bandwidth_kbps INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_plex_samples_ts ON plex_samples (ts);
 """
 
 
@@ -220,6 +231,39 @@ def prune_storage_samples(before_ts):
     """Drop trend samples older than a cutoff (retention)."""
     with get_conn() as conn:
         conn.execute("DELETE FROM storage_samples WHERE ts < ?", (before_ts,))
+
+
+def record_plex_sample(ts, streams, transcodes, bandwidth_kbps):
+    """Append one Plex activity sample (concurrent streams/transcodes/bandwidth)."""
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO plex_samples (ts, streams, transcodes, bandwidth_kbps) "
+            "VALUES (?, ?, ?, ?)",
+            (ts, int(streams), int(transcodes), bandwidth_kbps),
+        )
+
+
+def plex_samples(since_ts=None):
+    """Plex activity samples, oldest first (optionally only since a cutoff)."""
+    with get_conn() as conn:
+        if since_ts is not None:
+            rows = conn.execute(
+                "SELECT ts, streams, transcodes, bandwidth_kbps FROM plex_samples "
+                "WHERE ts >= ? ORDER BY ts ASC",
+                (since_ts,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT ts, streams, transcodes, bandwidth_kbps FROM plex_samples "
+                "ORDER BY ts ASC"
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def prune_plex_samples(before_ts):
+    """Drop Plex activity samples older than a cutoff (retention)."""
+    with get_conn() as conn:
+        conn.execute("DELETE FROM plex_samples WHERE ts < ?", (before_ts,))
 
 
 def record_print(rec):

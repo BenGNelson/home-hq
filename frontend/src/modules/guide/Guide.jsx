@@ -28,6 +28,7 @@ const ENDPOINTS = [
   ['/api/containers · /{name}', 'Container list, and one container’s live CPU/mem/net.'],
   ['/api/network', 'Per-interface byte counters (read from the host’s /proc).'],
   ['/api/vpn', 'VPN egress leak check — exit IP vs home IP, from a host timer.'],
+  ['/api/plex/insights', 'Plex activity trends over time (streams/transcodes/bandwidth) + stats.'],
   ['/api/diskio', 'Per-disk read/write byte counters (/proc/diskstats); the Storage page graphs rates client-side.'],
   ['/api/raid', 'Software-RAID array health, parsed from /proc/mdstat.'],
   ['/api/smart', 'Per-drive SMART health, collected daily by a host timer.'],

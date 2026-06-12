@@ -151,6 +151,23 @@ def plex_now_playing():
         return {"configured": True, "reachable": False, "sessions": [], "error": str(exc)}
 
 
+@router.get("/plex/insights")
+def plex_insights(hours: int = 24):
+    """Plex activity trends over a recent window — concurrent streams, transcodes,
+    and reserved bandwidth sampled by the in-app sampler (plex_history.py), plus
+    headline stats. Reads SQLite, so it works even when Plex is unreachable."""
+    from app.plex_history import summarize_insights  # avoid import cycle at load
+
+    hours = max(1, min(hours, 24 * 30))  # clamp to the retention window
+    since = time.time() - hours * 3600
+    samples = db.plex_samples(since_ts=since)
+    return {
+        "hours": hours,
+        "samples": samples,
+        "stats": summarize_insights(samples),
+    }
+
+
 def _added_ts(it):
     """addedAt as an epoch float (0 if missing) — for sorting + display."""
     try:
