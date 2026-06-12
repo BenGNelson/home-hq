@@ -1,0 +1,16 @@
+# Home HQ — VPN egress health collector (oneshot, run by the timer).
+# Install: copy to /etc/systemd/system/home-hq-vpn-health.service and replace
+# /path/to/home-hq with the real checkout path. Needs docker access (root, or a
+# user in the docker group) to `docker exec` the VPN container.
+[Unit]
+Description=Home HQ — collect VPN egress health
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/path/to/home-hq/scripts/vpn-health.py
+# Override any of these if your setup differs:
+# Environment=VPN_CONTAINER=gluetun
+# Environment=VPN_IP_CHECK_URL=https://ipinfo.io/json
+# Environment=VPN_JSON=/var/lib/home-hq/vpn.json

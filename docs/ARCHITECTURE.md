@@ -51,6 +51,7 @@ backend/app/
     disk.py          # /api/disk
     containers.py    # /api/containers + /api/containers/{name}
     network.py       # /api/network  (host interface counters)
+    vpn.py           # /api/vpn      (VPN egress leak check, from a host timer's JSON)
     diskio.py        # /api/diskio   (per-disk I/O counters from /proc/diskstats)
     raid.py          # /api/raid     (software-RAID state from /proc/mdstat)
     smart.py         # /api/smart    (per-drive SMART, from a host timer's JSON)
@@ -89,6 +90,7 @@ sidebar's Docs group has an "API" link to `/api/docs`.
 | `GET /api/containers` | name, status, image, uptime per container | Docker SDK → read-only socket proxy |
 | `GET /api/containers/{name}` | one container's live stats (cpu/mem/net) | Docker SDK → read-only socket proxy |
 | `GET /api/network` | per-interface byte counters | reads host `/proc/1/net/dev` |
+| `GET /api/vpn` | VPN egress leak check (exit IP vs home IP) | reads a host timer's `vpn.json` |
 | `GET /api/diskio` | per-disk cumulative read/write bytes (rates computed client-side) | parses host `/proc/diskstats` |
 | `GET /api/raid` | software-RAID array state (healthy/degraded, rebuild %) | parses host `/proc/mdstat` |
 | `GET /api/smart` | per-drive SMART health; role-tagged (raid/system/other) | reads a host timer's `smart.json` |
@@ -249,6 +251,23 @@ reads that file via the same `/smart` mount and serves it at
 `/api/drive-watchdog`, so the **Drives** widget shows the watched drive's health
 and self-recovery history — surfacing a drive that SMART can't read through a USB
 bridge.
+
+### VPN egress health (host script)
+
+If you route a container's traffic through a VPN (a common privacy setup), you
+want to *prove* it's actually masked — and catch a leak where traffic falls back
+to your home connection. The backend can't see into the VPN container's network
+namespace (and reaches Docker only through the read-only socket proxy, so it
+can't `docker exec`), so this is another privileged-host / unprivileged-app
+split. `scripts/vpn-health.py` (a host timer) looks up two public IPs — the
+host's own, and the one seen from *inside* the VPN container — and writes them to
+`vpn.json`. The backend reads that via the same `/smart` mount, and
+**`/api/vpn`** computes the verdict: if the VPN egress IP equals the home IP it's
+a **leak**; if the container isn't running it's **down** (benign — the
+kill-switch means no traffic, so it isn't alarmed on); otherwise **protected**.
+The **VPN** page shows the exit vs home IPs side by side, and a leak raises an
+urgent push alert. The script is generic (`VPN_CONTAINER`, `VPN_IP_CHECK_URL`)
+and commits clean — no host or service specifics.
 
 ### Alerting (push notifications)
 

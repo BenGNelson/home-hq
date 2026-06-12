@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     # Append-only recovery-event log (JSONL) the watchdog writes; read via the
     # same /smart mount so the Storage page can show recent wedge/recovery events.
     watchdog_events_path: str = "/smart/drive-watchdog-events.jsonl"
+    # VPN egress state written by a host timer (scripts/vpn-health.py), read via
+    # the same /smart mount. It records the protected container's public egress
+    # IP vs the host's own (home) IP so the backend can flag a leak — the app
+    # itself can't see the VPN namespace, so the host script does the lookup.
+    vpn_json_path: str = "/smart/vpn.json"
 
     # --- Alerting (push notifications via ntfy) ---
     # Push lands on the phone over normal internet (no tailnet needed). The topic
