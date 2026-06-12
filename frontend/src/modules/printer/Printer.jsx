@@ -135,9 +135,13 @@ function Telemetry({ p, camera }) {
       : null
 
   return (
-    <div className="space-y-4">
-      {camera && <CameraView className="mx-auto max-h-[70vh]" />}
+    // On wide screens, camera on the left and the live cards stacked on the
+    // right; below lg it collapses to a single column (camera on top). Only
+    // split when there's a camera — otherwise the cards take the full width.
+    <div className={camera ? 'lg:grid lg:grid-cols-[3fr_2fr] lg:items-start lg:gap-4' : ''}>
+      {camera && <CameraView className="mb-4 w-full lg:mb-0" />}
 
+      <div className="space-y-4">
       {/* Status header */}
       <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -225,6 +229,7 @@ function Telemetry({ p, camera }) {
         {p.fans?.part != null && <span>Part fan {p.fans.part}%</span>}
         {p.fans?.aux != null && <span>Aux fan {p.fans.aux}%</span>}
         {p.light != null && <span>Light {p.light ? 'on' : 'off'}</span>}
+      </div>
       </div>
     </div>
   )
