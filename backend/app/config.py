@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     # IP vs the host's own (home) IP so the backend can flag a leak — the app
     # itself can't see the VPN namespace, so the host script does the lookup.
     vpn_json_path: str = "/smart/vpn.json"
+    # Tailscale mesh status written by a host timer (scripts/tailscale-status.py),
+    # read via the same /smart mount. The backend container has no tailscale
+    # binary/socket, so the host script runs `tailscale status --json` for it.
+    tailscale_json_path: str = "/smart/tailscale.json"
 
     # --- Alerting (push notifications via ntfy) ---
     # Push lands on the phone over normal internet (no tailnet needed). The topic

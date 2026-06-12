@@ -52,6 +52,7 @@ backend/app/
     containers.py    # /api/containers + /api/containers/{name}
     network.py       # /api/network  (host interface counters)
     vpn.py           # /api/vpn      (VPN egress leak check, from a host timer's JSON)
+    tailscale.py     # /api/tailscale (tailnet device list, from a host timer's JSON)
     diskio.py        # /api/diskio   (per-disk I/O counters from /proc/diskstats)
     raid.py          # /api/raid     (software-RAID state from /proc/mdstat)
     smart.py         # /api/smart    (per-drive SMART, from a host timer's JSON)
@@ -102,6 +103,7 @@ model).
 | `GET /api/containers/{name}` | one container's live stats (cpu/mem/net) | Docker SDK → read-only socket proxy |
 | `GET /api/network` | per-interface byte counters | reads host `/proc/1/net/dev` |
 | `GET /api/vpn` | VPN egress leak check (exit IP vs home IP) | reads a host timer's `vpn.json` |
+| `GET /api/tailscale` | tailnet devices (online state, exit node, last seen) | reads a host timer's `tailscale.json` |
 | `GET /api/diskio` | per-disk cumulative read/write bytes (rates computed client-side) | parses host `/proc/diskstats` |
 | `GET /api/raid` | software-RAID array state (healthy/degraded, rebuild %) | parses host `/proc/mdstat` |
 | `GET /api/smart` | per-drive SMART health; role-tagged (raid/system/other) | reads a host timer's `smart.json` |
@@ -280,6 +282,21 @@ kill-switch means no traffic, so it isn't alarmed on); otherwise **protected**.
 The **VPN** page shows the exit vs home IPs side by side, and a leak raises an
 urgent push alert. The script is generic (`VPN_CONTAINER`, `VPN_IP_CHECK_URL`)
 and commits clean — no host or service specifics.
+
+### Tailscale mesh status (host script)
+
+If the host is on a [Tailscale](https://tailscale.com) tailnet (the same mesh
+that lets you reach this dashboard from anywhere without opening ports), the
+**Tailscale** page lists every device on it — this host plus each peer — with
+its online state, OS, Tailscale IP, last-seen time, and whether any device is
+acting as the exit node. The backend container has no `tailscale` binary or
+socket, so — same split as SMART and the VPN check — `scripts/tailscale-status.py`
+(a host timer) runs `tailscale status --json`, trims it to the displayed subset,
+and writes `tailscale.json`. The backend reads it via the same `/smart` mount;
+**`/api/tailscale`** does the shaping (online counts, online-first sort,
+exit-node detection, stale check) in a pure, unit-tested `summarize()`. The
+script deliberately drops the tailnet's login email, keeping only the MagicDNS
+domain, so nothing identifying is committed or even written to the state file.
 
 ### Alerting (push notifications)
 
