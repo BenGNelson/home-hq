@@ -6,7 +6,9 @@ Description=Home HQ — daily SMART drive health collection
 
 [Timer]
 OnCalendar=daily
-Persistent=true   # catch up if the machine was off at the scheduled time
+# Catch up on the next boot if the machine was off at the scheduled time.
+# (systemd has no trailing inline comments — keep them on their own line.)
+Persistent=true
 
 [Install]
 WantedBy=timers.target
