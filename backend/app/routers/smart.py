@@ -13,11 +13,71 @@ The file may not exist yet (timer hasn't run) — we degrade to available:false.
 import json
 
 from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.routers import raid
 
 router = APIRouter()
+
+
+# Both endpoints degrade to {available:false}; all the data fields are Optional
+# and dropped by response_model_exclude_none, so the shapes are unchanged.
+class SmartDriveModel(BaseModel):
+    name: str | None = None
+    supported: bool = Field(description="False when SMART can't be read (e.g. a USB bridge)")
+    model: str | None = None
+    passed: bool | None = Field(default=None, description="SMART overall self-assessment")
+    temperature_c: int | None = None
+    power_on_hours: int | None = None
+    power_cycles: int | None = None
+    capacity_bytes: int | None = None
+    reallocated: int | None = None
+    pending: int | None = None
+    wear_percent: int | None = Field(default=None, description="NVMe life used %")
+    media_errors: int | None = None
+    message: str | None = Field(default=None, description="Why SMART was unreadable, if so")
+    warnings: list[str] = []
+    role: str | None = Field(default=None, description="raid | system | other")
+
+
+class SmartModel(BaseModel):
+    available: bool = Field(description="False when no SMART state file exists yet")
+    generated_at: int | None = Field(default=None, description="When the host timer wrote the file")
+    drives: list[SmartDriveModel] | None = None
+
+
+class SmartAttrRowModel(BaseModel):
+    id: int | None = None
+    name: str | None = None
+    value: int | None = None
+    worst: int | None = None
+    thresh: int | None = None
+    raw: str | None = Field(default=None, description="Vendor raw value string")
+    when_failed: str | None = None
+    prefailure: bool | None = None
+
+
+class NvmeHealthModel(BaseModel):
+    temperature: int | None = None
+    available_spare: int | None = None
+    available_spare_threshold: int | None = None
+    percentage_used: int | None = None
+    data_units_read: int | None = None
+    data_units_written: int | None = None
+    power_cycles: int | None = None
+    power_on_hours: int | None = None
+    unsafe_shutdowns: int | None = None
+    media_errors: int | None = None
+    num_err_log_entries: int | None = None
+
+
+class SmartAttributesModel(BaseModel):
+    available: bool
+    name: str | None = None
+    model: str | None = None
+    attributes: list[SmartAttrRowModel] | None = None
+    nvme: NvmeHealthModel | None = Field(default=None, description="NVMe health log (ATA drives → null)")
 
 
 def _raid_member_disks():
@@ -173,7 +233,8 @@ def parse_nvme_health(report):
     return {k: log.get(k) for k in _NVME_FIELDS if log.get(k) is not None}
 
 
-@router.get("/smart/{name}/attributes")
+@router.get("/smart/{name}/attributes", response_model=SmartAttributesModel,
+            response_model_exclude_none=True)
 def get_smart_attributes(name: str):
     """The full SMART attribute table for one drive, fetched on demand when its
     row is expanded (kept out of the polled /smart list to keep that lean)."""
@@ -195,7 +256,7 @@ def get_smart_attributes(name: str):
     return {"available": False}
 
 
-@router.get("/smart")
+@router.get("/smart", response_model=SmartModel, response_model_exclude_none=True)
 def get_smart():
     try:
         with open(settings.smart_json_path) as fh:

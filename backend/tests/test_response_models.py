@@ -25,6 +25,10 @@ MODELED_ENDPOINTS = [
     "/api/drive-watchdog",
     "/api/vpn",
     "/api/tailscale",
+    "/api/containers",
+    "/api/smart",
+    "/api/smart/sda/attributes",
+    "/api/storage/space",
 ]
 
 
@@ -72,3 +76,15 @@ def test_exclude_none_drops_null_keys_but_keeps_data(client, monkeypatch):
     assert body["leak"] is False  # a real False is NOT dropped
     assert body["home"] == {"ip": "203.0.•.•", "org": "AS1 Home ISP", "country": "US"}
     assert body["forwarded_port"] == 34525
+
+
+def test_trends_keeps_nulls_and_validates(client):
+    """/storage/trends is the one modeled endpoint that does NOT exclude nulls:
+    its metric points keep value:null and the projection can be null, which must
+    survive the model (no exclude_none) so the graphs/projection stay intact."""
+    body = client.get("/api/storage/trends").json()
+    assert body["available"] is True
+    # The full shape is always present (empty history degrades to empty series).
+    for key in ("days", "smart", "capacity", "projection"):
+        assert key in body
+    assert isinstance(body["smart"], dict) and isinstance(body["capacity"], list)
