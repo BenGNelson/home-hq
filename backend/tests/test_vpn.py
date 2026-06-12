@@ -9,7 +9,8 @@ PROTECTED = {
     "updated": NOW - 30,
     "container": "gluetun",
     "container_running": True,
-    "home": {"ip": "203.0.113.7", "org": "AS1 Home ISP", "country": "US"},
+    "home": {"ip": "203.0.113.7", "org": "AS1 Home ISP", "city": "Townsville",
+             "region": "Somewhere", "country": "US"},
     "vpn": {"ip": "198.51.100.9", "org": "AS2 VPN Host", "country": "NL"},
     "forwarded_port": 34525,
 }
@@ -22,6 +23,17 @@ def test_protected_when_ips_differ():
     assert out["leak"] is False
     assert out["stale"] is False
     assert out["forwarded_port"] == 34525
+
+
+def test_home_ip_masked_and_city_dropped():
+    out = summarize(PROTECTED, now=NOW)
+    # The real home address must never reach the response — only a masked form.
+    assert out["home"]["ip"] == "203.0.•.•"
+    assert "203.0.113.7" not in str(out["home"])
+    assert "city" not in out["home"] and "region" not in out["home"]
+    assert out["home"]["org"] == "AS1 Home ISP"  # ISP/country are kept for contrast
+    # The VPN exit is NOT masked (a shared server IP, and the point of the page).
+    assert out["vpn"]["ip"] == "198.51.100.9"
 
 
 def test_leak_when_egress_equals_home_ip():
