@@ -29,10 +29,13 @@ function NavItem({ to, icon, label, muted, external }) {
   const idle = muted
     ? 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300'
     : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+  // Emoji glyphs are always full-color, so dim them a touch in the muted Docs
+  // footer to keep that section reading as secondary to the modules above.
+  const iconCls = `text-base leading-none${muted ? ' opacity-70' : ''}`
   if (external) {
     return (
       <a href={to} target="_blank" rel="noreferrer" className={`${layout} ${idle}`}>
-        <span className="text-base leading-none">{icon}</span>
+        <span className={iconCls}>{icon}</span>
         <span>{label}</span>
         <span className="ml-auto text-xs text-slate-600">↗</span>
       </a>
@@ -45,7 +48,7 @@ function NavItem({ to, icon, label, muted, external }) {
         `${layout} ${isActive ? 'bg-slate-800 text-white' : idle}`
       }
     >
-      <span className="text-base leading-none">{icon}</span>
+      <span className={iconCls}>{icon}</span>
       <span>{label}</span>
     </NavLink>
   )
