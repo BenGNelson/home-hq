@@ -29,6 +29,7 @@ MODELED_ENDPOINTS = [
     "/api/smart",
     "/api/smart/sda/attributes",
     "/api/storage/space",
+    "/api/printer",
 ]
 
 
@@ -88,3 +89,12 @@ def test_trends_keeps_nulls_and_validates(client):
     for key in ("days", "smart", "capacity", "projection"):
         assert key in body
     assert isinstance(body["smart"], dict) and isinstance(body["capacity"], list)
+
+
+def test_printer_history_keeps_null_success_rate(client):
+    """/printer/history is always-full and keeps success_rate:null (no prints
+    yet), so it deliberately doesn't exclude nulls."""
+    body = client.get("/api/printer/history").json()
+    assert body["available"] is True
+    assert "stats" in body and "prints" in body
+    assert "success_rate" in body["stats"]  # present even when null
