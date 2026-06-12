@@ -32,6 +32,11 @@ const modules = [
   { id: 'alerts', label: 'Alerts', path: '/alerts', icon: '⚑', group: 'Monitoring' },
   { id: 'guide', label: 'Under the Hood', path: '/guide', icon: 'ⓘ', group: 'Docs' },
   { id: 'server-guide', label: 'Your Server Guide', path: '/server-guide', icon: '▤', group: 'Docs' },
+  // External: the backend's own interactive OpenAPI docs (Swagger UI), served
+  // at /api/docs through the same proxy as the API. `external` makes Shell
+  // render a plain <a> that opens in a new tab — it's not a React route, so
+  // there's no matching <Route> below.
+  { id: 'api', label: 'API', path: '/api/docs', icon: '{ }', group: 'Docs', external: true },
   { id: 'readme', label: 'README', path: '/readme', icon: '❏', group: 'Docs' },
 ]
 

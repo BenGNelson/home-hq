@@ -186,6 +186,12 @@ export default function Guide() {
           and returns an “unavailable” state instead of erroring, so the UI always
           renders something.
         </p>
+        <p>
+          FastAPI builds an interactive <Code>OpenAPI</Code> reference from the
+          routes for free — explore every endpoint (grouped by domain) at{' '}
+          <Code>/api/docs</Code>, or via the <strong>API</strong> link in the
+          sidebar’s Docs section.
+        </p>
         <div className="overflow-hidden rounded-lg border border-slate-800">
           <table className="w-full text-xs">
             <tbody className="divide-y divide-slate-800">

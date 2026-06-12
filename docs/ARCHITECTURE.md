@@ -66,6 +66,19 @@ backend/app/
 Each feature is an `APIRouter` included by `main.py` under the `/api` prefix.
 Adding a module = add a router file and one `include_router` line.
 
+**Interactive API docs.** FastAPI generates an OpenAPI schema from the routes
+automatically; the docs are served *under `/api`* (so they ride the same nginx
+reverse-proxy as the API and need no extra proxy rule):
+
+- `/api/docs` — Swagger UI (interactive, try-it-out)
+- `/api/redoc` — ReDoc (reference layout)
+- `/api/openapi.json` — the raw schema
+
+Each `include_router` passes a `tags=[...]` so the endpoints group by domain
+(System / Storage / Network / Plex / Printer / Alerts / Docs) instead of one
+flat list; the tag descriptions live in `main.py`'s `tags_metadata`. The
+sidebar's Docs group has an "API" link to `/api/docs`.
+
 ### Endpoints
 
 | Endpoint | Returns | How |

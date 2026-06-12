@@ -104,6 +104,8 @@ Responsive layout with a slide-in nav drawer; installs to the phone home screen.
 - **Backend** — FastAPI. Each feature is an `APIRouter` mounted under `/api`.
   Data comes from `psutil` (system), the Docker SDK (containers), host `/proc`
   (network + RAID), and `PlexAPI`. Every host-specific target is read from config.
+  Interactive OpenAPI docs (Swagger UI / ReDoc) are auto-generated and served at
+  `/api/docs`, `/api/redoc`, and `/api/openapi.json`.
 - **Data** — mostly live/ephemeral. The one stateful piece is a **SQLite cache**
   for the Plex browser, so search/sort/pagination are instant and rebuildable.
 

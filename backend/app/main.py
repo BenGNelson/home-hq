@@ -89,7 +89,39 @@ async def lifespan(app: FastAPI):
         scanner.stop()
 
 
-app = FastAPI(title="Home HQ API", lifespan=lifespan)
+# Tag metadata groups the auto-generated API docs (/api/docs, /api/redoc) by
+# domain instead of one flat list. The order here is the order sections appear
+# in Swagger UI; each router is tagged at include_router() below.
+tags_metadata = [
+    {"name": "System", "description": "Host vitals — CPU/memory/uptime, Docker containers, and config backups."},
+    {"name": "Storage", "description": "Disks, capacity, RAID health, SMART data + trends, disk I/O, and the external-drive watchdog."},
+    {"name": "Network", "description": "Per-interface throughput read from the host network counters."},
+    {"name": "Plex", "description": "Plex server status, now-playing sessions, and the cached library browser."},
+    {"name": "Printer", "description": "3D-printer telemetry, controls, chamber camera, and print history."},
+    {"name": "Alerts", "description": "Push-notification engine — rule status, history, and a test trigger."},
+    {"name": "Docs", "description": "In-app document sources (project README) served as markdown."},
+]
+
+app = FastAPI(
+    title="Home HQ API",
+    description=(
+        "Backend for **Home HQ**, a self-hosted home-server dashboard. Almost "
+        "every endpoint is read-only telemetry — the exceptions are the "
+        "explicitly-marked printer controls and the alert test trigger. All "
+        "routes are mounted under `/api`; these interactive docs and the raw "
+        "schema live alongside them at `/api/docs`, `/api/redoc`, and "
+        "`/api/openapi.json`."
+    ),
+    version="1.0.0",
+    openapi_tags=tags_metadata,
+    # Serve the docs under /api so they ride the same nginx reverse-proxy as the
+    # API itself (the frontend only proxies /api) — reachable over the tailnet
+    # with no extra proxy rules.
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
+    lifespan=lifespan,
+)
 
 # Allow the browser-based frontend to call this API. In a homelab we keep it
 # permissive; tighten to specific origins if this ever leaves the tailnet.
@@ -101,7 +133,7 @@ app.add_middleware(
 )
 
 
-@app.get("/api/health")
+@app.get("/api/health", tags=["System"])
 def health():
     """Liveness check — is the API process up and responding?"""
     return {"status": "ok", "server": settings.server_name}
@@ -109,17 +141,17 @@ def health():
 
 # Mount feature routers. Each router's routes get the /api prefix here,
 # so system.py's "/system" becomes "/api/system".
-app.include_router(system.router, prefix="/api")
-app.include_router(disk.router, prefix="/api")
-app.include_router(diskio.router, prefix="/api")
-app.include_router(containers.router, prefix="/api")
-app.include_router(network.router, prefix="/api")
-app.include_router(backups.router, prefix="/api")
-app.include_router(plex.router, prefix="/api")
-app.include_router(printer.router, prefix="/api")
-app.include_router(raid.router, prefix="/api")
-app.include_router(readme.router, prefix="/api")
-app.include_router(smart.router, prefix="/api")
-app.include_router(storage.router, prefix="/api")
-app.include_router(watchdog.router, prefix="/api")
-app.include_router(alerts.router, prefix="/api")
+app.include_router(system.router, prefix="/api", tags=["System"])
+app.include_router(disk.router, prefix="/api", tags=["Storage"])
+app.include_router(diskio.router, prefix="/api", tags=["Storage"])
+app.include_router(containers.router, prefix="/api", tags=["System"])
+app.include_router(network.router, prefix="/api", tags=["Network"])
+app.include_router(backups.router, prefix="/api", tags=["System"])
+app.include_router(plex.router, prefix="/api", tags=["Plex"])
+app.include_router(printer.router, prefix="/api", tags=["Printer"])
+app.include_router(raid.router, prefix="/api", tags=["Storage"])
+app.include_router(readme.router, prefix="/api", tags=["Docs"])
+app.include_router(smart.router, prefix="/api", tags=["Storage"])
+app.include_router(storage.router, prefix="/api", tags=["Storage"])
+app.include_router(watchdog.router, prefix="/api", tags=["Storage"])
+app.include_router(alerts.router, prefix="/api", tags=["Alerts"])

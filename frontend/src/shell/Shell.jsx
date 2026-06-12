@@ -22,18 +22,27 @@ function StatusDot() {
 
 // One sidebar link. `muted` dims it a shade — used for the Docs section so the
 // reference docs read as secondary to the functional modules above them.
-function NavItem({ to, icon, label, muted }) {
+// `external` links (e.g. the backend's OpenAPI docs) render as a plain <a> that
+// opens in a new tab, since they're not client-side routes.
+function NavItem({ to, icon, label, muted, external }) {
+  const layout = 'flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition'
+  const idle = muted
+    ? 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300'
+    : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+  if (external) {
+    return (
+      <a href={to} target="_blank" rel="noreferrer" className={`${layout} ${idle}`}>
+        <span className="text-base leading-none">{icon}</span>
+        <span>{label}</span>
+        <span className="ml-auto text-xs text-slate-600">↗</span>
+      </a>
+    )
+  }
   return (
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
-          isActive
-            ? 'bg-slate-800 text-white'
-            : muted
-              ? 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300'
-              : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
-        }`
+        `${layout} ${isActive ? 'bg-slate-800 text-white' : idle}`
       }
     >
       <span className="text-base leading-none">{icon}</span>
@@ -51,7 +60,7 @@ function NavSection({ group, items, muted }) {
       </p>
       <div className="space-y-1">
         {items.map((m) => (
-          <NavItem key={m.id} to={m.path} icon={m.icon} label={m.label} muted={muted} />
+          <NavItem key={m.id} to={m.path} icon={m.icon} label={m.label} muted={muted} external={m.external} />
         ))}
       </div>
     </div>
