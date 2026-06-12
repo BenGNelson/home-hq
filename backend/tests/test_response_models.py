@@ -10,7 +10,16 @@ contract the frontend relies on (it treats absent and null identically).
 
 import pytest
 
+from app.config import settings
 from app.routers import vpn as V
+
+
+@pytest.fixture(autouse=True)
+def _isolate_plex(monkeypatch):
+    """Clear the Plex token so the plex endpoints return their deterministic
+    not-configured shape instead of hitting (and leaking data from) a real
+    server that happens to be configured in the ambient .env."""
+    monkeypatch.setattr(settings, "plex_token", "")
 
 # Every endpoint that got a typed model with exclude_none. In the test sandbox
 # the real host sources (/host/proc, /smart/*.json, the RAID mount) are absent,
@@ -30,6 +39,13 @@ MODELED_ENDPOINTS = [
     "/api/smart/sda/attributes",
     "/api/storage/space",
     "/api/printer",
+    "/api/plex",
+    "/api/plex/now-playing",
+    "/api/plex/recently-added",
+    "/api/plex/libraries",
+    "/api/alerts",
+    "/api/readme",
+    "/api/server-guide",
 ]
 
 
@@ -50,7 +66,7 @@ def test_modeled_endpoint_validates_and_omits_nulls(client, path):
     res = client.get(path)
     assert res.status_code == 200, res.text
     body = res.json()
-    assert "available" in body
+    assert isinstance(body, dict)  # validated against its response_model
     _assert_no_nulls(body)
 
 
@@ -98,3 +114,15 @@ def test_printer_history_keeps_null_success_rate(client):
     assert body["available"] is True
     assert "stats" in body and "prints" in body
     assert "success_rate" in body["stats"]  # present even when null
+
+
+def test_plex_insights_and_sync_status_keep_nulls(client):
+    """Both are always-full and don't exclude nulls — their stat fields must stay
+    present (and validate) even when null on a fresh/empty install."""
+    ins = client.get("/api/plex/insights").json()
+    assert ins["hours"] > 0 and "stats" in ins and isinstance(ins["samples"], list)
+    assert "busiest_hour" in ins["stats"]  # null but present
+
+    sync = client.get("/api/plex/sync/status").json()
+    for key in ("running", "status", "last_synced", "item_count", "error"):
+        assert key in sync

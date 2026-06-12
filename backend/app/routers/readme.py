@@ -15,10 +15,16 @@ import os
 
 from fastapi import APIRouter
 from fastapi.responses import FileResponse, Response
+from pydantic import BaseModel, Field
 
 from app.config import settings
 
 router = APIRouter()
+
+
+class DocModel(BaseModel):
+    available: bool = Field(description="False when the source file is missing/unreadable")
+    markdown: str = Field(description="Raw markdown ('' when unavailable)")
 
 
 def _read_markdown(path: str) -> dict:
@@ -40,12 +46,12 @@ _ASSET_TYPES = {
 }
 
 
-@router.get("/readme")
+@router.get("/readme", response_model=DocModel)
 def get_readme():
     return _read_markdown(settings.readme_path)
 
 
-@router.get("/server-guide")
+@router.get("/server-guide", response_model=DocModel)
 def get_server_guide():
     return _read_markdown(settings.server_guide_path)
 

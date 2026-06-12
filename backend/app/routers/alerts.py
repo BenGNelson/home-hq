@@ -7,6 +7,7 @@ test button to confirm the push pipe reaches your phone.
 """
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 from app import db, notify
 from app.alerting import get_manager
@@ -15,7 +16,16 @@ from app.config import settings
 router = APIRouter()
 
 
-@router.get("/alerts")
+class AlertsModel(BaseModel):
+    configured: bool = Field(description="True when ntfy is set up (push can be sent)")
+    enabled: bool = Field(description="Whether the rule engine is running")
+    # Rule statuses and recent log entries — passed through as dicts so no field
+    # is filtered as the rule set / log schema evolves.
+    rules: list[dict]
+    recent: list[dict]
+
+
+@router.get("/alerts", response_model=AlertsModel)
 def get_alerts():
     manager = get_manager()
     return {

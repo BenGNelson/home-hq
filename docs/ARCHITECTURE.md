@@ -87,20 +87,31 @@ sidebar's Docs group has an "API" link to `/api/docs`.
 otherwise show them as generic objects. Endpoints get a Pydantic `response_model`
 for a typed, described schema. Two patterns, both keeping the data unchanged:
 
-- **Stable-shape endpoints** (`/api/system`, `/api/health`) use a strict model.
-- **Degrading endpoints** (disk, network, diskio, raid, backups, drive-watchdog,
-  vpn, tailscale) use a **superset** model: `available` plus every data field as
-  `Optional`, paired with `response_model_exclude_none=True`. A bare
-  `response_model` would *filter out* any field not in the model; the superset
-  lists them all, and `exclude_none` then drops the ones that are null in a given
-  response — so both the lean `{available: false}` failure shape and the full
-  success shape go over the wire exactly as before. The only on-the-wire change
-  vs. an untyped dict is that an explicitly-`null` field is now *omitted*, which
-  every consumer already treats identically (it gates each field on
-  truthy / `!= null`).
+- **Degrading endpoints** (those that drop to a smaller `{available: false}` /
+  `{found: false}` shape — disk, network, diskio, raid, backups, drive-watchdog,
+  vpn, tailscale, smart, containers, storage/space, printer, and the plex
+  status/now-playing/recently-added/libraries) use a **superset** model:
+  `available` plus every data field as `Optional`, paired with
+  `response_model_exclude_none=True`. A bare `response_model` would *filter out*
+  any field not in the model; the superset lists them all, and `exclude_none`
+  then drops the ones that are null in a given response — so both the lean
+  failure shape and the full success shape go over the wire exactly as before.
+  The only on-the-wire change vs. an untyped dict is that an explicitly-`null`
+  field is now *omitted*, which every consumer already treats identically (it
+  gates each field on truthy / `!= null`).
+- **Always-full endpoints** (system, health, storage/trends, printer/history,
+  plex/insights, plex/sync/status, alerts, readme, server-guide) use a plain
+  model **without** `exclude_none`, so any legitimately-null field (e.g. a
+  metric point's `value`, a `success_rate` with no prints yet) stays present and
+  byte-identical.
 
-Still untyped (sprawling or dynamic shapes, lower payoff): the Plex endpoints,
-`/api/printer`, `/api/smart`, and `/api/storage/*`. Added per-endpoint as wanted.
+Deliberately left untyped: the endpoints that return raw `dict(r)` SQLite rows
+(`/plex/library/{key}/items`, `/plex/show/{key}/episodes`, `/plex/item/{key}`,
+`/plex/export`) — their columns are dynamic and a model would silently filter
+one — and the non-JSON responses (chamber camera JPEG/MJPEG, Plex art, README
+image assets). Verification for every typed endpoint: capture the live response,
+add the model, diff the response key-paths — the only allowed change is dropped
+`null` keys, never an added or renamed field.
 
 ### Endpoints
 
