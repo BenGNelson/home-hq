@@ -29,7 +29,7 @@ from typing import Callable
 from app import db, notify
 from app.config import settings
 from app.printer import get_client as get_printer_client
-from app.routers import backups, containers, disk, raid, smart, watchdog
+from app.routers import backups, containers, disk, raid, smart, vpn, watchdog
 
 log = logging.getLogger("home-hq.alerting")
 
@@ -155,6 +155,20 @@ def _check_printer_hms(ctx):
     return None, ""
 
 
+def _check_vpn(ctx):
+    """Fire only on a genuine LEAK — the VPN's egress IP equals the home IP, so
+    protected traffic isn't being masked. 'down' (container stopped) is benign
+    because the kill-switch drops traffic, and the stack is intentionally stopped
+    when the external drive isn't mounted, so we'd just spam. Stale = the checker
+    isn't running, so the state is unknown; don't alarm on it."""
+    v = ctx.get("vpn") or {}
+    if not v.get("available") or v.get("stale"):
+        return None, ""
+    if v.get("status") == "leak":
+        return "leak", "VPN LEAK: protected traffic is exiting via your home IP, not the VPN"
+    return None, ""
+
+
 def _check_printer_offline(ctx):
     """Fire ONLY if the printer vanished mid-print — that's a dead pipe / crash /
     eero-IP drift, the bad case. A power-down while idle is normal, so stay quiet."""
@@ -177,6 +191,7 @@ RULES = [
     Rule("printer_paused", "Print paused", "printer", "high", True, _check_printer_paused),
     Rule("printer_hms", "Printer fault (HMS)", "warning", "high", True, _check_printer_hms),
     Rule("printer_offline", "Printer telemetry", "satellite", "urgent", True, _check_printer_offline),
+    Rule("vpn", "VPN egress", "lock", "urgent", True, _check_vpn),
 ]
 
 
@@ -234,6 +249,7 @@ class AlertManager:
             "watchdog": watchdog.get_drive_watchdog,
             "containers": containers.get_containers,
             "backups": backups.list_backups,
+            "vpn": vpn.get_vpn,
         }
         for name, fn in sources.items():
             try:
