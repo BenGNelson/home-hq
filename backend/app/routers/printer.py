@@ -14,7 +14,7 @@ Two endpoints consume it: /api/printer/camera/stream is the live MJPEG feed
 
 from fastapi import APIRouter, HTTPException, Response
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app import db
 from app.camera import BOUNDARY, get_camera
@@ -32,7 +32,80 @@ class PrinterCommand(BaseModel):
     action: str
 
 
-@router.get("/printer")
+# --- /printer (degrades to {available:false, reason}; superset + exclude_none) ---
+class TempModel(BaseModel):
+    current: float | None = None
+    target: float | None = None
+
+
+class FansModel(BaseModel):
+    part: int | None = None
+    aux: int | None = None
+    chamber: int | None = None
+
+
+class AmsTrayModel(BaseModel):
+    slot: int | None = None
+    type: str | None = None
+    color: str | None = Field(default=None, description="RRGGBB hex (alpha dropped)")
+    remain: int | None = Field(default=None, description="% filament left, -1 = unknown")
+    active: bool | None = None
+
+
+class AmsUnitModel(BaseModel):
+    id: int | None = None
+    humidity: int | None = None
+    temp: float | None = None
+    trays: list[AmsTrayModel] = []
+
+
+class PrinterTelemetryModel(BaseModel):
+    state: str | None = Field(default=None, description="IDLE/PREPARE/RUNNING/PAUSE/FINISH/FAILED")
+    stage: str | None = None
+    file: str | None = None
+    progress: int | None = None
+    layer: int | None = None
+    total_layers: int | None = None
+    remaining_min: int | None = None
+    nozzle: TempModel | None = None
+    bed: TempModel | None = None
+    chamber: float | None = None
+    fans: FansModel | None = None
+    speed_level: int | None = None
+    light: bool | None = None
+    ams: list[AmsUnitModel] | None = None
+    # HMS fault entries ({attr, code}); kept as dicts so nothing is filtered.
+    hms: list[dict] | None = None
+    finished_ago_seconds: int | None = Field(default=None, description="Set only just after a print ends")
+
+
+class PrinterModel(BaseModel):
+    available: bool = Field(description="False when unconfigured/no-data/offline")
+    reason: str | None = Field(default=None, description="not_configured | no_data | offline")
+    name: str | None = None
+    connected: bool | None = None
+    last_state: str | None = Field(default=None, description="Last gcode_state before going offline")
+    printer: PrinterTelemetryModel | None = None
+    camera: bool | None = Field(default=None, description="Whether a chamber camera is configured")
+
+
+# --- /printer/history (always full → modeled WITHOUT exclude_none) ---
+class PrintStatsModel(BaseModel):
+    total: int | None = None
+    successes: int | None = None
+    failures: int | None = None
+    success_rate: float | None = Field(description="None when no prints logged yet")
+    total_print_seconds: int | None = None
+
+
+class PrinterHistoryModel(BaseModel):
+    available: bool
+    stats: PrintStatsModel
+    # Completed-print rows from SQLite; passed through as dicts.
+    prints: list[dict]
+
+
+@router.get("/printer", response_model=PrinterModel, response_model_exclude_none=True)
 def get_printer():
     client = get_client()
     snap = client.snapshot() if client else {"available": False, "reason": "not_configured"}
@@ -42,7 +115,7 @@ def get_printer():
     return snap
 
 
-@router.get("/printer/history")
+@router.get("/printer/history", response_model=PrinterHistoryModel)
 def get_printer_history(limit: int = 50):
     """Completed-print history + aggregate stats. Independent of the printer being
     online — it's read from the local log, so it works even when the printer's off."""
