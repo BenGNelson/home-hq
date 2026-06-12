@@ -2,7 +2,9 @@
 
 from app import alerting, notify
 from app.alerting import (
+    RULES,
     AlertManager,
+    Rule,
     _check_backup,
     _check_containers,
     _check_disk,
@@ -13,6 +15,7 @@ from app.alerting import (
     _check_raid,
     _check_smart,
     _check_watchdog,
+    _click_url,
 )
 from app.config import settings
 
@@ -165,3 +168,35 @@ def test_heartbeat_noop_when_unset(monkeypatch):
     monkeypatch.setattr(alerting.urllib.request, "urlopen", boom)
     monkeypatch.setattr(settings, "healthcheck_ping_url", "")
     AlertManager(60)._heartbeat()  # no exception = pass
+
+
+# --- deep-link (tap an alert -> open the relevant page) ---------------------
+
+
+def test_every_rule_has_a_deep_link_path():
+    # Every alert should know which in-app page it's about.
+    assert all(r.path.startswith("/") for r in RULES)
+
+
+def test_click_url_joins_base_and_path(monkeypatch):
+    rule = Rule("x", "X", "tag", "high", True, lambda c: (None, ""), path="/storage")
+    # Trailing slash on the base must not double up.
+    monkeypatch.setattr(settings, "alert_click_url", "https://host.example/")
+    assert _click_url(rule) == "https://host.example/storage"
+    monkeypatch.setattr(settings, "alert_click_url", "https://host.example")
+    assert _click_url(rule) == "https://host.example/storage"
+
+
+def test_click_url_none_when_base_unset(monkeypatch):
+    rule = Rule("x", "X", "tag", "high", True, lambda c: (None, ""), path="/storage")
+    monkeypatch.setattr(settings, "alert_click_url", "")
+    assert _click_url(rule) is None
+
+
+def test_fire_passes_per_rule_click(monkeypatch):
+    sent = []
+    monkeypatch.setattr(notify, "notify", lambda *a, **k: (sent.append(k), True)[1])
+    monkeypatch.setattr(settings, "alert_click_url", "https://host.example")
+    raid_rule = next(r for r in RULES if r.id == "raid")
+    AlertManager(60)._fire(raid_rule, "boom", NOW)
+    assert sent[0]["click"] == "https://host.example/storage"

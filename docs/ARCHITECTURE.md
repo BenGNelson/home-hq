@@ -290,7 +290,9 @@ re-reads the same data the dashboard shows and pushes a phone notification when
 something crosses into a bad state. Channel is **ntfy** (`app/notify.py`, a one
 stdlib POST to `{NTFY_URL}/{NTFY_TOPIC}`) — push lands on the phone over normal
 internet, so **no tailnet is needed to receive alerts** (only to tap through to
-the dashboard).
+the dashboard). Set `ALERT_CLICK_URL` to the app's base origin and each alert
+**deep-links** to the page it's about (a RAID/SMART alert opens Storage, a print
+alert opens Printer, …) via an ntfy `Click` header.
 
 Each rule's `check()` returns a *key* identifying the current condition (or
 `None` for OK); we **edge-trigger** on key changes — `None→X` fires, `X→Y`
