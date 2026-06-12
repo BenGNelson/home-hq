@@ -16,6 +16,7 @@ from fastapi import APIRouter, HTTPException, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from app import db
 from app.camera import BOUNDARY, get_camera
 from app.config import settings
 from app.printer import get_client
@@ -39,6 +40,14 @@ def get_printer():
     cam = get_camera()
     snap["camera"] = bool(cam and cam.configured)
     return snap
+
+
+@router.get("/printer/history")
+def get_printer_history(limit: int = 50):
+    """Completed-print history + aggregate stats. Independent of the printer being
+    online — it's read from the local log, so it works even when the printer's off."""
+    limit = max(1, min(limit, 200))
+    return {"available": True, "stats": db.print_stats(), "prints": db.recent_prints(limit)}
 
 
 @router.get("/printer/camera")

@@ -76,6 +76,20 @@ CREATE TABLE IF NOT EXISTS storage_samples (
 );
 CREATE INDEX IF NOT EXISTS idx_storage_samples ON storage_samples (kind, ts);
 
+-- Print history: one row per completed print (success or failed), logged when
+-- the printer transitions out of an active state. Powers the printer stats.
+CREATE TABLE IF NOT EXISTS print_history (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    file         TEXT,
+    result       TEXT NOT NULL,   -- 'success' | 'failed'
+    started_at   REAL,
+    ended_at     REAL NOT NULL,
+    duration_s   INTEGER,
+    layers       INTEGER,
+    total_layers INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_print_history_ended ON print_history (ended_at);
+
 -- What's-eating-space: the latest top-level usage breakdown of the storage mount.
 -- One row per UTC day (a daily du scan is expensive, so we cache it); the page
 -- reads the most recent. `entries` is a JSON list of {name, bytes}.
@@ -206,6 +220,55 @@ def prune_storage_samples(before_ts):
     """Drop trend samples older than a cutoff (retention)."""
     with get_conn() as conn:
         conn.execute("DELETE FROM storage_samples WHERE ts < ?", (before_ts,))
+
+
+def record_print(rec):
+    """Insert one completed print (a dict from build_print_record)."""
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO print_history "
+            "(file, result, started_at, ended_at, duration_s, layers, total_layers) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                rec.get("file"),
+                rec["result"],
+                rec.get("started_at"),
+                rec["ended_at"],
+                rec.get("duration_s"),
+                rec.get("layers"),
+                rec.get("total_layers"),
+            ),
+        )
+
+
+def recent_prints(limit=50):
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, file, result, started_at, ended_at, duration_s, layers, "
+            "total_layers FROM print_history ORDER BY ended_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def print_stats():
+    """Aggregate totals across all logged prints."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) AS total, "
+            "SUM(CASE WHEN result = 'success' THEN 1 ELSE 0 END) AS successes, "
+            "COALESCE(SUM(duration_s), 0) AS total_seconds "
+            "FROM print_history"
+        ).fetchone()
+    total = row["total"] or 0
+    successes = row["successes"] or 0
+    return {
+        "total": total,
+        "successes": successes,
+        "failures": total - successes,
+        "success_rate": (successes / total) if total else None,
+        "total_print_seconds": row["total_seconds"] or 0,
+    }
 
 
 def record_space_usage(day, scanned_at, root, total_bytes, entries):

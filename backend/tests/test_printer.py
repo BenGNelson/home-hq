@@ -10,7 +10,14 @@ import time
 
 import pytest
 
-from app.printer import PrinterClient, _deep_merge, next_finished_at, parse_state
+from app import db
+from app.printer import (
+    PrinterClient,
+    _deep_merge,
+    build_print_record,
+    next_finished_at,
+    parse_state,
+)
 
 # A representative merged `print` object (what we hold after pushall + deltas).
 SAMPLE_PRINT = {
@@ -170,6 +177,59 @@ def test_next_finished_at_clears_when_leaving_terminal():
 
 def test_next_finished_at_covers_failed_too():
     assert next_finished_at("RUNNING", "FAILED", None, 1234.0) == 1234.0
+
+
+# --- print history recording ---
+
+
+def test_build_print_record_success_with_duration():
+    state = {"subtask_name": "benchy", "layer_num": 200, "total_layer_num": 200}
+    rec = build_print_record("RUNNING", "FINISH", state, started_at=1000.0, now=4600.0)
+    assert rec["result"] == "success"
+    assert rec["file"] == "benchy"
+    assert rec["duration_s"] == 3600
+    assert rec["layers"] == 200 and rec["total_layers"] == 200
+
+
+def test_build_print_record_failed_from_pause():
+    rec = build_print_record("PAUSE", "FAILED", {"subtask_name": "x"}, 1000.0, 1500.0)
+    assert rec["result"] == "failed" and rec["duration_s"] == 500
+
+
+def test_build_print_record_ignores_unwatched_and_non_terminal():
+    # Restart that only observes an already-finished print (prev None) → no log.
+    assert build_print_record(None, "FINISH", {}, None, 10.0) is None
+    # A pause mid-print isn't a completion.
+    assert build_print_record("RUNNING", "PAUSE", {}, 1.0, 2.0) is None
+
+
+def test_build_print_record_tolerates_unknown_start():
+    rec = build_print_record("RUNNING", "FINISH", {"subtask_name": "y"}, None, 50.0)
+    assert rec["result"] == "success" and rec["duration_s"] is None
+
+
+def test_print_history_db_and_stats():
+    db.record_print(build_print_record("RUNNING", "FINISH", {"subtask_name": "a"}, 0.0, 100.0))
+    db.record_print(build_print_record("RUNNING", "FAILED", {"subtask_name": "b"}, 0.0, 40.0))
+    stats = db.print_stats()
+    assert stats["total"] == 2 and stats["successes"] == 1 and stats["failures"] == 1
+    assert stats["success_rate"] == 0.5
+    assert stats["total_print_seconds"] == 140
+    # recent_prints is newest-first by ended_at.
+    assert [p["file"] for p in db.recent_prints()] == ["a", "b"]
+
+
+def test_print_stats_empty():
+    s = db.print_stats()
+    assert s["total"] == 0 and s["success_rate"] is None
+
+
+def test_history_endpoint(client):
+    db.record_print(build_print_record("RUNNING", "FINISH", {"subtask_name": "z"}, 0.0, 10.0))
+    body = client.get("/api/printer/history").json()
+    assert body["available"] is True
+    assert body["stats"]["total"] == 1
+    assert body["prints"][0]["file"] == "z"
 
 
 def test_endpoint_degrades_when_unconfigured(client):

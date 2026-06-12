@@ -38,6 +38,7 @@ const ENDPOINTS = [
   ['/api/printer/camera/stream', 'Live chamber-camera MJPEG feed (opt-in; on-demand TLS stream on :6000).'],
   ['/api/printer/camera', 'Single latest chamber-camera JPEG frame (snapshot/fallback).'],
   ['POST /api/printer/command', 'Pause / resume / stop / light — published over the MQTT connection.'],
+  ['/api/printer/history', 'Completed-print log + stats (count, success rate, total print time), from SQLite.'],
   ['/api/backups', 'Lists the age-encrypted config backups (read-only).'],
   ['/api/alerts', 'Push-alert config, each rule’s current state, and recent history (+ POST /test).'],
   ['/api/readme · /asset/{n}', 'The project README (markdown) + its screenshots, for the in-app viewer.'],

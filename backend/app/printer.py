@@ -33,6 +33,8 @@ from typing import Any
 
 import paho.mqtt.client as mqtt
 
+from app import db
+
 log = logging.getLogger("home-hq.printer")
 
 # Bambu's fixed LAN MQTT username; the password is the per-printer access code.
@@ -46,6 +48,29 @@ _STALE_AFTER_SECONDS = 60
 # stays here until the next print. We timestamp the moment it *enters* one so
 # the UI can show "finished N ago" instead of a misleadingly fresh "Finished".
 _TERMINAL_STATES = {"FINISH", "FAILED"}
+
+
+# States in which a print is actively on the bed (so we know we watched it run).
+_ACTIVE_STATES = {"RUNNING", "PAUSE"}
+
+
+def build_print_record(prev_state, new_state, print_state, started_at, now):
+    """If this transition completes a *watched* print, return a history row; else
+    None. A completion = entering a terminal state (FINISH/FAILED) from an active
+    one — so a backend restart that merely observes an already-finished print
+    (prev_state None) won't log a phantom entry. Pure + unit-tested."""
+    if new_state not in _TERMINAL_STATES or prev_state not in _ACTIVE_STATES:
+        return None
+    p = print_state or {}
+    return {
+        "file": p.get("subtask_name") or p.get("gcode_file") or None,
+        "result": "success" if new_state == "FINISH" else "failed",
+        "started_at": started_at,
+        "ended_at": now,
+        "duration_s": int(now - started_at) if started_at is not None else None,
+        "layers": _to_int(p.get("layer_num")),
+        "total_layers": _to_int(p.get("total_layer_num")),
+    }
 
 
 def next_finished_at(
@@ -219,6 +244,7 @@ class PrinterClient:
         self._last_message_at: float | None = None
         self._prev_gcode_state: str | None = None
         self._finished_at: float | None = None  # when it entered FINISH/FAILED
+        self._print_started_at: float | None = None  # when the current print began
         self._client: mqtt.Client | None = None
         self._seq = itertools.count(1)  # sequence_id for outgoing commands
 
@@ -299,14 +325,26 @@ class PrinterClient:
         print_update = payload.get("print")
         if not isinstance(print_update, dict):
             return
+        record = None
         with self._lock:
             _deep_merge(self._state, print_update)
             self._last_message_at = time.time()
+            now = self._last_message_at
+            prev = self._prev_gcode_state
             new_state = self._state.get("gcode_state")
-            self._finished_at = next_finished_at(
-                self._prev_gcode_state, new_state, self._finished_at, self._last_message_at
-            )
+            self._finished_at = next_finished_at(prev, new_state, self._finished_at, now)
+            # Stamp the start of a fresh print (ignore a PAUSE→RUNNING resume).
+            if new_state == "RUNNING" and prev not in _ACTIVE_STATES:
+                self._print_started_at = now
+            record = build_print_record(prev, new_state, self._state, self._print_started_at, now)
             self._prev_gcode_state = new_state
+        # Persist a completed print outside the lock (a quick SQLite insert).
+        if record is not None:
+            try:
+                db.record_print(record)
+                log.info("printer: logged %s print '%s'", record["result"], record.get("file"))
+            except Exception as exc:  # never let logging break the MQTT thread
+                log.warning("printer: failed to log print: %s", exc)
 
     # --- read side (request thread) ----------------------------------------
 

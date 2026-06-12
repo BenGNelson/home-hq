@@ -89,6 +89,7 @@ Adding a module = add a router file and one `include_router` line.
 | `GET /api/printer/camera/stream` | live chamber-camera MJPEG feed | re-streams the printer's TLS frames (:6000) as `multipart/x-mixed-replace`; one connection, frames pushed as they arrive — what the UI uses |
 | `GET /api/printer/camera` | single latest chamber-camera JPEG frame | the same on-demand reader, one frame per request (snapshot/fallback) |
 | `POST /api/printer/command` | pause/resume/stop/light (allowlisted) | publishes over the MQTT connection |
+| `GET /api/printer/history` | completed-print log + stats (count, success rate, total time) | reads prints logged to SQLite on each RUNNING→terminal transition |
 | `GET /api/backups` | list encrypted config backups (read-only) | reads BACKUP_DIR (under the RAID mount) |
 | `GET /api/readme` | the project README as markdown (in-app viewer) | reads the README mounted read-only |
 | `GET /api/readme/asset/{name}` | a screenshot the README references | serves from the mounted docs image dir (bare filename only) |

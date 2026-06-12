@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useApi, API_BASE } from '../../lib/useApi.js'
-import { formatMinutes } from '../../lib/format.js'
+import { formatMinutes, formatUptime, formatAgo } from '../../lib/format.js'
 import { printerUnavailableMessage } from '../../lib/printer.js'
 import StateBadge from './StateBadge.jsx'
 import CameraView from './Camera.jsx'
@@ -24,6 +24,78 @@ export default function Printer() {
       )}
 
       {data && data.available && <Telemetry p={data.printer} camera={data.camera} />}
+
+      <PrintHistory />
+    </div>
+  )
+}
+
+// Completed-print log + headline stats. Independent of the printer being online
+// (read from the local history), so it shows even when the printer is asleep.
+function PrintHistory() {
+  const { data } = useApi('/printer/history', 30000)
+  if (!data || !data.available) return null
+  const { stats, prints } = data
+
+  return (
+    <div className="mt-4 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+      <h3 className="mb-3 text-sm font-medium text-slate-300">Print history</h3>
+
+      {stats.total === 0 && (
+        <p className="text-sm text-slate-500">
+          No prints logged yet — your next completed print will appear here, with
+          running totals for count, success rate, and total print time.
+        </p>
+      )}
+
+      {stats.total > 0 && (
+        <>
+      <div className="mb-4 grid grid-cols-3 gap-3">
+        <Stat label="Prints" value={stats.total} />
+        <Stat
+          label="Success rate"
+          value={stats.success_rate == null ? '—' : `${Math.round(stats.success_rate * 100)}%`}
+        />
+        <Stat label="Total time" value={formatUptime(stats.total_print_seconds)} />
+      </div>
+
+      <ul className="space-y-1 text-sm">
+        {prints.map((p) => (
+          <li
+            key={p.id}
+            className="flex items-baseline gap-2 border-b border-slate-800/60 py-1 last:border-0"
+          >
+            <span
+              className={`shrink-0 text-xs ${
+                p.result === 'success' ? 'text-emerald-400' : 'text-rose-400'
+              }`}
+              title={p.result}
+            >
+              {p.result === 'success' ? '✓' : '✗'}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-slate-300" title={p.file || ''}>
+              {p.file || '(unnamed)'}
+            </span>
+            <span className="shrink-0 tabular-nums text-xs text-slate-500">
+              {p.duration_s != null ? formatUptime(p.duration_s) : '—'}
+            </span>
+            <span className="w-20 shrink-0 text-right text-xs text-slate-600">
+              {formatAgo(p.ended_at)}
+            </span>
+          </li>
+        ))}
+      </ul>
+        </>
+      )}
+    </div>
+  )
+}
+
+function Stat({ label, value }) {
+  return (
+    <div className="rounded-lg bg-slate-800/40 p-3 text-center">
+      <div className="text-lg font-semibold text-slate-100 tabular-nums">{value}</div>
+      <div className="text-xs text-slate-400">{label}</div>
     </div>
   )
 }
