@@ -5,6 +5,7 @@ import Plex from './modules/plex/Plex.jsx'
 import LibraryBrowser from './modules/plex/LibraryBrowser.jsx'
 import ShowBrowser from './modules/plex/ShowBrowser.jsx'
 import MovieDetail from './modules/plex/MovieDetail.jsx'
+import PlexInsights from './modules/plex/Insights.jsx'
 import Containers from './modules/containers/Containers.jsx'
 import Printer from './modules/printer/Printer.jsx'
 import Network from './modules/network/Network.jsx'
@@ -25,6 +26,7 @@ import ServerGuide from './modules/server-guide/ServerGuide.jsx'
 const modules = [
   { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: '▦', group: 'Overview' },
   { id: 'plex', label: 'Plex', path: '/plex', icon: '►', group: 'Media' },
+  { id: 'plex-insights', label: 'Plex Insights', path: '/plex/insights', icon: '∿', group: 'Media' },
   { id: 'containers', label: 'Containers', path: '/containers', icon: '▣', group: 'System' },
   { id: 'network', label: 'Network', path: '/network', icon: '⇅', group: 'System' },
   { id: 'vpn', label: 'VPN', path: '/vpn', icon: '⚿', group: 'System' },
@@ -49,6 +51,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/plex" element={<Plex />} />
+        <Route path="/plex/insights" element={<PlexInsights />} />
         <Route path="/plex/library/:key" element={<LibraryBrowser />} />
         <Route path="/plex/show/:key" element={<ShowBrowser />} />
         <Route path="/plex/movie/:key" element={<MovieDetail />} />

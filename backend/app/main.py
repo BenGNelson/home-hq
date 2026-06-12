@@ -16,6 +16,7 @@ from app.camera import init_camera
 from app.config import settings
 from app.db import init_db
 from app.printer import init_client
+from app.plex_history import init_sampler as init_plex_sampler
 from app.storage_history import init_sampler
 from app.space_usage import init_scanner
 from app.routers import (
@@ -71,6 +72,10 @@ async def lifespan(app: FastAPI):
     # so the Storage page can chart trends and project when the array fills up.
     sampler = init_sampler(settings.storage_history_interval, settings.storage_history_days)
     sampler.start()
+    # Plex activity sampler: records concurrent streams / transcodes / bandwidth
+    # while Plex is reachable, powering the Plex insights page's trend charts.
+    plex_sampler = init_plex_sampler(settings.plex_history_interval, settings.plex_history_days)
+    plex_sampler.start()
     # What's-eating-space: a background thread runs a niced daily `du` of the
     # storage mount (cached in SQLite); /api/storage/space reads the cache.
     scanner = init_scanner(
@@ -87,6 +92,7 @@ async def lifespan(app: FastAPI):
         camera.stop()
         alerter.stop()
         sampler.stop()
+        plex_sampler.stop()
         scanner.stop()
 
 

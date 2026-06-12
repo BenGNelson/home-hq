@@ -61,6 +61,7 @@ backend/app/
   printer.py         # persistent MQTT client: telemetry parser + control commands
   camera.py          # on-demand chamber-camera reader (JPEG over TLS :6000)
   storage_history.py # background sampler: daily SMART+capacity → SQLite; projection
+  plex_history.py    # background sampler: Plex activity → SQLite; insights stats
   space_usage.py     # background daily `du` of the mount → cached breakdown
 ```
 
@@ -111,6 +112,7 @@ sidebar's Docs group has an "API" link to `/api/docs`.
 | `GET /api/server-guide` | the host's own server guide as markdown | reads the SERVER_GUIDE_FILE mounted read-only (defaults to a committed example) |
 | `GET /api/plex` | reachable? streams, transcodes, bandwidth | `PlexAPI` client |
 | `GET /api/plex/now-playing` | active streams: who/what/where, progress, transcode | `PlexAPI` sessions |
+| `GET /api/plex/insights?hours=` | activity trends (streams/transcodes/bandwidth) + stats | SQLite (in-app sampler) |
 | `GET /api/plex/recently-added` | newest items across libraries (poster strip) | `PlexAPI` |
 | `GET /api/plex/libraries` | each library + item counts (+ key) | `PlexAPI` |
 | `GET /api/plex/export` | full title manifest (on-demand backup) | `PlexAPI` (heavy) |
@@ -489,7 +491,11 @@ Short record of *why* things are the way they are, so future changes have contex
   in the app upserts one row per UTC day into SQLite — idempotent, retention-
   pruned, and unprivileged. This is the one deliberate exception to "backend stays
   stateless": low-rate daily samples, not live counters. Capacity days-until-full
-  is a plain least-squares fit (`project_capacity`), no dependency.
+  is a plain least-squares fit (`project_capacity`), no dependency. **Plex
+  insights** (`plex_history.py`) follows the same pattern — an in-app thread
+  appends a Plex activity sample every few minutes (only while reachable), and
+  `summarize_insights` aggregates them into peak concurrency, stream-hours,
+  transcode share, and the busiest hour.
 - **Module-local navigation.** Cross-library switching lives in the Plex module
   (a pill bar), not the global sidebar — the shell stays generic so every module
   isn't tempted to inject its own children into it.
