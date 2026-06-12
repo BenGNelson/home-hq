@@ -1,9 +1,11 @@
-import { useApi } from '../../lib/useApi.js'
+import { useState, useEffect } from 'react'
+import { useApi, API_BASE } from '../../lib/useApi.js'
 import { useDiskRates } from '../../lib/useRates.js'
 import { formatBytes, formatAgo, formatRate } from '../../lib/format.js'
 import { Row, Bar, Spinner } from '../../components/ui.jsx'
 import { Graph } from '../../components/Graph.jsx'
 import { watchdogBadge } from '../../lib/watchdog.js'
+import { attrNote, attrHealth } from '../../lib/smart.js'
 import {
   smartBadge,
   roleTag,
@@ -270,6 +272,7 @@ function Drives({ smart, trends, watched }) {
 function Drive({ d, trends }) {
   const b = smartBadge(d)
   const tag = roleTag(d.role)
+  const [open, setOpen] = useState(false)
   return (
     <div className="border-b border-slate-800 pb-5 last:border-0 last:pb-0">
       <div className="flex items-center justify-between text-sm">
@@ -300,7 +303,94 @@ function Drive({ d, trends }) {
         <p className="mt-1 text-xs text-amber-400/90">{d.warnings.join(' · ')}</p>
       )}
       <TrendCharts trends={trends} />
+      {d.supported && (
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="text-xs text-slate-500 hover:text-slate-300"
+          >
+            {open ? '▾' : '▸'} SMART attributes
+          </button>
+          {open && <AttributeTable name={d.name} />}
+        </div>
+      )}
     </div>
+  )
+}
+
+// The full SMART attribute table — fetched on demand (kept out of the polled
+// /smart list) when a drive row is expanded.
+function AttributeTable({ name }) {
+  const [data, setData] = useState(null)
+  const [error, setError] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    fetch(`${API_BASE}/smart/${name}/attributes`)
+      .then((r) => r.json())
+      .then((d) => !cancelled && setData(d))
+      .catch((e) => !cancelled && setError(e.message))
+    return () => {
+      cancelled = true
+    }
+  }, [name])
+
+  if (error) return <p className="mt-2 text-xs text-rose-400">couldn’t load attributes</p>
+  if (!data) return <p className="mt-2 text-xs text-slate-500">loading attributes…</p>
+  if (!data.available) return <p className="mt-2 text-xs text-slate-500">No attribute detail.</p>
+  if (data.nvme && (!data.attributes || data.attributes.length === 0)) {
+    return <NvmeHealth nvme={data.nvme} />
+  }
+  return (
+    <div className="mt-2 overflow-x-auto">
+      <table className="w-full text-left text-xs">
+        <thead className="text-slate-500">
+          <tr>
+            <th className="py-1 pr-2 font-medium">ID</th>
+            <th className="py-1 pr-2 font-medium">Attribute</th>
+            <th className="py-1 pr-2 text-right font-medium">Value</th>
+            <th className="py-1 pr-2 text-right font-medium">Worst</th>
+            <th className="py-1 pr-2 text-right font-medium">Thresh</th>
+            <th className="py-1 text-right font-medium">Raw</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.attributes.map((a) => {
+            const h = attrHealth(a)
+            const note = attrNote(a.id)
+            const nameCls =
+              h === 'fail' ? 'text-rose-400' : h === 'warn' ? 'text-amber-400' : 'text-slate-300'
+            return (
+              <tr key={a.id} className="border-t border-slate-800/60 align-top">
+                <td className="py-1 pr-2 tabular-nums text-slate-500">{a.id}</td>
+                <td className="py-1 pr-2">
+                  <span className={nameCls}>{a.name}</span>
+                  {note && <p className="text-[10px] leading-snug text-slate-600">{note}</p>}
+                </td>
+                <td className="py-1 pr-2 text-right tabular-nums text-slate-400">{a.value ?? '—'}</td>
+                <td className="py-1 pr-2 text-right tabular-nums text-slate-500">{a.worst ?? '—'}</td>
+                <td className="py-1 pr-2 text-right tabular-nums text-slate-500">{a.thresh ?? '—'}</td>
+                <td className="py-1 text-right tabular-nums text-slate-300">{a.raw ?? '—'}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// NVMe drives report a health log instead of an ATA attribute table.
+function NvmeHealth({ nvme }) {
+  return (
+    <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
+      {Object.entries(nvme).map(([k, v]) => (
+        <div key={k} className="flex justify-between border-b border-slate-800/40 py-0.5">
+          <dt className="text-slate-500">{k.replace(/_/g, ' ')}</dt>
+          <dd className="tabular-nums text-slate-300">{String(v)}</dd>
+        </div>
+      ))}
+    </dl>
   )
 }
 

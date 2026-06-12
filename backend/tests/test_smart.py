@@ -1,7 +1,7 @@
 import json
 
 from app.config import settings
-from app.routers.smart import assign_role, parse_drive
+from app.routers.smart import assign_role, parse_attributes, parse_drive, parse_nvme_health
 
 RAID_MEMBERS = {"sdb2", "sdc2", "sdd2"}
 
@@ -147,3 +147,69 @@ def test_smart_endpoint_reads_file(client, monkeypatch, tmp_path):
     body = client.get("/api/smart").json()
     assert body["available"] is True and body["generated_at"] == 123
     assert body["drives"][0]["name"] == "sda" and body["drives"][0]["passed"] is True
+
+
+# --- full attribute table (on-demand detail) ---
+
+ATTR_DRIVE = {
+    "name": "sda",
+    "report": {
+        "model_name": "CT240BX500SSD1",
+        "ata_smart_attributes": {
+            "table": [
+                {
+                    "id": 5,
+                    "name": "Reallocated_Sector_Ct",
+                    "value": 100,
+                    "worst": 100,
+                    "thresh": 10,
+                    "when_failed": "",
+                    "flags": {"prefailure": True},
+                    "raw": {"value": 0, "string": "0"},
+                },
+                {
+                    "id": 194,
+                    "name": "Temperature_Celsius",
+                    "value": 69,
+                    "worst": 50,
+                    "thresh": 0,
+                    "when_failed": "",
+                    "flags": {"prefailure": False},
+                    "raw": {"value": 31, "string": "31"},
+                },
+            ]
+        },
+    },
+}
+
+
+def test_parse_attributes_maps_full_table():
+    rows = parse_attributes(ATTR_DRIVE["report"])
+    assert len(rows) == 2
+    realloc = rows[0]
+    assert realloc["id"] == 5 and realloc["name"] == "Reallocated_Sector_Ct"
+    assert realloc["value"] == 100 and realloc["thresh"] == 10 and realloc["raw"] == "0"
+    assert realloc["when_failed"] is None  # "" normalized to None
+    assert realloc["prefailure"] is True
+
+
+def test_parse_nvme_health_extracts_known_fields():
+    health = parse_nvme_health(NVME_WORN["report"])
+    assert health["percentage_used"] == 85 and health["power_on_hours"] == 9000
+    assert parse_nvme_health(ATTR_DRIVE["report"]) is None  # ATA drive → no nvme log
+
+
+def test_attributes_endpoint_returns_table(client, monkeypatch, tmp_path):
+    f = tmp_path / "smart.json"
+    f.write_text(json.dumps({"drives": [ATTR_DRIVE]}))
+    monkeypatch.setattr(settings, "smart_json_path", str(f))
+    body = client.get("/api/smart/sda/attributes").json()
+    assert body["available"] is True and body["name"] == "sda"
+    assert [a["id"] for a in body["attributes"]] == [5, 194]
+
+
+def test_attributes_endpoint_unknown_drive(client, monkeypatch, tmp_path):
+    f = tmp_path / "smart.json"
+    f.write_text(json.dumps({"drives": [ATTR_DRIVE]}))
+    monkeypatch.setattr(settings, "smart_json_path", str(f))
+    assert client.get("/api/smart/sdz/attributes").json() == {"available": False}

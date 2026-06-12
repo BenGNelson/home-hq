@@ -125,6 +125,76 @@ def parse_drive(entry):
     return out
 
 
+def parse_attributes(report):
+    """Full ATA SMART attribute table → display rows (the on-demand detail view).
+
+    Each entry keeps the normalized value/worst/threshold plus the vendor raw
+    string and any failure marker, so the UI can show the complete table.
+    """
+    table = (report.get("ata_smart_attributes") or {}).get("table") or []
+    rows = []
+    for a in table:
+        raw = a.get("raw") or {}
+        rows.append(
+            {
+                "id": a.get("id"),
+                "name": a.get("name"),
+                "value": a.get("value"),
+                "worst": a.get("worst"),
+                "thresh": a.get("thresh"),
+                "raw": raw.get("string"),
+                "when_failed": a.get("when_failed") or None,
+                "prefailure": (a.get("flags") or {}).get("prefailure"),
+            }
+        )
+    return rows
+
+
+# NVMe drives have no ATA attribute table — they report a health log instead.
+_NVME_FIELDS = (
+    "temperature",
+    "available_spare",
+    "available_spare_threshold",
+    "percentage_used",
+    "data_units_read",
+    "data_units_written",
+    "power_cycles",
+    "power_on_hours",
+    "unsafe_shutdowns",
+    "media_errors",
+    "num_err_log_entries",
+)
+
+
+def parse_nvme_health(report):
+    log = report.get("nvme_smart_health_information_log")
+    if not log:
+        return None
+    return {k: log.get(k) for k in _NVME_FIELDS if log.get(k) is not None}
+
+
+@router.get("/smart/{name}/attributes")
+def get_smart_attributes(name: str):
+    """The full SMART attribute table for one drive, fetched on demand when its
+    row is expanded (kept out of the polled /smart list to keep that lean)."""
+    try:
+        with open(settings.smart_json_path) as fh:
+            data = json.load(fh)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {"available": False}
+    for raw in data.get("drives", []):
+        if raw.get("name") == name:
+            report = raw.get("report") or {}
+            return {
+                "available": True,
+                "name": name,
+                "model": report.get("model_name"),
+                "attributes": parse_attributes(report),
+                "nvme": parse_nvme_health(report),
+            }
+    return {"available": False}
+
+
 @router.get("/smart")
 def get_smart():
     try:
