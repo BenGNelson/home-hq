@@ -14,6 +14,7 @@ import Tailscale from './modules/tailscale/Tailscale.jsx'
 import Storage from './modules/storage/Storage.jsx'
 import Backups from './modules/backups/Backups.jsx'
 import Alerts from './modules/alerts/Alerts.jsx'
+import Uptime from './modules/uptime/Uptime.jsx'
 import Guide from './modules/guide/Guide.jsx'
 import Readme from './modules/readme/Readme.jsx'
 import ServerGuide from './modules/server-guide/ServerGuide.jsx'
@@ -36,6 +37,7 @@ const modules = [
   { id: 'backups', label: 'Backups', path: '/backups', icon: '🗜️', group: 'System' },
   { id: 'printer', label: '3D Printer', path: '/printer', icon: '🖨️', group: 'Devices' },
   { id: 'alerts', label: 'Alerts', path: '/alerts', icon: '🔔', group: 'Monitoring' },
+  { id: 'uptime', label: 'Uptime', path: '/uptime', icon: '📡', group: 'Monitoring' },
   { id: 'guide', label: 'Under the Hood', path: '/guide', icon: '🔧', group: 'Docs' },
   { id: 'server-guide', label: 'Your Server Guide', path: '/server-guide', icon: '📖', group: 'Docs' },
   // External: the backend's own interactive OpenAPI docs (Swagger UI), served
@@ -65,6 +67,7 @@ export default function App() {
         <Route path="/storage" element={<Storage />} />
         <Route path="/backups" element={<Backups />} />
         <Route path="/alerts" element={<Alerts />} />
+        <Route path="/uptime" element={<Uptime />} />
         <Route path="/guide" element={<Guide />} />
         <Route path="/readme" element={<Readme />} />
         <Route path="/server-guide" element={<ServerGuide />} />

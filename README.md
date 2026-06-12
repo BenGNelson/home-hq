@@ -32,6 +32,7 @@ the surface area grows without the core getting messier.
 | **Storage** | The disk deep-dive: capacity with a growth projection ("full in ~N weeks") and a **what's-using-space breakdown**, RAID array health in plain language, **live per-disk I/O graphs**, and per-drive SMART with temperature/wear **trend charts** from daily samples kept in SQLite. |
 | **Backups** | Lists the host's `age`-encrypted config backups (the encrypt step is a privileged host script; the app only reads the output). |
 | **Alerts** | A background rule engine that watches the same data the dashboard shows and pushes a phone notification (via **ntfy**) when something crosses into a bad state — RAID degraded, a SMART warning, a container down, a print finished/failed, a VPN leak, and more. Edge-triggered (no spam), with a deep-link straight to the relevant page on tap and a dead-man's-switch heartbeat. |
+| **Uptime** | Per-service availability monitoring — current up/down, uptime % (24h/7d), latency, and a recent history sparkline for each configured service. A host-side prober checks each target so it can reach even firewall-restricted services. |
 | **Under the Hood** | An in-app living guide explaining each module, endpoint, and the technologies behind them. |
 | **Server Guide** | Renders your own server's markdown operations doc in-app (set `SERVER_GUIDE_FILE`); ships with an example template. |
 

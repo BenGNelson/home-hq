@@ -170,6 +170,19 @@ def _check_vpn(ctx):
     return None, ""
 
 
+def _check_db(ctx):
+    """Warn if the local SQLite DB has grown past the configured ceiling — an
+    early signal that a sampler/log is writing more than expected."""
+    d = ctx.get("db") or {}
+    size = d.get("size_bytes")
+    if size is None:
+        return None, ""
+    if size > settings.alert_db_max_mb * 1024 * 1024:
+        mb = size / (1024 * 1024)
+        return f"big:{int(mb)}", f"Home HQ database is {mb:.0f} MB (over {settings.alert_db_max_mb} MB limit)"
+    return None, ""
+
+
 def _check_printer_offline(ctx):
     """Fire ONLY if the printer vanished mid-print — that's a dead pipe / crash /
     eero-IP drift, the bad case. A power-down while idle is normal, so stay quiet."""
@@ -193,6 +206,7 @@ RULES = [
     Rule("printer_hms", "Printer fault (HMS)", "warning", "high", True, _check_printer_hms, path="/printer"),
     Rule("printer_offline", "Printer telemetry", "satellite", "urgent", True, _check_printer_offline, path="/printer"),
     Rule("vpn", "VPN egress", "lock", "urgent", True, _check_vpn, path="/vpn"),
+    Rule("db", "Database size", "card_index_dividers", "high", True, _check_db, path="/storage"),
 ]
 
 
@@ -262,6 +276,7 @@ class AlertManager:
             "containers": containers.get_containers,
             "backups": backups.list_backups,
             "vpn": vpn.get_vpn,
+            "db": db.db_stats,
         }
         for name, fn in sources.items():
             try:

@@ -1,0 +1,21 @@
+# Home HQ — service-availability prober (oneshot, run by the timer).
+# Install: copy to /etc/systemd/system/home-hq-uptime.service and replace
+# /path/to/home-hq with the real checkout path. Runs on the host so it can reach
+# even LAN-restricted services (HA, qBittorrent, …) the backend container can't.
+[Unit]
+Description=Home HQ — probe service availability
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Pull the target list (UPTIME_TARGETS) + tuning from the repo .env. The '-'
+# makes it optional. Alternatively set them inline below and drop this line —
+# inline avoids loading the rest of .env (tokens) into the prober's environment.
+EnvironmentFile=-/path/to/home-hq/.env
+ExecStart=/path/to/home-hq/scripts/uptime-probe.py
+# Inline alternative / overrides (one per line):
+# Environment=UPTIME_TARGETS=Plex|http://localhost:32400,Home Assistant|http://localhost:8123
+# Environment=UPTIME_TIMEOUT=5
+# Environment=UPTIME_INTERVAL=120
+# Environment=UPTIME_JSON=/var/lib/home-hq/uptime.json

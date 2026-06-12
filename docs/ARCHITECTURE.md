@@ -53,6 +53,7 @@ backend/app/
     network.py       # /api/network  (host interface counters)
     vpn.py           # /api/vpn      (VPN egress leak check, from a host timer's JSON)
     tailscale.py     # /api/tailscale (tailnet device list, from a host timer's JSON)
+    uptime.py        # /api/uptime   (service availability, from a host prober's JSON)
     diskio.py        # /api/diskio   (per-disk I/O counters from /proc/diskstats)
     raid.py          # /api/raid     (software-RAID state from /proc/mdstat)
     smart.py         # /api/smart    (per-drive SMART, from a host timer's JSON)
@@ -126,6 +127,8 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/network` | per-interface byte counters | reads host `/proc/1/net/dev` |
 | `GET /api/vpn` | VPN egress leak check (exit IP vs home IP) | reads a host timer's `vpn.json` |
 | `GET /api/tailscale` | tailnet devices (online state, exit node, last seen) | reads a host timer's `tailscale.json` |
+| `GET /api/uptime` | per-service availability — status, uptime % (24h/7d), latency | reads a host prober's `uptime.json` |
+| `GET /api/storage/db` | SQLite file size + per-table row counts (growth visibility) | stats the DB file + `COUNT(*)` per table |
 | `GET /api/diskio` | per-disk cumulative read/write bytes (rates computed client-side) | parses host `/proc/diskstats` |
 | `GET /api/raid` | software-RAID array state (healthy/degraded, rebuild %) | parses host `/proc/mdstat` |
 | `GET /api/smart` | per-drive SMART health; role-tagged (raid/system/other) | reads a host timer's `smart.json` |
@@ -325,6 +328,36 @@ and writes `tailscale.json`. The backend reads it via the same `/smart` mount;
 exit-node detection, stale check) in a pure, unit-tested `summarize()`. The
 script deliberately drops the tailnet's login email, keeping only the MagicDNS
 domain, so nothing identifying is committed or even written to the state file.
+
+### Uptime monitoring (host prober)
+
+The **Uptime** page shows each configured service's current status, uptime %
+(24h / 7d), latency, and a recent up/down sparkline. The probing is a **host
+script** (`scripts/uptime-probe.py`, a systemd timer) rather than in-app for a
+concrete reason: the backend container is firewalled away from LAN-restricted
+services (UFW limits Home Assistant, qBittorrent, etc. to the LAN subnet, and the
+container's source is the Docker subnet), so it can only reach internet-open
+ports. The host can reach everything via localhost — the same privileged-host /
+unprivileged-app split as SMART/VPN/Tailscale. Each run probes every target
+("up" = it answered at all, even an HTTP 401, so auth-gated services don't read
+as down) and updates `uptime.json`: a `last` result, a short raw `samples`
+history for the sparkline, and `hourly` {up, total} buckets the backend turns
+into the uptime %s. The file is self-bounding — samples are capped and buckets
+pruned to the retention window. `GET /api/uptime` reads it and shapes it in a
+pure summarizer.
+
+### Database growth guardrails
+
+Three in-app samplers (storage, plex, uptime-via-host) plus the alert log write
+to one SQLite file, so its growth is bounded and visible. **Retention pruning**
+caps steady-state by time. A **hard row cap** per sampler table (`_cap_table`,
+run on each write) is the backstop: if a bug ever looped inserts, the oldest rows
+past the cap are dropped, so the file can't balloon between prune cycles.
+`GET /api/storage/db` exposes the file size + per-table counts (shown on the
+Storage page), and an alert rule pushes if the file crosses `ALERT_DB_MAX_MB`.
+Separately, the Compose services set a `json-file` log driver with
+`max-size`/`max-file` so a container's stdout can't fill the disk either (the
+default driver is unbounded).
 
 ### Alerting (push notifications)
 

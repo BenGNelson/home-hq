@@ -75,6 +75,7 @@ class Settings(BaseSettings):
     alert_interval: int = 120  # seconds between rule evaluations
     alert_disk_percent: int = 95  # warn when a filesystem is at/above this % full
     alert_backup_max_age_days: int = 8  # warn if no fresh backup in this many days
+    alert_db_max_mb: int = 200  # warn if the SQLite DB grows past this many MB
     # Dead-man's switch: the engine pings this URL every tick. Point it at an
     # external check (e.g. Healthchecks.io) that alerts YOU if the pings stop —
     # catches the box/backend/internet going dark, which it can't self-report.
@@ -87,6 +88,13 @@ class Settings(BaseSettings):
     # --- Plex activity history (in-app sampler → SQLite, powers the Plex insights page) ---
     plex_history_interval: int = 300  # seconds between activity samples
     plex_history_days: int = 30  # retention window (days)
+
+    # --- Uptime monitoring (host prober → JSON, powers the Uptime page) ---
+    # The probing itself is done by a host script (scripts/uptime-probe.py) so it
+    # can reach LAN-restricted services the firewalled backend can't; it writes
+    # uptime.json, which the backend reads via the same /smart mount as SMART.
+    # The target list / interval are the host script's env (see .env.example).
+    uptime_json_path: str = "/smart/uptime.json"
 
     # --- What's-eating-space (cached daily `du` of the storage mount) ---
     space_scan_enabled: bool = True  # set false to skip the heavy daily du scan

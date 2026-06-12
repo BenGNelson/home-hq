@@ -35,6 +35,7 @@ from app.routers import (
     storage,
     system,
     tailscale,
+    uptime,
     vpn,
     watchdog,
 )
@@ -108,6 +109,7 @@ tags_metadata = [
     {"name": "Plex", "description": "Plex server status, now-playing sessions, and the cached library browser."},
     {"name": "Printer", "description": "3D-printer telemetry, controls, chamber camera, and print history."},
     {"name": "Alerts", "description": "Push-notification engine — rule status, history, and a test trigger."},
+    {"name": "Monitoring", "description": "Service-availability probing — per-target uptime % and latency."},
     {"name": "Docs", "description": "In-app document sources (project README) served as markdown."},
 ]
 
@@ -171,3 +173,4 @@ app.include_router(smart.router, prefix="/api", tags=["Storage"])
 app.include_router(storage.router, prefix="/api", tags=["Storage"])
 app.include_router(watchdog.router, prefix="/api", tags=["Storage"])
 app.include_router(alerts.router, prefix="/api", tags=["Alerts"])
+app.include_router(uptime.router, prefix="/api", tags=["Monitoring"])

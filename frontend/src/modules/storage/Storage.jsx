@@ -33,7 +33,60 @@ export default function Storage() {
       <RaidDetail raid={raid.data} />
       <DiskActivity />
       <Drives smart={smart.data} trends={trends.data} watched={watchdog.data} />
+      <Database />
     </div>
+  )
+}
+
+// The Home HQ SQLite database: total size + per-table row counts, so its growth
+// is visible. Sampler/log tables show a cap (the runaway-growth backstop); a bar
+// shows how much of that cap is used.
+function Database() {
+  const { data, error, loading } = useApi('/storage/db', 60000)
+  return (
+    <Card title="Database (Home HQ)">
+      {loading && !data && <Spinner label="reading database…" />}
+      {error && <p className="text-sm text-rose-400">unavailable — {error}</p>}
+      {data && (
+        <div className="space-y-3">
+          <Row label="On disk" value={formatBytes(data.size_bytes)} />
+          <div className="overflow-hidden rounded-lg border border-slate-800">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-900/70 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-1.5 font-medium">Table</th>
+                  <th className="px-3 py-1.5 text-right font-medium">Rows</th>
+                  <th className="px-3 py-1.5 text-right font-medium">Cap</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {data.tables.map((t) => (
+                  <tr key={t.name} className="bg-slate-900/40">
+                    <td className="px-3 py-1.5 font-mono text-xs text-slate-300">{t.name}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums text-slate-200">
+                      {t.rows.toLocaleString()}
+                    </td>
+                    <td className="px-3 py-1.5 text-right tabular-nums text-slate-500">
+                      {t.cap ? (
+                        <span title={`${Math.round((t.rows / t.cap) * 100)}% of cap`}>
+                          {t.cap.toLocaleString()}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-slate-600">
+            Capped tables drop their oldest rows past the cap; an alert fires if the file ever
+            grows past its size limit.
+          </p>
+        </div>
+      )}
+    </Card>
   )
 }
 

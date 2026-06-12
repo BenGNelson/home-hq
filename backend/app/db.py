@@ -113,6 +113,15 @@ CREATE TABLE IF NOT EXISTS plex_samples (
 CREATE INDEX IF NOT EXISTS idx_plex_samples_ts ON plex_samples (ts);
 """
 
+# Tables the in-app samplers append to. Each is bounded two ways: a time-based
+# retention prune (steady state) AND a hard row cap enforced on write (a backstop
+# so a bug looping inserts can't balloon the DB between prune cycles). Caps are
+# generous — far above the steady-state row count at normal sampling cadence.
+_SAMPLE_TABLE_CAPS = {
+    "plex_samples": 100_000,
+    "alert_log": 20_000,
+}
+
 
 @contextmanager
 def get_conn():
@@ -181,6 +190,7 @@ def add_alert_log(ts, rule_id, kind, message):
             "INSERT INTO alert_log (ts, rule_id, kind, message) VALUES (?, ?, ?, ?)",
             (ts, rule_id, kind, message),
         )
+        _cap_table(conn, "alert_log")
 
 
 def recent_alert_log(limit=20):
@@ -241,6 +251,7 @@ def record_plex_sample(ts, streams, transcodes, bandwidth_kbps):
             "VALUES (?, ?, ?, ?)",
             (ts, int(streams), int(transcodes), bandwidth_kbps),
         )
+        _cap_table(conn, "plex_samples")
 
 
 def plex_samples(since_ts=None):
@@ -264,6 +275,48 @@ def prune_plex_samples(before_ts):
     """Drop Plex activity samples older than a cutoff (retention)."""
     with get_conn() as conn:
         conn.execute("DELETE FROM plex_samples WHERE ts < ?", (before_ts,))
+
+
+def _cap_table(conn, table):
+    """Runaway-growth backstop: if `table` exceeds its configured cap, drop the
+    oldest rows (by insert order = rowid) back down to the cap. A no-op when the
+    table is uncapped or under the cap, so it costs one COUNT per write."""
+    cap = _SAMPLE_TABLE_CAPS.get(table)
+    if not cap:
+        return
+    n = conn.execute(f"SELECT COUNT(*) AS n FROM {table}").fetchone()["n"]  # noqa: S608 - constant table
+    if n > cap:
+        conn.execute(
+            f"DELETE FROM {table} WHERE rowid IN "  # noqa: S608 - constant table name
+            f"(SELECT rowid FROM {table} ORDER BY rowid DESC LIMIT -1 OFFSET ?)",
+            (cap,),
+        )
+
+
+# Tables surfaced in the DB-size view + row-count breakdown (the ones that grow).
+_TRACKED_TABLES = (
+    "media_items", "storage_samples", "plex_samples",
+    "print_history", "alert_log", "space_usage",
+)
+
+
+def db_stats():
+    """Size of the SQLite file + per-table row counts, for the Storage page's
+    'database' card and the DB-size alert. Caps (where set) are included so the
+    UI can show headroom."""
+    try:
+        size_bytes = os.path.getsize(settings.db_path)
+    except OSError:
+        size_bytes = None
+    tables = []
+    with get_conn() as conn:
+        for name in _TRACKED_TABLES:
+            try:
+                n = conn.execute(f"SELECT COUNT(*) AS n FROM {name}").fetchone()["n"]  # noqa: S608
+            except sqlite3.OperationalError:
+                continue  # table not created yet
+            tables.append({"name": name, "rows": n, "cap": _SAMPLE_TABLE_CAPS.get(name)})
+    return {"size_bytes": size_bytes, "path": settings.db_path, "tables": tables}
 
 
 def record_print(rec):
