@@ -42,6 +42,7 @@ class Rule:
     priority: str  # ntfy priority when firing: default | high | urgent
     notify_on_clear: bool  # send a "resolved" when it goes back to OK
     check: Callable[[dict], tuple[str | None, str]]
+    path: str = ""  # in-app route this alert is about (deep-link target on tap)
 
 
 # --- individual checks: take the gathered context, return (key, message) -------
@@ -181,18 +182,29 @@ def _check_printer_offline(ctx):
 
 
 RULES = [
-    Rule("backup", "Config backup", "floppy_disk", "high", True, _check_backup),
-    Rule("raid", "RAID array", "rotating_light", "urgent", True, _check_raid),
-    Rule("smart", "Drive SMART", "minidisc", "high", True, _check_smart),
-    Rule("disk", "Storage capacity", "card_file_box", "high", True, _check_disk),
-    Rule("watchdog", "External drive", "electric_plug", "high", True, _check_watchdog),
-    Rule("containers", "Containers", "package", "high", True, _check_containers),
-    Rule("printer", "3D printer", "printer", "default", False, _check_printer),
-    Rule("printer_paused", "Print paused", "printer", "high", True, _check_printer_paused),
-    Rule("printer_hms", "Printer fault (HMS)", "warning", "high", True, _check_printer_hms),
-    Rule("printer_offline", "Printer telemetry", "satellite", "urgent", True, _check_printer_offline),
-    Rule("vpn", "VPN egress", "lock", "urgent", True, _check_vpn),
+    Rule("backup", "Config backup", "floppy_disk", "high", True, _check_backup, path="/backups"),
+    Rule("raid", "RAID array", "rotating_light", "urgent", True, _check_raid, path="/storage"),
+    Rule("smart", "Drive SMART", "minidisc", "high", True, _check_smart, path="/storage"),
+    Rule("disk", "Storage capacity", "card_file_box", "high", True, _check_disk, path="/storage"),
+    Rule("watchdog", "External drive", "electric_plug", "high", True, _check_watchdog, path="/storage"),
+    Rule("containers", "Containers", "package", "high", True, _check_containers, path="/containers"),
+    Rule("printer", "3D printer", "printer", "default", False, _check_printer, path="/printer"),
+    Rule("printer_paused", "Print paused", "printer", "high", True, _check_printer_paused, path="/printer"),
+    Rule("printer_hms", "Printer fault (HMS)", "warning", "high", True, _check_printer_hms, path="/printer"),
+    Rule("printer_offline", "Printer telemetry", "satellite", "urgent", True, _check_printer_offline, path="/printer"),
+    Rule("vpn", "VPN egress", "lock", "urgent", True, _check_vpn, path="/vpn"),
 ]
+
+
+def _click_url(rule: Rule) -> str | None:
+    """The in-app page an alert should open when tapped. `ALERT_CLICK_URL` is the
+    app's base origin (e.g. https://host.example); each rule appends its own path
+    so a RAID alert lands on the Storage page, a print alert on the Printer page,
+    etc. Returns None when no base is set, so no Click header is sent."""
+    base = settings.alert_click_url.strip()
+    if not base:
+        return None
+    return (base.rstrip("/") + rule.path) if rule.path else base
 
 
 class AlertManager:
@@ -301,13 +313,15 @@ class AlertManager:
             self._status = statuses
 
     def _fire(self, rule: Rule, message: str, now: float) -> None:
-        notify.notify(message, title=f"Home HQ - {rule.title}", priority=rule.priority, tags=[rule.emoji])
+        notify.notify(message, title=f"Home HQ - {rule.title}", priority=rule.priority,
+                      tags=[rule.emoji], click=_click_url(rule))
         db.add_alert_log(now, rule.id, "fire", message)
         log.info("alert FIRED [%s]: %s", rule.id, message)
 
     def _clear(self, rule: Rule, now: float) -> None:
         msg = f"{rule.title}: resolved"
-        notify.notify(msg, title="Home HQ", priority="default", tags=[rule.emoji, "white_check_mark"])
+        notify.notify(msg, title="Home HQ", priority="default",
+                      tags=[rule.emoji, "white_check_mark"], click=_click_url(rule))
         db.add_alert_log(now, rule.id, "clear", msg)
         log.info("alert CLEARED [%s]", rule.id)
 
