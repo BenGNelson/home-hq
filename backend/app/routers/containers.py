@@ -31,10 +31,64 @@ from datetime import datetime, timezone
 
 import docker
 from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
 from app.config import settings
 
 router = APIRouter()
+
+
+# All three endpoints degrade to a smaller dict ({available:false} / {found:false}),
+# so each uses a superset model + response_model_exclude_none: the Optionals are
+# dropped where they don't apply, leaving every shape exactly as before.
+class ContainerSummaryModel(BaseModel):
+    name: str
+    status: str = Field(description="running / exited / paused / ...")
+    image: str
+    uptime_seconds: int | None = None
+
+
+class ContainersModel(BaseModel):
+    available: bool = Field(description="False when Docker can't be reached")
+    error: str | None = None
+    count: int | None = None
+    containers: list[ContainerSummaryModel] = []
+
+
+class ContainerDetailModel(BaseModel):
+    found: bool | None = None
+    available: bool | None = None
+    error: str | None = None
+    time: float | None = None
+    name: str | None = None
+    image: str | None = None
+    status: str | None = None
+    state: str | None = None
+    health: str | None = None
+    started_at: str | None = None
+    uptime_seconds: int | None = None
+    restart_count: int | None = None
+    restart_policy: str | None = None
+    ports: list[str] | None = None
+    networks: list[str] | None = None
+    cpu_percent: float | None = None
+    mem_used_bytes: int | None = None
+    mem_limit_bytes: int | None = None
+    mem_percent: float | None = None
+    net_rx_bytes: int | None = None
+    net_tx_bytes: int | None = None
+
+
+class ContainerLogsModel(BaseModel):
+    available: bool | None = None
+    found: bool | None = None
+    excluded: bool | None = None
+    name: str | None = None
+    reason: str | None = None
+    error: str | None = None
+    tail: int | None = None
+    lines: list[str] | None = None
+
 
 # Bounds for the logs endpoint's tail length.
 _LOGS_TAIL_DEFAULT = 200
@@ -144,7 +198,7 @@ def _ports(attrs: dict) -> list[str]:
     return out
 
 
-@router.get("/containers")
+@router.get("/containers", response_model=ContainersModel, response_model_exclude_none=True)
 def get_containers():
     try:
         client = docker.from_env()
@@ -170,7 +224,8 @@ def get_containers():
     return {"available": True, "count": len(result), "containers": result}
 
 
-@router.get("/containers/{name}")
+@router.get("/containers/{name}", response_model=ContainerDetailModel,
+            response_model_exclude_none=True)
 def get_container_detail(name: str):
     """Operational detail for one container. Secret-free by design (see module
     docstring): no env vars, no mount paths, no command, no logs."""
@@ -228,7 +283,8 @@ def get_container_detail(name: str):
     }
 
 
-@router.get("/containers/{name}/logs")
+@router.get("/containers/{name}/logs", response_model=ContainerLogsModel,
+            response_model_exclude_none=True)
 def get_container_logs(name: str, tail: int = _LOGS_TAIL_DEFAULT):
     """Recent stdout/stderr for one container (last `tail` lines, timestamped).
 
