@@ -26,7 +26,7 @@ export default function TailscaleWidget() {
             </span>
             {data.available && data.status !== 'unavailable' && (
               <span className="text-xs text-slate-400">
-                {data.online_count}/{data.peer_count + (data.self ? 1 : 0)} online
+                {data.online_total ?? data.online_count}/{data.peer_count + (data.self ? 1 : 0)} online
               </span>
             )}
           </div>
