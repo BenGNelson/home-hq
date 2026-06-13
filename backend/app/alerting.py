@@ -209,6 +209,9 @@ RULES = [
     Rule("db", "Database size", "card_index_dividers", "high", True, _check_db, path="/storage"),
 ]
 
+# Valid rule ids, for validating mute requests against typo'd / stale ids.
+RULE_IDS = frozenset(r.id for r in RULES)
+
 
 def _click_url(rule: Rule) -> str | None:
     """The in-app page an alert should open when tapped. `ALERT_CLICK_URL` is the
@@ -294,6 +297,7 @@ class AlertManager:
     def evaluate(self) -> None:
         ctx = self.build_context()
         now = ctx["now"]
+        muted = db.muted_rule_ids()
         statuses: dict[str, dict] = {}
         for rule in RULES:
             try:
@@ -312,16 +316,21 @@ class AlertManager:
                 "firing": key is not None,
                 "message": message,
                 "since": since if key is not None else None,
+                "muted": rule.id in muted,
             }
 
             if prev is None:
                 db.set_alert_state(rule.id, key, now)  # prime silently
                 continue
             if key != prev_key:
-                if key is not None:
-                    self._fire(rule, message, now)
-                elif rule.notify_on_clear and prev_key is not None:
-                    self._clear(rule, now)
+                # A muted rule still consumes its edge (state is recorded) but
+                # sends no push — so unmuting resumes on the NEXT change, not a
+                # replay of whatever it's doing right now.
+                if rule.id not in muted:
+                    if key is not None:
+                        self._fire(rule, message, now)
+                    elif rule.notify_on_clear and prev_key is not None:
+                        self._clear(rule, now)
                 db.set_alert_state(rule.id, key, now)
 
         with self._lock:

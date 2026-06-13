@@ -45,7 +45,7 @@ const ENDPOINTS = [
   ['POST /api/printer/command', 'Pause / resume / stop / light — published over the MQTT connection.'],
   ['/api/printer/history', 'Completed-print log + stats (count, success rate, total print time), from SQLite.'],
   ['/api/backups', 'Lists the age-encrypted config backups (read-only).'],
-  ['/api/alerts', 'Push-alert config, each rule’s current state, and recent history (+ POST /test).'],
+  ['/api/alerts', 'Push-alert config, each rule’s current state (incl. muted), and recent history (+ POST /test, POST /{rule}/mute).'],
   ['/api/readme · /asset/{n}', 'The project README (markdown) + its screenshots, for the in-app viewer.'],
   ['/api/server-guide', 'The host’s own server guide (markdown), for the Server Guide page.'],
   [

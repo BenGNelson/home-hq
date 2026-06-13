@@ -128,16 +128,19 @@ def test_plex_insights_and_sync_status_keep_nulls(client):
         assert key in sync
 
 
-def test_db_stats_and_uptime_validate(client):
+def test_db_stats_and_uptime_validate(client, monkeypatch, tmp_path):
     """Both always-full (keep nulls) — validate over HTTP and keep their shape."""
     dbs = client.get("/api/storage/db")
     assert dbs.status_code == 200
     body = dbs.json()
     assert "size_bytes" in body and isinstance(body["tables"], list)
 
+    # Point at a guaranteed-absent prober file (don't depend on the host's real
+    # /smart/uptime.json, which exists once the timer is installed) → not
+    # configured, but the full shape must still validate.
+    monkeypatch.setattr(settings, "uptime_json_path", str(tmp_path / "nope.json"))
     up = client.get("/api/uptime")
     assert up.status_code == 200
     ub = up.json()
-    # No prober file in the test sandbox → not configured, but the full shape stays.
     assert ub["configured"] is False and ub["targets"] == []
     assert "stale" in ub and "interval" in ub

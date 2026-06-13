@@ -9,6 +9,9 @@ import { alertEmoji } from '../../lib/alerts.js'
 export default function Alerts() {
   const { data, error, loading } = useApi('/alerts', 15000)
   const [test, setTest] = useState(null) // null | 'sending' | 'ok' | 'fail'
+  // Optimistic mute overrides keyed by rule id, so a toggle reflects instantly
+  // (the 15s poll reconciles with the persisted server value afterward).
+  const [muteOverrides, setMuteOverrides] = useState({})
 
   const sendTest = async () => {
     setTest('sending')
@@ -19,6 +22,21 @@ export default function Alerts() {
       setTest('fail')
     }
     setTimeout(() => setTest(null), 4000)
+  }
+
+  const toggleMute = async (ruleId, muted) => {
+    setMuteOverrides((o) => ({ ...o, [ruleId]: muted }))
+    try {
+      const r = await fetch(`${API_BASE}/alerts/${ruleId}/mute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ muted }),
+      })
+      if (!r.ok) throw new Error()
+    } catch {
+      // Revert the optimistic flip if the request failed.
+      setMuteOverrides((o) => ({ ...o, [ruleId]: !muted }))
+    }
   }
 
   const testLabel =
@@ -43,7 +61,7 @@ export default function Alerts() {
       {data && (
         <div className="space-y-4">
           <PushStatus data={data} />
-          <Conditions rules={data.rules} />
+          <Conditions rules={data.rules} overrides={muteOverrides} onToggleMute={toggleMute} />
           <History recent={data.recent} rules={data.rules} />
         </div>
       )}
@@ -72,35 +90,58 @@ function PushStatus({ data }) {
   )
 }
 
-function Conditions({ rules = [] }) {
-  const firing = rules.filter((r) => r.firing)
+function Conditions({ rules = [], overrides = {}, onToggleMute }) {
+  // A muted rule is still watched but sends no push, so it doesn't count toward
+  // the "active" tally that flags things needing attention.
+  const isMuted = (r) => overrides[r.id] ?? r.muted ?? false
+  const firing = rules.filter((r) => r.firing && !isMuted(r))
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
       <h3 className="mb-3 text-sm font-medium text-slate-300">
         Watched conditions{firing.length > 0 && ` — ${firing.length} active`}
       </h3>
       <div className="space-y-2 text-sm">
-        {rules.map((r) => (
-          <div
-            key={r.id}
-            className="flex items-center justify-between border-b border-slate-800 pb-2 last:border-0 last:pb-0"
-          >
-            <span className="flex items-center gap-2">
-              <span aria-hidden>{alertEmoji(r.emoji)}</span>
-              <span className="text-slate-200">{r.title}</span>
-            </span>
-            {r.firing ? (
-              <span className="text-right text-amber-400">
-                {r.message}
-                {r.since && (
-                  <span className="ml-2 text-xs text-slate-500">{formatAgo(r.since)}</span>
+        {rules.map((r) => {
+          const muted = isMuted(r)
+          return (
+            <div
+              key={r.id}
+              className="flex items-center justify-between gap-3 border-b border-slate-800 pb-2 last:border-0 last:pb-0"
+            >
+              <span className={`flex items-center gap-2 ${muted ? 'opacity-50' : ''}`}>
+                <span aria-hidden>{alertEmoji(r.emoji)}</span>
+                <span className="text-slate-200">{r.title}</span>
+                {muted && (
+                  <span className="rounded bg-slate-700/60 px-1.5 py-0.5 text-xs text-slate-400">
+                    muted
+                  </span>
                 )}
               </span>
-            ) : (
-              <span className="text-emerald-400">● OK</span>
-            )}
-          </div>
-        ))}
+              <span className="flex items-center gap-3">
+                {r.firing ? (
+                  // When muted, the firing condition stays visible but reads
+                  // neutral (no push is going out), not alarming amber.
+                  <span className={`text-right ${muted ? 'text-slate-400' : 'text-amber-400'}`}>
+                    {r.message}
+                    {r.since && (
+                      <span className="ml-2 text-xs text-slate-500">{formatAgo(r.since)}</span>
+                    )}
+                  </span>
+                ) : (
+                  <span className={muted ? 'text-slate-500' : 'text-emerald-400'}>● OK</span>
+                )}
+                <button
+                  onClick={() => onToggleMute(r.id, !muted)}
+                  title={muted ? 'Unmute — resume pushes' : 'Mute — silence pushes'}
+                  aria-label={muted ? `Unmute ${r.title}` : `Mute ${r.title}`}
+                  className="rounded px-1.5 py-0.5 text-base leading-none text-slate-400 transition-colors hover:bg-slate-700/50 hover:text-slate-200"
+                >
+                  {muted ? '🔕' : '🔔'}
+                </button>
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

@@ -136,8 +136,9 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/drive-watchdog` | watched external drive's health + recent recovery events | reads the host watchdog's state JSON + its append-only event log (fills the SMART gap for USB enclosures) |
 | `GET /api/storage/trends` | per-drive SMART history + capacity series + days-until-full projection | reads daily samples an in-app background thread records to SQLite |
 | `GET /api/storage/space` | top-level "what's using space" breakdown of the mount | serves a cached daily `du` (a background thread scans; never on request) |
-| `GET /api/alerts` | push-alert config + every rule's current state + recent log | from the background alert engine |
+| `GET /api/alerts` | push-alert config + every rule's current state (incl. muted) + recent log | from the background alert engine |
 | `POST /api/alerts/test` | send a test push (confirm the pipe reaches the phone) | posts to ntfy |
+| `POST /api/alerts/{rule_id}/mute` | mute/unmute one rule (silence its pushes; still watched) | persists in SQLite `alert_mutes` |
 | `GET /api/printer` | live 3D-printer telemetry (state/progress/temps/AMS) | cached snapshot from a persistent MQTT client (Bambu LAN) |
 | `GET /api/printer/camera/stream` | live chamber-camera MJPEG feed | re-streams the printer's TLS frames (:6000) as `multipart/x-mixed-replace`; one connection, frames pushed as they arrive — what the UI uses |
 | `GET /api/printer/camera` | single latest chamber-camera JPEG frame | the same on-demand reader, one frame per request (snapshot/fallback) |
@@ -391,6 +392,13 @@ each cycle the engine pings `HEALTHCHECK_PING_URL` (point it at an external chec
 like Healthchecks.io). If the loop — or the whole box — dies, the pings stop and
 that external service alerts you. It's the one failure the app can't self-report,
 so it's deliberately watched from outside.
+
+Any single rule can be **muted** from the Alerts page (`POST /api/alerts/{rule_id}/mute`,
+persisted in the `alert_mutes` table — a row's presence means muted). A muted rule
+is still evaluated and shown (so you can see it's active), but sends no push, and
+it still *consumes its edge* silently — so unmuting resumes notifications on the
+next state change rather than replaying whatever it's doing at that moment. It's
+for silencing one known-noisy condition without killing the whole engine.
 
 ### The printer: the one push-based source
 

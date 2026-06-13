@@ -14,6 +14,7 @@ metadata (titles, years, runtimes, resolutions). No file paths.
 import json
 import os
 import sqlite3
+import time
 from contextlib import contextmanager
 
 from app.config import settings
@@ -61,6 +62,13 @@ CREATE TABLE IF NOT EXISTS alert_log (
     message TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_alert_log_ts ON alert_log (ts);
+
+-- Muted alert rules: a row's mere presence = that rule is muted (the engine
+-- still tracks its state but sends no push). Unmuting just deletes the row.
+CREATE TABLE IF NOT EXISTS alert_mutes (
+    rule_id    TEXT PRIMARY KEY,
+    updated_at REAL
+);
 
 -- Storage trend history: one row per (UTC day, kind, subject) holding a JSON
 -- metrics blob. Powers the Storage page's SMART trends + capacity projection.
@@ -200,6 +208,26 @@ def recent_alert_log(limit=20):
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+def muted_rule_ids():
+    """The set of rule ids the user has muted (no push, engine still tracks state)."""
+    with get_conn() as conn:
+        rows = conn.execute("SELECT rule_id FROM alert_mutes").fetchall()
+        return {r["rule_id"] for r in rows}
+
+
+def set_rule_muted(rule_id, muted, now=None):
+    """Mute (insert) or unmute (delete) a rule. Idempotent."""
+    with get_conn() as conn:
+        if muted:
+            conn.execute(
+                "INSERT INTO alert_mutes (rule_id, updated_at) VALUES (?, ?) "
+                "ON CONFLICT(rule_id) DO UPDATE SET updated_at = excluded.updated_at",
+                (rule_id, now if now is not None else time.time()),
+            )
+        else:
+            conn.execute("DELETE FROM alert_mutes WHERE rule_id = ?", (rule_id,))
 
 
 def record_storage_sample(day, ts, kind, subject, metrics):
