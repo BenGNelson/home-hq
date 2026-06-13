@@ -200,3 +200,60 @@ def test_fire_passes_per_rule_click(monkeypatch):
     raid_rule = next(r for r in RULES if r.id == "raid")
     AlertManager(60)._fire(raid_rule, "boom", NOW)
     assert sent[0]["click"] == "https://host.example/storage"
+
+
+# --- per-rule mute toggles --------------------------------------------------
+
+
+def test_mute_roundtrip():
+    from app import db
+
+    assert db.muted_rule_ids() == set()
+    db.set_rule_muted("disk", True)
+    db.set_rule_muted("disk", True)  # idempotent
+    assert db.muted_rule_ids() == {"disk"}
+    db.set_rule_muted("disk", False)
+    assert db.muted_rule_ids() == set()
+
+
+def test_muted_rule_suppresses_push_but_tracks_state(monkeypatch):
+    from app import db
+
+    sent = []
+    monkeypatch.setattr(notify, "notify", lambda *a, **k: (sent.append((a, k)), True)[1])
+    mgr = AlertManager(60)
+
+    def ctx_disk(pct, now):
+        return {"now": now, "disk": {"available": True, "mount": "/m", "percent": pct}}
+
+    # Mute disk, then prime OK and cross the threshold: no push, but status shows
+    # it firing-and-muted and the edge is consumed.
+    db.set_rule_muted("disk", True)
+    monkeypatch.setattr(mgr, "build_context", lambda: ctx_disk(50.0, NOW))
+    mgr.evaluate()
+    monkeypatch.setattr(mgr, "build_context", lambda: ctx_disk(97.0, NOW + 60))
+    mgr.evaluate()
+    assert sent == []  # muted -> silent
+    disk_status = next(s for s in mgr.status() if s["id"] == "disk")
+    assert disk_status["firing"] is True and disk_status["muted"] is True
+
+    # Unmute: because the edge was already consumed, a STEADY condition doesn't
+    # replay — only the next change fires.
+    db.set_rule_muted("disk", False)
+    mgr.evaluate()
+    assert sent == []
+
+
+def test_mute_endpoint_toggles_and_validates(client):
+    # Mute a real rule, see it reflected in GET, then unmute.
+    r = client.post("/api/alerts/disk/mute", json={"muted": True})
+    assert r.status_code == 200 and r.json() == {"rule_id": "disk", "muted": True}
+
+    rules = client.get("/api/alerts").json()["rules"]
+    disk = next((x for x in rules if x["id"] == "disk"), None)
+    if disk is not None:  # present once the engine has evaluated at least once
+        assert disk["muted"] is True
+
+    assert client.post("/api/alerts/disk/mute", json={"muted": False}).json()["muted"] is False
+    # An unknown rule id is rejected.
+    assert client.post("/api/alerts/nope/mute", json={"muted": True}).status_code == 404
