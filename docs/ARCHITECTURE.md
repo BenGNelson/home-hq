@@ -144,6 +144,9 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/printer/camera` | single latest chamber-camera JPEG frame | the same on-demand reader, one frame per request (snapshot/fallback) |
 | `POST /api/printer/command` | pause/resume/stop/light (allowlisted) | publishes over the MQTT connection |
 | `GET /api/printer/history` | completed-print log + stats (count, success rate, total time) | reads prints logged to SQLite on each RUNNING→terminal transition |
+| `GET /api/ha/cameras` | Home Assistant camera entities for the wall | HA REST `/api/states`, filtered to `camera.*` (optional allowlist) |
+| `GET /api/ha/camera/{id}/stream` | live camera MJPEG feed | relays HA's `camera_proxy_stream` (adds the token); connects on demand, closes on client disconnect so the camera sleeps |
+| `GET /api/ha/camera/{id}/snapshot` | single camera still (poster/fallback) | relays HA's `camera_proxy` |
 | `GET /api/backups` | list encrypted config backups (read-only) | reads BACKUP_DIR (under the RAID mount) |
 | `GET /api/readme` | the project README as markdown (in-app viewer) | reads the README mounted read-only |
 | `GET /api/readme/asset/{name}` | a screenshot the README references | serves from the mounted docs image dir (bare filename only) |
@@ -431,6 +434,32 @@ a watched feed never idles out. `GET /api/printer/camera` still returns a single
 latest frame as a snapshot/fallback. The camera is opt-in (`PRINTER_CAMERA`)
 because it may need its own network reachability (e.g. a separate port-forward to
 the printer).
+
+### Home Assistant bridge (read-only)
+
+Home Assistant owns the smart-home devices; Home HQ surfaces a **read-only**
+slice. `app/ha.py` calls HA's REST API with a Long-Lived Access Token. The first
+consumer is the **camera wall** (`/api/ha/cameras` + a per-camera MJPEG relay).
+
+Two design choices worth noting:
+
+- **The backend relays the camera stream** instead of the browser hitting HA
+  directly. That keeps the HA token server-side (never shipped to the browser),
+  avoids mixed-content (the app is HTTPS over the tailnet; HA is plain HTTP), and
+  reuses the same `<img>`-MJPEG pattern as the printer camera. The relay opens
+  the upstream only while a client reads and closes it on disconnect, so a
+  battery camera sleeps when nobody's watching.
+- **Reaching HA needs a firewall allow.** HA's port is restricted to the LAN by
+  the host firewall, and this backend runs in a container off that subnet — so a
+  narrow rule allows just the (pinned) compose subnet → HA's port, and `HA_URL`
+  points at the compose-network gateway. This is the one place the backend is
+  granted reach to a LAN-restricted host service; it already holds the HA token,
+  so the rule doesn't widen the blast radius. (The other privileged reads —
+  SMART/VPN/Tailscale/uptime — instead use host scripts; cameras can't, because a
+  static JSON file can't carry a live video stream.)
+
+The `camera.*` entity id is validated against a strict pattern before it's placed
+in the upstream URL, so the path can't be used to reach other HA endpoints.
 
 ---
 

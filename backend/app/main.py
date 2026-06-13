@@ -26,6 +26,7 @@ from app.routers import (
     containers,
     disk,
     diskio,
+    ha,
     network,
     plex,
     printer,
@@ -108,6 +109,7 @@ tags_metadata = [
     {"name": "Network", "description": "Per-interface throughput read from the host network counters."},
     {"name": "Plex", "description": "Plex server status, now-playing sessions, and the cached library browser."},
     {"name": "Printer", "description": "3D-printer telemetry, controls, chamber camera, and print history."},
+    {"name": "Devices", "description": "Read-only Home Assistant bridge — smart-home device state and camera relays."},
     {"name": "Alerts", "description": "Push-notification engine — rule status, history, and a test trigger."},
     {"name": "Monitoring", "description": "Service-availability probing — per-target uptime % and latency."},
     {"name": "Docs", "description": "In-app document sources (project README) served as markdown."},
@@ -167,6 +169,7 @@ app.include_router(tailscale.router, prefix="/api", tags=["Network"])
 app.include_router(backups.router, prefix="/api", tags=["System"])
 app.include_router(plex.router, prefix="/api", tags=["Plex"])
 app.include_router(printer.router, prefix="/api", tags=["Printer"])
+app.include_router(ha.router, prefix="/api", tags=["Devices"])
 app.include_router(raid.router, prefix="/api", tags=["Storage"])
 app.include_router(readme.router, prefix="/api", tags=["Docs"])
 app.include_router(smart.router, prefix="/api", tags=["Storage"])

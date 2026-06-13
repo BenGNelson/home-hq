@@ -119,6 +119,19 @@ class Settings(BaseSettings):
     # frame, so this only fires once nobody is actually watching.
     printer_camera_idle_timeout: int = 10
 
+    # --- Home Assistant bridge (read-only) ---
+    # A Long-Lived Access Token (HA profile → Security) authorizes read access to
+    # HA's REST API; the backend lists camera entities and relays their MJPEG
+    # streams. Empty token = the HA features report unavailable. HA's port is
+    # LAN-restricted by the host firewall, so reaching it from this container
+    # needs a narrow firewall allow for the compose network (see SERVER_GUIDE) —
+    # which is why HA_URL points at the bridge gateway, not localhost.
+    ha_url: str = ""
+    ha_token: str = ""
+    # Optional comma-separated allowlist of camera entity_ids to surface (e.g.
+    # "camera.backyard,camera.front_door"). Empty = show all camera.* entities.
+    ha_camera_entities: str = ""
+
     # --- In-app doc viewers (files mounted read-only into the container) ---
     # Under /readme & /srv-guide, not /app — see the mount note in
     # docker-compose.yml (the test runner bind-mounts ./backend over /app).

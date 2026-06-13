@@ -8,6 +8,7 @@ import MovieDetail from './modules/plex/MovieDetail.jsx'
 import PlexInsights from './modules/plex/Insights.jsx'
 import Containers from './modules/containers/Containers.jsx'
 import Printer from './modules/printer/Printer.jsx'
+import Cameras from './modules/cameras/Cameras.jsx'
 import Network from './modules/network/Network.jsx'
 import Vpn from './modules/vpn/Vpn.jsx'
 import Tailscale from './modules/tailscale/Tailscale.jsx'
@@ -36,6 +37,7 @@ const modules = [
   { id: 'storage', label: 'Storage', path: '/storage', icon: '💾', group: 'System' },
   { id: 'backups', label: 'Backups', path: '/backups', icon: '🗜️', group: 'System' },
   { id: 'printer', label: '3D Printer', path: '/printer', icon: '🖨️', group: 'Devices' },
+  { id: 'cameras', label: 'Cameras', path: '/cameras', icon: '📷', group: 'Devices' },
   { id: 'alerts', label: 'Alerts', path: '/alerts', icon: '🔔', group: 'Monitoring' },
   { id: 'uptime', label: 'Uptime', path: '/uptime', icon: '📡', group: 'Monitoring' },
   { id: 'guide', label: 'Under the Hood', path: '/guide', icon: '🔧', group: 'Docs' },
@@ -61,6 +63,7 @@ export default function App() {
         <Route path="/plex/movie/:key" element={<MovieDetail />} />
         <Route path="/containers" element={<Containers />} />
         <Route path="/printer" element={<Printer />} />
+        <Route path="/cameras" element={<Cameras />} />
         <Route path="/network" element={<Network />} />
         <Route path="/vpn" element={<Vpn />} />
         <Route path="/tailscale" element={<Tailscale />} />
