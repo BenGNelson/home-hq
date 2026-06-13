@@ -42,7 +42,8 @@ class TailscaleModel(BaseModel):
     stale: bool | None = None
     self: TailscaleDeviceModel | None = None
     peers: list[TailscaleDeviceModel] = []
-    online_count: int | None = None
+    online_count: int | None = Field(default=None, description="Online peers only (excludes self)")
+    online_total: int | None = Field(default=None, description="Online devices incl. self")
     peer_count: int | None = None
     tailnet: str | None = Field(default=None, description="Tailnet MagicDNS domain")
     magicdns: bool | None = None
@@ -79,6 +80,7 @@ def summarize(data, now=None):
             "self": None,
             "peers": [],
             "online_count": 0,
+            "online_total": 0,
             "peer_count": 0,
             "tailnet": None,
             "magicdns": False,
@@ -89,6 +91,9 @@ def summarize(data, now=None):
     self_node = data.get("self") or None
     peers = sorted((data.get("peers") or []), key=_peer_sort_key)
     online = sum(1 for p in peers if p.get("online"))
+    # online_count is peers-only (the headline reads "N of M *other* devices");
+    # online_total adds self so the all-devices "Devices online" fact is correct.
+    online_total = online + (1 if self_node and self_node.get("online") else 0)
 
     # The peer (or self) currently acting as our exit node, if any.
     exit_node = next(
@@ -107,6 +112,7 @@ def summarize(data, now=None):
         "self": self_node,
         "peers": peers,
         "online_count": online,
+        "online_total": online_total,
         "peer_count": len(peers),
         "tailnet": data.get("tailnet"),
         "magicdns": bool(data.get("magicdns")),

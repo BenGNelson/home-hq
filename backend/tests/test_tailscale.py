@@ -38,9 +38,17 @@ def test_up_with_counts():
     assert out["status"] == "up"
     assert out["stale"] is False
     assert out["peer_count"] == 2
-    assert out["online_count"] == 1  # only the phone is online
+    assert out["online_count"] == 1  # only the phone is online (peers only)
+    assert out["online_total"] == 2  # phone + self, so "Devices online" reads 2/3
     assert out["tailnet"] == "tailnet.ts.net"
     assert out["magicdns"] is True
+
+
+def test_online_total_excludes_offline_self():
+    data = {**RUNNING, "self": {**SELF, "online": False}}
+    out = summarize(data, now=NOW)
+    assert out["online_count"] == 1  # peer count unchanged
+    assert out["online_total"] == 1  # self offline, so it isn't counted
 
 
 def test_peers_sorted_online_first_then_name():
