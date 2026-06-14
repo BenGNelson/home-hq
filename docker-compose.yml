@@ -128,15 +128,6 @@ networks:
   # within this compose project (the backend), never the host or the LAN.
   docker-proxy:
     internal: true
-  # The project's main bridge. Its subnet is pinned so the gateway address is
-  # stable: the backend reaches Home Assistant (whose port the host firewall
-  # restricts to the LAN) through this network's gateway, and a narrow host
-  # firewall rule allows just this subnet → HA's port (see SERVER_GUIDE). A fixed
-  # subnet keeps that rule valid across `compose down`/recreate.
-  default:
-    ipam:
-      config:
-        - subnet: 172.24.0.0/24
 
 volumes:
   homehq-data:
