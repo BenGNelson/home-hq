@@ -74,8 +74,7 @@ const GLOSSARY = [
   ['age', 'A modern file-encryption tool. It encrypts to a public key, so only the matching private key (kept off the server) can decrypt.'],
   ['WireGuard', 'A fast, modern VPN protocol; the VPN gateway uses it to build an encrypted tunnel.'],
   ['Tailscale', 'A mesh VPN that gives each device a private address, so you can reach the server from anywhere without opening ports to the internet.'],
-  ['Home Assistant', 'An open-source smart-home hub that integrates devices (cameras, thermostats, sensors) and automations. Home HQ reads a slice of it (e.g. cameras) over its REST API — read-only.'],
-  ['MJPEG', 'A simple video stream that is just a series of JPEG images. A plain <img> can display it, swapping frames in place over one connection — how both the printer and HA cameras are shown.'],
+  ['MJPEG', 'A simple video stream that is just a series of JPEG images. A plain <img> can display it, swapping frames in place over one connection — how the 3D-printer chamber camera is shown.'],
   ['RAID (RAID5)', 'Combines several disks for capacity plus redundancy; a RAID5 array keeps working even if one disk fails.'],
   ['SMART', 'Self-monitoring data that drives expose — temperature, wear, reallocated sectors — used to catch a failing disk early.'],
   ['systemd timer', "Linux's built-in scheduler (a modern cron) that runs a task on a schedule, like the daily SMART collector."],
@@ -282,28 +281,6 @@ export default function Guide() {
           <Code>/api/printer/camera</Code> still serves a single frame as a snapshot.
           It’s opt-in (<Code>PRINTER_CAMERA</Code>) since it may need its own network
           reachability.
-        </p>
-      </Section>
-
-      <Section title="Cameras module (Home Assistant bridge)">
-        <p>
-          Home Assistant owns the smart-home devices; Home HQ shows a{' '}
-          <strong>read-only</strong> slice of them. The first is a{' '}
-          <strong>camera wall</strong>: the backend asks HA (with a Long-Lived
-          Access Token) for its <Code>camera.*</Code> entities and{' '}
-          <strong>relays</strong> each one’s live MJPEG through{' '}
-          <Code>/api/ha/camera/&#123;id&#125;/stream</Code>. Relaying (rather than
-          pointing the browser at HA) keeps the token server-side and dodges
-          mixed-content, and it reuses the printer’s on-demand{' '}
-          <em>image-element swaps frames in place</em> trick — so a battery camera
-          sleeps again once you leave the page.
-        </p>
-        <p className="mt-2">
-          HA’s port is usually firewalled to the LAN, and this backend runs in a
-          container off that subnet, so reaching HA needs a narrow firewall rule
-          allowing just the compose network → HA (the one spot the backend is let
-          through to a LAN-only service — it already holds the HA token). The
-          module hides itself until <Code>HA_URL</Code>/<Code>HA_TOKEN</Code> are set.
         </p>
       </Section>
 
