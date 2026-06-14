@@ -18,6 +18,7 @@ import Uptime from './modules/uptime/Uptime.jsx'
 import Guide from './modules/guide/Guide.jsx'
 import Readme from './modules/readme/Readme.jsx'
 import ServerGuide from './modules/server-guide/ServerGuide.jsx'
+import { hostNavLinks } from './lib/hostLocal.js'
 
 // The module registry. Each module declares its nav entry here and a matching
 // <Route> below. Adding a module = one entry + one route, nothing else.
@@ -25,7 +26,7 @@ import ServerGuide from './modules/server-guide/ServerGuide.jsx'
 // sections in the order groups first appear here). The Docs group is reference
 // material, not functional modules — Shell pins it to the bottom of the sidebar.
 // This is the seam the whole platform grows along.
-const modules = [
+const builtinModules = [
   { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: '🏠', group: 'Overview' },
   { id: 'plex', label: 'Plex', path: '/plex', icon: '🎬', group: 'Media' },
   { id: 'plex-insights', label: 'Plex Insights', path: '/plex/insights', icon: '📈', group: 'Media' },
@@ -47,6 +48,13 @@ const modules = [
   { id: 'api', label: 'API', path: '/api/docs', icon: '{ }', group: 'Docs', external: true },
   { id: 'readme', label: 'README', path: '/readme', icon: '❏', group: 'Docs' },
 ]
+
+// Host-local external deep-links (e.g. Home Assistant) appended to the registry.
+// They carry a `group` like any module, so groupModules folds them into the
+// right sidebar section regardless of position; absent host.local.jsx, this is
+// empty and nothing extra renders. These are external <a> links, not routes —
+// HQ deep-links to HA for control rather than rebuilding a smart-home UI.
+const modules = [...builtinModules, ...hostNavLinks()]
 
 export default function App() {
   return (

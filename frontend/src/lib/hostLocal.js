@@ -31,3 +31,25 @@ export function containerUrl(name) {
     typeof window !== 'undefined' ? window.location.hostname : 'localhost'
   return buildUrl(containerNotes[name]?.url, hostname)
 }
+
+// Optional host-specific external nav links — e.g. a deep-link to Home
+// Assistant so HQ (the infra cockpit) can hand off to HA (the smart-home brain)
+// for control, without rebuilding a smart-home UI here. Declared in the
+// gitignored host.local.jsx as `navLinks`, since the target host/port is
+// instance-specific. Pure (no globals) so it's unit-testable: takes the raw
+// list + hostname, resolves each `url` spec against that hostname (so the same
+// entry works on the LAN or over Tailscale), marks them `external`, and drops
+// any that don't resolve to a link. Returns [] when none are configured, so the
+// sidebar simply shows nothing.
+export function buildNavLinks(links, hostname) {
+  return (links ?? [])
+    .map((l) => ({ ...l, external: true, path: buildUrl(l.url, hostname) }))
+    .filter((l) => l.path)
+}
+
+// Resolve the host-local nav links for the CURRENT origin.
+export function hostNavLinks() {
+  const hostname =
+    typeof window !== 'undefined' ? window.location.hostname : 'localhost'
+  return buildNavLinks(host.navLinks, hostname)
+}

@@ -615,3 +615,12 @@ Short record of *why* things are the way they are, so future changes have contex
 - **`PlexAPI` packaging gotcha.** The PyPI package is `PlexAPI`; the Python
   import is `plexapi`. (`python-plexapi` is the project's source name, not the
   installable name.)
+- **Deep-link out to sibling apps, don't reimplement them.** HQ is the infra
+  cockpit; a full smart-home platform (Home Assistant) is a separate, better tool
+  for device state and control. So the seam is a one-tap **external nav link**
+  from the sidebar into that app, not a reimplemented UI inside HQ. The link is
+  host-specific (its target host/port varies per instance), so it's declared in
+  the gitignored host-local config as `navLinks` and appended to the registry by
+  `hostNavLinks()` — self-hiding when unset, resolved against the current
+  hostname so it works on the LAN or over Tailscale. Same generic mechanism is
+  reusable for any future sibling app.

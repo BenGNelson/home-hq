@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildUrl } from './hostLocal.js'
+import { buildUrl, buildNavLinks } from './hostLocal.js'
 
 describe('buildUrl', () => {
   it('returns null when there is no spec', () => {
@@ -37,5 +37,46 @@ describe('buildUrl', () => {
 
   it('returns null for an empty object (nothing to link to)', () => {
     expect(buildUrl({}, 'h')).toBeNull()
+  })
+})
+
+describe('buildNavLinks', () => {
+  it('returns [] when there are no host-local links', () => {
+    expect(buildNavLinks(undefined, 'h')).toEqual([])
+    expect(buildNavLinks(null, 'h')).toEqual([])
+    expect(buildNavLinks([], 'h')).toEqual([])
+  })
+
+  it('resolves each url spec against the hostname and marks it external', () => {
+    const links = [
+      { id: 'ha', label: 'Home Assistant', icon: '🏡', group: 'Devices', url: { port: 8123 } },
+    ]
+    expect(buildNavLinks(links, '192.168.0.10')).toEqual([
+      {
+        id: 'ha',
+        label: 'Home Assistant',
+        icon: '🏡',
+        group: 'Devices',
+        url: { port: 8123 },
+        external: true,
+        path: 'http://192.168.0.10:8123',
+      },
+    ])
+  })
+
+  it('uses the current hostname, so the same entry resolves on LAN or Tailscale', () => {
+    const links = [{ id: 'ha', url: { port: 8123 } }]
+    expect(buildNavLinks(links, 'box.tailnet.ts.net')[0].path).toBe(
+      'http://box.tailnet.ts.net:8123',
+    )
+  })
+
+  it('drops entries whose url does not resolve to a link', () => {
+    const links = [
+      { id: 'good', url: { port: 8123 } },
+      { id: 'empty', url: {} },
+      { id: 'missing' },
+    ]
+    expect(buildNavLinks(links, 'h').map((l) => l.id)).toEqual(['good'])
   })
 })
