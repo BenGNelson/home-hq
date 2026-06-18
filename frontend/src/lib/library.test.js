@@ -6,9 +6,23 @@ import {
   saveStateUrl,
   saveStateShotUrl,
   playerSrc,
+  resumeHref,
   groupByLabel,
   libraryHeadline,
 } from './library.js'
+
+describe('resumeHref', () => {
+  it('routes a reading entry to the reader', () => {
+    expect(resumeHref({ kind: 'read', section: 'papers', id: 'a.pdf' })).toBe(
+      '/library/read?section=papers&id=a.pdf'
+    )
+  })
+  it('routes a play entry to the player with its save slot', () => {
+    expect(
+      resumeHref({ kind: 'play', id: 'Tetris.gb', core: 'gb', name: 'Tetris', slot: '123' })
+    ).toBe('/library/play?id=Tetris.gb&core=gb&name=Tetris&slot=123')
+  })
+})
 
 describe('fileUrl', () => {
   it('encodes section + id as query params', () => {

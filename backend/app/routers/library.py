@@ -183,6 +183,11 @@ async def create_save_state(
         if shot and len(shot) <= _MAX_SHOT_BYTES:
             with open(shot_path, "wb") as fh:
                 fh.write(shot)
+    # Mark the game as recently played so it surfaces on the Jump Back In shelf
+    # (records the real id + core, since the save dir name is a hash).
+    games = library.get_section("games")
+    core = games["formats"].get(os.path.splitext(id)[1].lower(), {}).get("core")
+    db.set_game_progress(id, core)
     return {"slot": slot, "created_ms": int(slot)}
 
 
@@ -239,19 +244,6 @@ def delete_save_state(
 # (the saved page IS the bookmark). Powers the Continue Reading shelf + resume.
 
 
-class ReadingProgressEntry(BaseModel):
-    section: str
-    id: str
-    name: str = Field(description="Display title, resolved from the id")
-    page: int
-    total: int | None = None
-    updated_ms: int
-
-
-class ReadingProgressListModel(BaseModel):
-    items: list[ReadingProgressEntry]
-
-
 class ReadingProgressItemModel(BaseModel):
     page: int | None = Field(default=None, description="Saved page, or null if none")
     total: int | None = None
@@ -264,19 +256,39 @@ class ReadingProgressUpdate(BaseModel):
     total: int | None = None
 
 
-@router.get("/library/reading-progress", response_model=ReadingProgressListModel)
-def reading_progress_list():
-    """The Continue Reading shelf: in-progress items, newest first. Skips entries
-    whose section is gone or whose file no longer exists (stale)."""
-    out = []
+class ContinueEntry(BaseModel):
+    kind: str = Field(description="'read' (resume to a page) or 'play' (resume a save state)")
+    section: str
+    id: str
+    name: str
+    updated_ms: int
+    # read-kind fields
+    page: int | None = None
+    total: int | None = None
+    # play-kind fields
+    core: str | None = None
+    slot: str | None = Field(default=None, description="Newest save-state slot to resume")
+
+
+class ContinueModel(BaseModel):
+    items: list[ContinueEntry]
+
+
+@router.get("/library/continue", response_model=ContinueModel)
+def library_continue():
+    """The unified "Jump back in" shelf: in-progress reading items (resume to a
+    page) AND recently-played games (resume their newest save state), merged and
+    sorted newest-first. Skips entries whose underlying file is gone (a removed
+    PDF, or a game whose ROM or save states are gone)."""
+    entries = []
+    # Reading items in progress.
     for row in db.list_reading_progress():
         section_def = library.get_section(row["section"])
-        if not section_def:
+        if not section_def or not library.safe_path(section_def, settings, row["item_id"]):
             continue
-        if not library.safe_path(section_def, settings, row["item_id"]):
-            continue  # file removed — don't show a dead Resume
-        out.append(
+        entries.append(
             {
+                "kind": "read",
                 "section": row["section"],
                 "id": row["item_id"],
                 "name": library.display_name(section_def, row["item_id"]),
@@ -285,7 +297,35 @@ def reading_progress_list():
                 "updated_ms": row["updated_ms"],
             }
         )
-    return {"items": out}
+    # Recently-played games that still have a ROM + at least one save state.
+    games = library.get_section("games")
+    for row in db.list_game_progress():
+        gid = row["game_id"]
+        if not library.safe_path(games, settings, gid):
+            continue  # ROM removed
+        states = library.list_save_states(settings.games_saves_dir, gid)
+        if not states:
+            continue  # all saves deleted
+        entries.append(
+            {
+                "kind": "play",
+                "section": "games",
+                "id": gid,
+                "name": library.display_name(games, gid),
+                "core": row["core"],
+                "slot": states[0]["slot"],
+                "updated_ms": states[0]["created_ms"],
+            }
+        )
+    entries.sort(key=lambda e: e["updated_ms"], reverse=True)
+    return {"items": entries[:12]}
+
+
+@router.delete("/library/games/last-played")
+def delete_last_played(id: str = Query(description="Game id")):
+    """Drop a game from Jump Back In (keeps its save files)."""
+    removed = db.delete_game_progress(id)
+    return Response(status_code=204 if removed else 404)
 
 
 @router.get("/library/reading-progress/item", response_model=ReadingProgressItemModel)
