@@ -48,16 +48,31 @@
         }
         // When the user saves a state in the in-game menu, push it (and its
         // screenshot) to the backend so it roams across devices + is backed up.
-        // e = { state: Uint8Array, screenshot: Uint8Array, format }.
+        // The event's `e.screenshot` is unusable: EmulatorJS v4.2.3 destructures
+        // { screenshot } from takeScreenshot(), which actually resolves { blob },
+        // so e.screenshot is always undefined (upstream bug). Capture the frame
+        // ourselves from the engine instance instead. e = { state: Uint8Array }.
+        function captureShot() {
+          var emu = window.EJS_emulator;
+          if (!emu || typeof emu.takeScreenshot !== 'function') return Promise.resolve(null);
+          var cap = (emu.capture && emu.capture.photo) || {};
+          return emu
+            .takeScreenshot(cap.source, cap.format, cap.upscale)
+            .then(function (r) { return r && r.blob ? r.blob : null; })
+            .catch(function () { return null; });
+        }
         window.EJS_onSaveState = function (e) {
           if (!gid || !e || !e.state) return;
-          try {
-            var fd = new FormData();
-            fd.append('id', gid);
-            fd.append('state', new Blob([e.state]));
-            if (e.screenshot) fd.append('screenshot', new Blob([e.screenshot]), 'shot.png');
-            fetch('/api/library/games/save-states', { method: 'POST', body: fd });
-          } catch (err) {}
+          var state = e.state;
+          captureShot().then(function (shot) {
+            try {
+              var fd = new FormData();
+              fd.append('id', gid);
+              fd.append('state', new Blob([state]));
+              if (shot) fd.append('screenshot', shot, 'shot.png');
+              fetch('/api/library/games/save-states', { method: 'POST', body: fd });
+            } catch (err) {}
+          });
         };
         // NOT EJS_startOnLoaded: auto-start gets paused immediately by iOS's
         // audio policy (the white screen + "Click to resume"). Letting the
