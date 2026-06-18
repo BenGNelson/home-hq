@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Privacy guard: block a commit whose staged changes contain forbidden
-# references (host identifiers, AI/attribution). Patterns come from the
-# gitignored .githooks/patterns.local — see _patterns.sh. Genuine, reviewed
-# exception: git commit --no-verify
+# references (host identifiers, attribution trailers, secrets). Patterns come
+# from the gitignored .githooks/patterns.local — see _patterns.sh. Genuine,
+# reviewed exception: git commit --no-verify
 set -euo pipefail
 
 DIR="$(git rev-parse --show-toplevel)/.githooks"
