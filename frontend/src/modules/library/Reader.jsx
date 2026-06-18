@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { fileUrl } from '../../lib/library.js'
-import { getLastPage, setLastPage } from '../../lib/readingProgress.js'
+import { API_BASE } from '../../lib/useApi.js'
 // The worker is referenced by URL (emitted as its own asset, fetched only when
 // the reader runs). The heavy pdf.js library itself is dynamically imported in
 // the effect below so it stays out of the main bundle — the PWA shell stays
@@ -11,25 +11,25 @@ import pdfWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
 
 // In-app PDF reader for the Magazines & Papers section. Streams the file from
 // the range-capable /library/file endpoint, renders one page at a time to a
-// canvas (fit-to-width), and remembers your last page per item. Real route +
-// fixed overlay, so the phone back gesture / Close exits.
+// canvas (fit-to-width), and resumes/saves your position server-side (so it
+// roams across devices + powers the Continue Reading shelf). Real route + fixed
+// overlay, so the phone back gesture / Close exits.
 export default function Reader() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
   const section = params.get('section')
   const id = params.get('id')
-  const itemKey = section && id ? `${section}:${id}` : null
 
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
   const docRef = useRef(null)
   const renderTaskRef = useRef(null)
   const [numPages, setNumPages] = useState(0)
-  const [page, setPage] = useState(() => (itemKey ? getLastPage(itemKey) : 1))
+  const [page, setPage] = useState(1)
   const [status, setStatus] = useState('loading') // loading | ready | error
   const [resizeTick, setResizeTick] = useState(0)
 
-  // Load the document once.
+  // Load the document once, then resume to the saved page.
   useEffect(() => {
     if (!section || !id) {
       setStatus('error')
@@ -48,7 +48,23 @@ export default function Reader() {
         }
         docRef.current = pdf
         setNumPages(pdf.numPages)
-        setPage((p) => Math.min(Math.max(1, p), pdf.numPages))
+        // Resume where we left off (server-side, roams across devices).
+        let resume = 1
+        try {
+          const r = await fetch(
+            `${API_BASE}/library/reading-progress/item?section=${encodeURIComponent(
+              section
+            )}&id=${encodeURIComponent(id)}`
+          )
+          if (r.ok) {
+            const saved = await r.json()
+            if (saved && saved.page) resume = saved.page
+          }
+        } catch {
+          /* no saved position / offline — start at the beginning */
+        }
+        if (cancelled) return
+        setPage(Math.min(Math.max(1, resume), pdf.numPages))
         setStatus('ready')
       } catch {
         if (!cancelled) setStatus('error')
@@ -94,10 +110,19 @@ export default function Reader() {
     }
   }, [page, status, resizeTick])
 
-  // Persist the page as you read.
+  // Save the position server-side as you read (debounced, so fast paging doesn't
+  // spam). This is the bookmark + Continue Reading source of truth.
   useEffect(() => {
-    if (status === 'ready' && itemKey) setLastPage(itemKey, page)
-  }, [page, status, itemKey])
+    if (status !== 'ready' || !section || !id || !numPages) return
+    const t = setTimeout(() => {
+      fetch(`${API_BASE}/library/reading-progress`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section, id, page, total: numPages }),
+      }).catch(() => {})
+    }, 600)
+    return () => clearTimeout(t)
+  }, [page, status, numPages, section, id])
 
   // Re-render the page when the viewport changes size.
   useEffect(() => {
@@ -106,8 +131,7 @@ export default function Reader() {
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  const go = (delta) =>
-    setPage((p) => Math.min(Math.max(1, p + delta), numPages || 1))
+  const go = (delta) => setPage((p) => Math.min(Math.max(1, p + delta), numPages || 1))
 
   // Swipe left/right to page.
   const touchX = useRef(null)

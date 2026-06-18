@@ -104,6 +104,13 @@ def clean_title(stem):
     return name or stem
 
 
+def display_name(section, item_id):
+    """Human title for an item id (its basename stem). A "plain" section keeps
+    real document names verbatim; otherwise apply the No-Intro ROM cleanup."""
+    stem = os.path.splitext(os.path.basename(item_id))[0]
+    return stem if section.get("title_style") == "plain" else clean_title(stem)
+
+
 def sort_key(title):
     """Alphabetical key that ignores a leading article, so 'The Legend of Zelda'
     files under L, not T."""
@@ -159,14 +166,10 @@ def list_items(section, settings):
                 size = os.path.getsize(full)
             except OSError:
                 size = None
-            stem = os.path.splitext(fn)[0]
-            # ROM filenames get the No-Intro cleanup; document names are real
-            # titles already, so a "plain" section keeps them as-is.
-            name = stem if section.get("title_style") == "plain" else clean_title(stem)
             items.append(
                 {
                     "id": os.path.relpath(full, root).replace(os.sep, "/"),
-                    "name": name,
+                    "name": display_name(section, fn),
                     "label": meta.get("label"),
                     "core": meta.get("core"),
                     "reader": meta.get("reader"),
