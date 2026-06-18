@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { playerSrc, saveStateUrl } from '../../lib/library.js'
 
@@ -12,6 +12,12 @@ export default function Player() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
   const frameRef = useRef(null)
+  // CSS-immersive fallback for platforms without the Fullscreen API (iOS
+  // Safari / installed PWAs don't implement requestFullscreen on non-video
+  // elements, so the native call no-ops there). When true, swap the full top
+  // bar for a slim strip with just a "back to menu" button, so the game gets
+  // almost the whole screen without anything overlapping it.
+  const [immersive, setImmersive] = useState(false)
 
   const id = params.get('id')
   const core = params.get('core')
@@ -30,25 +36,64 @@ export default function Player() {
     )
   }
 
-  const goFullscreen = () => frameRef.current?.requestFullscreen?.()
+  // Native fullscreen where supported (desktop); CSS immersive otherwise (iOS).
+  const goFullscreen = () => {
+    const el = frameRef.current
+    if (el?.requestFullscreen) {
+      el.requestFullscreen().catch(() => setImmersive(true))
+    } else {
+      setImmersive(true)
+    }
+  }
 
+  // In immersive mode, pad the container by the safe-area insets so the iframe
+  // (and the emulator's own top-right menu) clears the notch / curved corners
+  // instead of being clipped + unreachable. The single iframe stays mounted
+  // across the toggle, so entering/leaving fullscreen never reloads the game.
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black">
-      <div className="flex items-center gap-3 bg-slate-900 px-3 py-2" style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>
-        <button
-          onClick={() => navigate('/library/games')}
-          className="rounded bg-slate-800 px-3 py-1 text-sm font-medium text-slate-100 active:bg-slate-700"
-        >
-          ✕ Exit
-        </button>
-        <span className="truncate font-medium text-slate-100">{name}</span>
-        <button
-          onClick={goFullscreen}
-          className="ml-auto rounded bg-slate-800 px-3 py-1 text-sm text-slate-200 active:bg-slate-700"
-        >
-          Fullscreen
-        </button>
-      </div>
+    <div
+      className="fixed inset-0 z-50 flex flex-col bg-black"
+      style={
+        immersive
+          ? {
+              paddingTop: 'env(safe-area-inset-top)',
+              paddingRight: 'env(safe-area-inset-right)',
+              paddingBottom: 'env(safe-area-inset-bottom)',
+              paddingLeft: 'env(safe-area-inset-left)',
+            }
+          : undefined
+      }
+    >
+      {immersive ? (
+        // Slim strip above the game (in-flow, so the iframe starts below it and
+        // nothing overlaps). The container's safe-area padding already clears
+        // the notch, so the strip just holds the small "back to menu" button.
+        <div className="flex items-center px-1 pb-1">
+          <button
+            onClick={() => setImmersive(false)}
+            aria-label="Exit fullscreen"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800/90 text-lg leading-none text-slate-100 ring-1 ring-white/30 active:bg-slate-700"
+          >
+            ⌄
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 bg-slate-900 px-3 py-2" style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>
+          <button
+            onClick={() => navigate('/library/games')}
+            className="rounded bg-slate-800 px-3 py-1 text-sm font-medium text-slate-100 active:bg-slate-700"
+          >
+            ✕ Exit
+          </button>
+          <span className="truncate font-medium text-slate-100">{name}</span>
+          <button
+            onClick={goFullscreen}
+            className="ml-auto rounded bg-slate-800 px-3 py-1 text-sm text-slate-200 active:bg-slate-700"
+          >
+            Fullscreen
+          </button>
+        </div>
+      )}
       <iframe
         ref={frameRef}
         title={name}
