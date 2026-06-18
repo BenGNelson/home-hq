@@ -46,6 +46,19 @@ export function playerSrc(item, data = EMULATORJS_DATA) {
   return `/emulator.html?${q.toString()}`
 }
 
+// Where a "Jump back in" entry resumes to. A reading entry opens the reader
+// (which resumes to its saved page itself); a play entry opens the player into
+// the entry's newest save state.
+export function resumeHref(entry) {
+  if (entry.kind === 'play') {
+    const q = new URLSearchParams({ id: entry.id, core: entry.core || '', name: entry.name || '' })
+    if (entry.slot) q.set('slot', entry.slot)
+    return `/library/play?${q.toString()}`
+  }
+  const q = new URLSearchParams({ section: entry.section, id: entry.id })
+  return `/library/read?${q.toString()}`
+}
+
 // Group play items by their system label → ordered [[label, items], ...].
 export function groupByLabel(items) {
   const groups = {}

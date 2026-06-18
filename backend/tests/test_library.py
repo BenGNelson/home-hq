@@ -93,10 +93,6 @@ def test_reading_progress_endpoints(client, papers_dir):
         ).json()["page"]
         == 3
     )
-    shelf = client.get("/api/library/reading-progress").json()["items"]
-    assert any(
-        i["id"] == pid and i["name"] == "Science News - March 25, 2023" for i in shelf
-    )
     # A bad id is rejected (not stored).
     assert (
         client.put(
@@ -112,7 +108,48 @@ def test_reading_progress_endpoints(client, papers_dir):
         ).status_code
         == 204
     )
-    assert client.get("/api/library/reading-progress").json()["items"] == []
+    assert (
+        client.get(
+            "/api/library/reading-progress/item",
+            params={"section": "papers", "id": pid},
+        ).json()["page"]
+        is None
+    )
+
+
+def test_library_continue_merges_reading_and_games(
+    client, papers_dir, rom_dir, tmp_path, monkeypatch
+):
+    saves = tmp_path / "saves"
+    monkeypatch.setattr(settings, "games_saves_dir", str(saves))
+    # A paper in progress (older) ...
+    db.set_reading_progress(
+        "papers", "The Atlantic - April 2023.pdf", 5, 40, now_ms=1000
+    )
+    # ... and a game with a save state + last-played marker (newer).
+    gid = "Tetris.gb"
+    state_path, _ = library.save_state_files(str(saves), gid, "3000")
+    os.makedirs(os.path.dirname(state_path), exist_ok=True)
+    with open(state_path, "wb") as fh:
+        fh.write(b"STATE")
+    db.set_game_progress(gid, "gb", now_ms=3000)
+
+    items = client.get("/api/library/continue").json()["items"]
+    assert [(i["kind"], i["id"]) for i in items] == [
+        ("play", "Tetris.gb"),  # newest save (3000) sorts above the paper (1000)
+        ("read", "The Atlantic - April 2023.pdf"),
+    ]
+    assert items[0]["core"] == "gb" and items[0]["slot"] == "3000"
+    assert items[1]["page"] == 5 and items[1]["total"] == 40
+
+    # Removing the game from the shelf must NOT delete its save file.
+    assert (
+        client.delete("/api/library/games/last-played", params={"id": gid}).status_code
+        == 204
+    )
+    assert os.path.isfile(state_path)
+    after = client.get("/api/library/continue").json()["items"]
+    assert all(i["id"] != gid for i in after)
 
 
 @pytest.fixture

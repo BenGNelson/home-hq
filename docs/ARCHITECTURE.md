@@ -171,10 +171,11 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/library/games/save-state?id=&slot=` | a save state's bytes | `FileResponse` — the `EJS_loadStateURL` target for resuming |
 | `GET /api/library/games/save-state/screenshot?id=&slot=` | a save state's screenshot | `FileResponse` (the detail-page thumbnail) |
 | `DELETE /api/library/games/save-states?id=&slot=` | delete a save state | removes the slot's files |
-| `GET /api/library/reading-progress` | the Continue Reading shelf (in-progress items, newest first) | reads the `reading_progress` table; skips entries whose file is gone |
+| `GET /api/library/continue` | the unified "Jump back in" shelf | merges in-progress reading items + recently-played games (newest save), newest first; skips entries whose file is gone |
 | `GET /api/library/reading-progress/item?section=&id=` | one item's saved page | the reader fetches this on open to resume |
 | `PUT /api/library/reading-progress` | save reading position (upsert) | body `{section,id,page,total}`; validated against a real item |
-| `DELETE /api/library/reading-progress?section=&id=` | remove an item from Continue Reading | clears its bookmark |
+| `DELETE /api/library/reading-progress?section=&id=` | remove a document from the shelf | clears its bookmark |
+| `DELETE /api/library/games/last-played?id=` | remove a game from the shelf | clears the marker; keeps the save files |
 
 **Graceful degradation:** every endpoint that touches an external system
 (Docker, Plex, a mount) catches failures and returns a friendly
@@ -299,13 +300,17 @@ now, like Recently Played). Still planned: **foliate-js** (EPUB/MOBI/AZW3/CBZ)
 for ebooks/comics, and per-item **offline download** for airplane-mode reading.
 DRM-free content only.
 
-**Reading position is server-side.** The reader saves where you are (the page)
-to a `reading_progress` table keyed by `(section, item_id)` — so it **roams
-across devices** and rides the off-site backup (unlike the games' per-device
-"Recently Played"). The saved page *is* the bookmark: opening a document resumes
-to it, and the Library hub's **Continue Reading** shelf lists in-progress items
-(newest first) with resume + a remove (clear-bookmark) action. The shelf skips
-entries whose file no longer exists, so it can't offer a dead resume.
+**"Jump back in" — one resume shelf across content types.** Reading position is
+server-side: the reader saves the page to a `reading_progress` table keyed by
+`(section, item_id)`, and games record a `game_progress` "last played" marker
+when a save state is written (the on-disk save dir is a *hash* of the game id,
+so this table holds the real id + core to resume + show art). Both **roam across
+devices** and ride the backup. The Library hub's **Jump back in** shelf merges
+them — `GET /library/continue` returns in-progress documents (resume to the
+saved page) and recently-played games (resume the newest save state), newest
+first — so one tap skips the drill-down. Each kind's remove clears only its
+marker (`reading_progress` row, or `game_progress` row), never the content or
+the save files; the shelf also skips entries whose underlying file is gone.
 
 **The emulator runs in an isolated `<iframe>`.** EmulatorJS sets many `window.*`
 globals and has no clean teardown, so it lives in a static page,
