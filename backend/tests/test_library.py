@@ -228,6 +228,71 @@ def test_cover_fetches_then_caches(client, rom_dir, tmp_path, monkeypatch):
     assert r2.status_code == 200 and len(calls) == 1
 
 
+def test_save_state_roundtrip_list_serve_delete(client, tmp_path, monkeypatch):
+    saves = tmp_path / "saves"
+    monkeypatch.setattr(settings, "games_saves_dir", str(saves))
+    gid = "Pokemon - Emerald Version (USA, Europe).gba"
+
+    # Upload a state + screenshot (multipart, as the emulator does).
+    r = client.post(
+        "/api/library/games/save-states",
+        data={"id": gid},
+        files={
+            "state": ("s.state", b"SAVE-STATE-BYTES", "application/octet-stream"),
+            "screenshot": ("s.png", b"\x89PNG-shot", "image/png"),
+        },
+    )
+    assert r.status_code == 200
+    slot = r.json()["slot"]
+    assert slot.isdigit()
+
+    # It shows up in the list, newest first, with a screenshot flag.
+    lst = client.get("/api/library/games/save-states", params={"id": gid}).json()["states"]
+    assert len(lst) == 1 and lst[0]["slot"] == slot and lst[0]["has_shot"] is True
+
+    # The blob is served (this is what EJS_loadStateURL fetches) + the screenshot.
+    blob = client.get("/api/library/games/save-state", params={"id": gid, "slot": slot})
+    assert blob.status_code == 200 and blob.content == b"SAVE-STATE-BYTES"
+    shot = client.get(
+        "/api/library/games/save-state/screenshot", params={"id": gid, "slot": slot}
+    )
+    assert shot.status_code == 200 and shot.content == b"\x89PNG-shot"
+
+    # Delete removes it.
+    assert client.request(
+        "DELETE", "/api/library/games/save-states", params={"id": gid, "slot": slot}
+    ).status_code == 204
+    assert client.get("/api/library/games/save-states", params={"id": gid}).json()["states"] == []
+
+
+def test_save_state_without_screenshot(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "games_saves_dir", str(tmp_path / "saves"))
+    r = client.post(
+        "/api/library/games/save-states",
+        data={"id": "Tetris.gb"},
+        files={"state": ("s.state", b"X", "application/octet-stream")},
+    )
+    assert r.status_code == 200
+    lst = client.get("/api/library/games/save-states", params={"id": "Tetris.gb"}).json()["states"]
+    assert lst[0]["has_shot"] is False
+
+
+def test_save_state_bad_slot_is_404(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "games_saves_dir", str(tmp_path / "saves"))
+    # Non-numeric slot can't resolve to a path (traversal guard) → 404.
+    r = client.get(
+        "/api/library/games/save-state", params={"id": "Tetris.gb", "slot": "../../etc/passwd"}
+    )
+    assert r.status_code == 404
+
+
+def test_save_state_files_rejects_nonnumeric_slot():
+    assert library.save_state_files("/saves", "g.gb", "12ab") == (None, None)
+    assert library.save_state_files("/saves", "g.gb", "../x") == (None, None)
+    sp, shot = library.save_state_files("/saves", "g.gb", "1700000000000")
+    assert sp and sp.endswith("/1700000000000.state") and shot.endswith("/1700000000000.png")
+
+
 def test_cover_no_match_remembers_miss(client, rom_dir, tmp_path, monkeypatch):
     covers = tmp_path / "covers"
     monkeypatch.setattr(settings, "covers_dir", str(covers))

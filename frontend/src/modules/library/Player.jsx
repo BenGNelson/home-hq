@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { playerSrc } from '../../lib/library.js'
+import { playerSrc, saveStateUrl } from '../../lib/library.js'
 
 // Full-screen game player. The emulator runs inside an isolated <iframe>
 // (emulator.html) so unmounting this route fully tears the engine down. It's a
@@ -16,6 +16,8 @@ export default function Player() {
   const id = params.get('id')
   const core = params.get('core')
   const name = params.get('name') || 'Game'
+  const slot = params.get('slot') // present when resuming a saved state
+  const loadStateUrl = slot ? saveStateUrl(id, slot) : undefined
 
   if (!id || !core) {
     return (
@@ -50,7 +52,7 @@ export default function Player() {
       <iframe
         ref={frameRef}
         title={name}
-        src={playerSrc({ id, core, name })}
+        src={playerSrc({ id, core, name, loadStateUrl })}
         onLoad={() => frameRef.current?.contentWindow?.focus?.()}
         className="min-h-0 w-full flex-1 border-0 bg-black"
         allow="autoplay; fullscreen; gamepad"

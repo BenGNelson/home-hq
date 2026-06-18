@@ -19,6 +19,19 @@ export function coverUrl(id) {
   return `${API_BASE}/library/games/cover?id=${encodeURIComponent(id)}`
 }
 
+// Server-side save states for a game (roam across devices).
+export function saveStatesUrl(id) {
+  return `${API_BASE}/library/games/save-states?id=${encodeURIComponent(id)}`
+}
+// The state blob — what EJS_loadStateURL fetches to resume into a state.
+export function saveStateUrl(id, slot) {
+  return `${API_BASE}/library/games/save-state?id=${encodeURIComponent(id)}&slot=${encodeURIComponent(slot)}`
+}
+// A save state's screenshot (detail-page thumbnail).
+export function saveStateShotUrl(id, slot) {
+  return `${API_BASE}/library/games/save-state/screenshot?id=${encodeURIComponent(id)}&slot=${encodeURIComponent(slot)}`
+}
+
 // The isolated player page (public/emulator.html) for a game item. Running
 // EmulatorJS inside an iframe keeps its window globals + teardown out of the SPA.
 export function playerSrc(item, data = EMULATORJS_DATA) {
@@ -27,7 +40,9 @@ export function playerSrc(item, data = EMULATORJS_DATA) {
     rom: fileUrl('games', item.id),
     data,
   })
+  q.set('gid', item.id) // game id, so the emulator can upload save states for it
   if (item.name) q.set('name', item.name) // EJS_gameName — avoids an "undefined" title
+  if (item.loadStateUrl) q.set('loadstate', item.loadStateUrl) // resume into a saved state
   return `/emulator.html?${q.toString()}`
 }
 

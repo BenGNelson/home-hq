@@ -34,10 +34,11 @@ export function useApi(path, intervalMs = 5000) {
     }
 
     load()
-    const id = setInterval(load, intervalMs)
+    // intervalMs of 0 (or falsy) = fetch once, no polling.
+    const id = intervalMs ? setInterval(load, intervalMs) : null
     return () => {
       cancelled = true
-      clearInterval(id)
+      if (id) clearInterval(id)
     }
   }, [path, intervalMs])
 

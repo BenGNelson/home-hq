@@ -52,7 +52,7 @@ const ENDPOINTS = [
     '/api/plex · …',
     'Status (streams/transcodes), now-playing sessions, recently added, libraries, background sync, cached library items & show episodes, on-demand item detail, and a poster proxy.',
   ],
-  ['/api/library · /{section} · /file · /games/cover', 'The owned-content hub: sections + counts, a section’s items, a range-capable traversal-guarded file stream, and proxied/cached game box art (games now; comics/books/papers later).'],
+  ['/api/library · /{section} · /file · /games/cover · /games/save-states', 'The owned-content hub: sections + counts, a section’s items, a range-capable traversal-guarded file stream, proxied/cached game box art, and server-side save states (upload/list/serve/delete) that roam across devices.'],
 ]
 
 // Plain-language one-liners for the tools named on this page, so the guide
@@ -268,8 +268,10 @@ export default function Guide() {
           version. <strong>Box art</strong> is matched to each ROM by name and cached
           locally (proxied like Plex artwork); titles are cleaned up from raw filenames,
           each game has a detail page, and a <strong>Recently played</strong> row lives
-          in the browser. Saves currently live in the browser too; cross-device save
-          roaming is the next step.
+          in the browser. <strong>Save states roam</strong>: saving in-game uploads the
+          state + a screenshot to the server (stored where the off-site backup picks it
+          up), so any device can resume from a game’s detail page. The in-game battery
+          save (SRAM) still lives in the browser for now.
         </p>
       </Section>
 
