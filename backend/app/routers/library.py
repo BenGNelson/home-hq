@@ -21,7 +21,7 @@ from fastapi import APIRouter, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from app import library
+from app import images, library
 from app.config import settings
 
 router = APIRouter()
@@ -88,33 +88,61 @@ def get_library_file(
     return FileResponse(path, media_type="application/octet-stream")
 
 
+# Art is content-addressed (cover by sha1 of its source URL) and rarely
+# changes, so let the browser/PWA hold onto it for a long time.
+_ART_CACHE_HEADERS = {"Cache-Control": "public, max-age=2592000, immutable"}
+
+
 @router.get("/library/games/cover")
 def get_game_cover(id: str = Query(description="Game id from the section listing")):
-    """Box art for a game, proxied + cached. Matches the ROM's No-Intro name to
-    libretro-thumbnails, fetches the image once into the covers cache, and serves
-    it locally thereafter — so browsing makes no repeat external calls and a
-    no-match (e.g. a ROM hack) is remembered as a miss rather than refetched.
-    404 → the frontend shows a placeholder."""
+    """Box art for a game, proxied + cached as a small WebP. Matches the ROM's
+    No-Intro name to libretro-thumbnails, fetches the image once, downscales it
+    to a fast-loading WebP thumbnail in the covers cache, and serves that locally
+    thereafter — so browsing makes no repeat external calls and a no-match (e.g.
+    a ROM hack) is remembered as a miss rather than refetched. 404 → the frontend
+    shows a placeholder."""
     url = library.thumbnail_url(id)
     if not url:
         return Response(status_code=404)
     cache_dir = settings.covers_dir
     key = hashlib.sha1(url.encode()).hexdigest()
-    hit = os.path.join(cache_dir, key + ".png")
+    webp = os.path.join(cache_dir, key + ".webp")
+    png = os.path.join(cache_dir, key + ".png")  # legacy / manually-injected
     miss = os.path.join(cache_dir, key + ".miss")
-    if os.path.isfile(hit):
-        return FileResponse(hit, media_type="image/png")
+
+    if os.path.isfile(webp):
+        return FileResponse(webp, media_type="image/webp", headers=_ART_CACHE_HEADERS)
+    # A pre-existing PNG (older cache, or a hand-injected custom cover): optimize
+    # it to WebP once so it gets the speedup too, then serve the WebP.
+    if os.path.isfile(png):
+        try:
+            with open(png, "rb") as fh:
+                thumb = images.to_thumbnail(fh.read())
+            if thumb:
+                with open(webp, "wb") as fh:
+                    fh.write(thumb)
+                return FileResponse(webp, media_type="image/webp", headers=_ART_CACHE_HEADERS)
+        except OSError:
+            pass
+        return FileResponse(png, media_type="image/png", headers=_ART_CACHE_HEADERS)
     if os.path.isfile(miss):
         return Response(status_code=404)
+
     try:
         resp = requests.get(url, timeout=10)
     except requests.RequestException:
         return Response(status_code=404)  # transient — don't cache as a miss
     os.makedirs(cache_dir, exist_ok=True)
     if resp.status_code == 200 and resp.content:
-        with open(hit, "wb") as fh:
+        thumb = images.to_thumbnail(resp.content)
+        if thumb:
+            with open(webp, "wb") as fh:
+                fh.write(thumb)
+            return FileResponse(webp, media_type="image/webp", headers=_ART_CACHE_HEADERS)
+        # Not a decodable image — cache the raw bytes so we don't refetch.
+        with open(png, "wb") as fh:
             fh.write(resp.content)
-        return FileResponse(hit, media_type="image/png")
+        return FileResponse(png, media_type="image/png", headers=_ART_CACHE_HEADERS)
     open(miss, "w").close()  # remember the no-match
     return Response(status_code=404)
 
