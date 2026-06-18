@@ -26,6 +26,7 @@ from app.routers import (
     containers,
     disk,
     diskio,
+    library,
     network,
     plex,
     printer,
@@ -107,6 +108,7 @@ tags_metadata = [
     {"name": "Storage", "description": "Disks, capacity, RAID health, SMART data + trends, disk I/O, and the external-drive watchdog."},
     {"name": "Network", "description": "Per-interface throughput read from the host network counters."},
     {"name": "Plex", "description": "Plex server status, now-playing sessions, and the cached library browser."},
+    {"name": "Library", "description": "Owned-content hub — games (and later comics/books/papers) listed + streamed from disk."},
     {"name": "Printer", "description": "3D-printer telemetry, controls, chamber camera, and print history."},
     {"name": "Alerts", "description": "Push-notification engine — rule status, history, and a test trigger."},
     {"name": "Monitoring", "description": "Service-availability probing — per-target uptime % and latency."},
@@ -166,6 +168,7 @@ app.include_router(vpn.router, prefix="/api", tags=["Network"])
 app.include_router(tailscale.router, prefix="/api", tags=["Network"])
 app.include_router(backups.router, prefix="/api", tags=["System"])
 app.include_router(plex.router, prefix="/api", tags=["Plex"])
+app.include_router(library.router, prefix="/api", tags=["Library"])
 app.include_router(printer.router, prefix="/api", tags=["Printer"])
 app.include_router(raid.router, prefix="/api", tags=["Storage"])
 app.include_router(readme.router, prefix="/api", tags=["Docs"])

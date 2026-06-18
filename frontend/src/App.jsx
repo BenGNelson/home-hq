@@ -6,6 +6,10 @@ import LibraryBrowser from './modules/plex/LibraryBrowser.jsx'
 import ShowBrowser from './modules/plex/ShowBrowser.jsx'
 import MovieDetail from './modules/plex/MovieDetail.jsx'
 import PlexInsights from './modules/plex/Insights.jsx'
+import Library from './modules/library/Library.jsx'
+import GamesList from './modules/library/GamesList.jsx'
+import GameDetail from './modules/library/GameDetail.jsx'
+import Player from './modules/library/Player.jsx'
 import Containers from './modules/containers/Containers.jsx'
 import Printer from './modules/printer/Printer.jsx'
 import Network from './modules/network/Network.jsx'
@@ -30,6 +34,7 @@ const builtinModules = [
   { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: '🏠', group: 'Overview' },
   { id: 'plex', label: 'Plex', path: '/plex', icon: '🎬', group: 'Media' },
   { id: 'plex-insights', label: 'Plex Insights', path: '/plex/insights', icon: '📈', group: 'Media' },
+  { id: 'library', label: 'Library', path: '/library', icon: '📚', group: 'Media' },
   { id: 'containers', label: 'Containers', path: '/containers', icon: '📦', group: 'System' },
   { id: 'network', label: 'Network', path: '/network', icon: '🌐', group: 'System' },
   { id: 'vpn', label: 'VPN', path: '/vpn', icon: '🔒', group: 'System' },
@@ -67,6 +72,10 @@ export default function App() {
         <Route path="/plex/library/:key" element={<LibraryBrowser />} />
         <Route path="/plex/show/:key" element={<ShowBrowser />} />
         <Route path="/plex/movie/:key" element={<MovieDetail />} />
+        <Route path="/library" element={<Library />} />
+        <Route path="/library/games" element={<GamesList />} />
+        <Route path="/library/games/detail" element={<GameDetail />} />
+        <Route path="/library/play" element={<Player />} />
         <Route path="/containers" element={<Containers />} />
         <Route path="/printer" element={<Printer />} />
         <Route path="/network" element={<Network />} />

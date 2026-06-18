@@ -60,6 +60,8 @@ backend/app/
     storage.py       # /api/storage/trends  (SMART + capacity history)
     printer.py       # /api/printer  (cached snapshot from the MQTT client)
     plex.py          # /api/plex + library browser endpoints
+    library.py       # /api/library  (owned-content hub: list + range-stream files)
+  library.py         # pure: section framework, listing, the path-traversal guard
   printer.py         # persistent MQTT client: telemetry parser + control commands
   camera.py          # on-demand chamber-camera reader (JPEG over TLS :6000)
   storage_history.py # background sampler: daily SMART+capacity → SQLite; projection
@@ -160,6 +162,10 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/plex/show/{key}/episodes` | one show's episodes, in order | SQLite cache |
 | `GET /api/plex/item/{key}` | rich metadata for one item (detail page) | `PlexAPI` (on-demand) |
 | `GET /api/plex/art/{key}` | item poster, proxied so the token stays server-side | `PlexAPI` + stream |
+| `GET /api/library` | every section + whether it's configured + item count (the hub landing) | scans the per-section content dirs |
+| `GET /api/library/{section}` | one section's items (the browse list) | recursive scan of the section's dir |
+| `GET /api/library/file?section=&id=` | stream one item's bytes (range-capable) | `FileResponse` from the section dir, traversal-guarded |
+| `GET /api/library/games/cover?id=` | a game's box art (cached) | matches the No-Intro name to libretro-thumbnails, fetches once into the covers cache, serves locally (404 → placeholder) |
 
 **Graceful degradation:** every endpoint that touches an external system
 (Docker, Plex, a mount) catches failures and returns a friendly
@@ -211,6 +217,7 @@ frontend/src/
   modules/
     dashboard/       # widgets (system, storage, plex, containers)
     plex/            # Plex page, LibraryBrowser, ShowBrowser, MovieDetail
+    library/         # owned-content hub (Library), GamesList, Player (iframe)
     containers/      # container list + live detail
     network/         # live per-interface throughput graphs
 ```
@@ -242,6 +249,79 @@ The split: **lists are cached** (browsed, searched, sorted); **single-item
 detail + posters are on-demand** from Plex (viewed occasionally, not searched —
 no reason to store long summaries or binary art). Posters are **proxied** through
 `/api/plex/art/{key}` so the Plex token never reaches the browser.
+
+## Library (owned content: games now; comics/books/papers later)
+
+Where Plex streams *video*, the **Library** is the hub for content you **own and
+consume directly** — ROMs you play, and (later) comics, ebooks, and the PDFs from
+newspaper/magazine subscriptions — read/played **in-app**, mobile-first.
+
+**Section framework.** `app/library.py` (pure, unit-tested) defines an ordered
+list of **sections**, each with a content dir (a `.env` path under `RAID_MOUNT`,
+so the existing read-only RAID mount serves it — no extra mount), recognized file
+extensions, and per-item metadata. Phase 1 ships the **games** section
+(`.gb`/`.gbc` → the `gb` core, `.gba` → `gba`); adding comics/books/papers is a
+new SECTION entry + a dir setting, no router changes. `routers/library.py` is the
+thin HTTP layer: `/library` (hub summary), `/library/{section}` (browse list),
+and `/library/file` (stream). Sections degrade like everything else —
+`configured: false` when their dir is unset, so the hub shows a hint.
+
+**The streaming endpoint is the security boundary.** `safe_path()` resolves a
+listed item's id (its path relative to the content dir) to an absolute path with
+`os.path.realpath` and refuses anything that lands outside the dir or lacks a
+recognized extension — so `../`, an absolute path, or a symlink escape all 404.
+The dir is mounted read-only; the backend only lists + streams, never writes.
+`FileResponse` honors the `Range` header (206 partial content), so a reader or
+emulator fetches only the bytes it needs — cheap for ROMs, important for the
+large scanned PDFs the reading sections will serve.
+
+**Engines run client-side; the server is just a file server.** Rendering happens
+on the device (an emulator core, or a reader), so the server stays a dumb byte-streamer
+no matter how much is played/read — and the work scales with the phone, not the
+box. Phase 1's engine is **EmulatorJS**; the planned reading sections add
+**foliate-js** (EPUB/MOBI/AZW3/CBZ) and **PDF.js** (newspaper/magazine PDFs),
+each DRM-free only.
+
+**The emulator runs in an isolated `<iframe>`.** EmulatorJS sets many `window.*`
+globals and has no clean teardown, so it lives in a static page,
+`public/emulator.html`, that boots the engine from query params (`core`, `rom`,
+`data`). The React `Player` just renders that page in an iframe and removes it to
+tear the engine fully down — nothing leaks into the SPA. `emulator.html`
+allowlists its `data` (engine) source to a same-origin path or the official
+EmulatorJS CDN, so the param can't be abused to load arbitrary script.
+
+**The engine is self-hosted + pinned.** `scripts/fetch-emulatorjs.sh` downloads a
+pinned EmulatorJS release (v4.2.3) into `frontend/public/emulatorjs/` (gitignored,
+~300 MB of third-party WASM — reproducible like `node_modules`, not committed), so
+play time makes no third-party calls. The build excludes it from the PWA precache
+(`globIgnores`) and nginx caches it hard. A one-line switch (`EMULATORJS_DATA` in
+`lib/library.js`) points the engine at the pinned CDN instead, for a zero-download
+setup.
+
+**Mobile-first, real routes.** The player and (later) readers are routes
+(`/library/play`, `/library/read`), not overlays, so the phone's back gesture
+exits — the native expectation — and items are deep-linkable. The player is also
+deliberately *not* auto-fullscreened: its top-bar **Exit** stays visible, which
+is the only way out in the installed PWA (no browser chrome).
+
+**Presentation: titles, art, recents.** Filenames are raw No-Intro
+(`Legend of Zelda, The - The Minish Cap (USA)`); a pure `clean_title()` strips
+region/version tags, moves the trailing article, and turns ` - ` into `: `
+(`The Legend of Zelda: The Minish Cap`), and the list sorts ignoring a leading
+article. The raw filename stays the streaming id — only the display changes.
+**Box art** comes from **libretro-thumbnails**, keyed by the exact No-Intro name
+per system: `/api/library/games/cover` matches, fetches once into a covers cache
+(a writable volume), and serves it locally thereafter — same "cache + proxy"
+shape as Plex artwork; a no-match (e.g. a ROM hack) is remembered as a miss and
+the UI shows a titled placeholder. Each game gets a **detail page** (cover +
+title + Play). **Recently played** is tracked **client-side** (localStorage, this
+device) for now — consistent with in-browser saves; it graduates to the backend
+with save roaming.
+
+**Saves are in-browser** (EmulatorJS IndexedDB) for now; cross-device
+**save/position roaming** (synced through the backend, stored under `/` so it
+rides the off-site restic backup) plus a server-side recently-played is the next
+phase.
 
 ## Config backup (host script, app only lists)
 
@@ -615,6 +695,18 @@ Short record of *why* things are the way they are, so future changes have contex
 - **`PlexAPI` packaging gotcha.** The PyPI package is `PlexAPI`; the Python
   import is `plexapi`. (`python-plexapi` is the project's source name, not the
   installable name.)
+- **Library: a generic section framework, client-side engines, a file server
+  backend.** The owned-content hub could have been one page per content type;
+  instead it's a single section framework so games/comics/books/papers share one
+  list/stream/guard path and the backend stays a dumb (read-only, range-capable)
+  file server — all rendering is client-side. The emulator lives in an isolated
+  iframe (no clean teardown otherwise) and the engine is self-hosted + version-
+  pinned (gitignored, like `node_modules`) so play time makes no third-party
+  calls. Player/readers are real routes, not overlays, because the target is
+  mobile, where the back gesture must exit. This is the same "deep-link, don't
+  reimplement" spirit applied inversely: video stays in Plex; owned, directly-read
+  content that Plex handles poorly (ROMs, comics, ebooks, subscription PDFs) lives
+  here.
 - **Deep-link out to sibling apps, don't reimplement them.** HQ is the infra
   cockpit; a full smart-home platform (Home Assistant) is a separate, better tool
   for device state and control. So the seam is a one-tap **external nav link**
