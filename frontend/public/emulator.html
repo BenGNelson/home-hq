@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Library — Player</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+      #game { width: 100%; height: 100%; }
+      #msg { color: #cbd5e1; font-family: system-ui, sans-serif; padding: 1.25rem; line-height: 1.5; }
+      #msg code { background: #1e293b; padding: 0 0.3em; border-radius: 0.25em; }
+      /* The engine styles its save/load notifications red; tone it down. */
+      .ejs_message { color: #e2e8f0 !important; text-shadow: 0 1px 2px #000 !important; }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <script>
+      // Boots EmulatorJS from query params (core, rom, data). Lives in its own
+      // page so the engine's window globals + teardown never touch the SPA — the
+      // React side just drops this in an <iframe> and removes it to tear down.
+      (function () {
+        var p = new URLSearchParams(location.search);
+        var core = p.get('core');
+        var rom = p.get('rom');
+        var name = p.get('name');
+        var data = p.get('data') || '/emulatorjs/';
+        // Only allow a same-origin path or the official EmulatorJS CDN as the
+        // engine source — never an arbitrary URL handed in via ?data=.
+        if (!(data.charAt(0) === '/' || data.indexOf('https://cdn.emulatorjs.org/') === 0)) {
+          data = '/emulatorjs/';
+        }
+        if (data.charAt(data.length - 1) !== '/') data += '/';
+        if (!core || !rom) {
+          document.body.innerHTML = '<p id="msg">Missing core or ROM.</p>';
+          return;
+        }
+        window.EJS_player = '#game';
+        window.EJS_core = core;
+        window.EJS_gameUrl = rom;
+        window.EJS_gameName = name || '';
+        window.EJS_pathtodata = data;
+        // NOT EJS_startOnLoaded: auto-start gets paused immediately by iOS's
+        // audio policy (the white screen + "Click to resume"). Letting the
+        // engine show its own Play button means one clean tap starts it with
+        // audio + focus already granted.
+        // Keep save states in the browser (IndexedDB) by default instead of
+        // downloading a .state file (which iOS can't open). The proper
+        // cross-device sync of saves is a later phase (EJS_onSaveState hooks).
+        window.EJS_defaultOptions = { 'save-state-location': 'browser' };
+        // Keep keyboard/gamepad focus on the emulator so it doesn't pause as
+        // soon as it loads inside the iframe.
+        window.addEventListener('pointerdown', function () {
+          try { window.focus(); } catch (e) {}
+        });
+        var s = document.createElement('script');
+        s.src = data + 'loader.js';
+        s.onerror = function () {
+          document.body.innerHTML =
+            '<p id="msg">Emulator engine not installed. Run ' +
+            '<code>scripts/fetch-emulatorjs.sh</code> to download EmulatorJS into ' +
+            '<code>frontend/public/emulatorjs/</code>, then rebuild the frontend — ' +
+            'or point the player at the pinned CDN (see the script header).</p>';
+        };
+        document.body.appendChild(s);
+      })();
+    </script>
+  </body>
+</html>

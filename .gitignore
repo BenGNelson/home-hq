@@ -15,6 +15,9 @@ venv/
 # --- Node / frontend ---
 node_modules/
 dist/
+# Self-hosted EmulatorJS engine/cores (~300 MB of third-party WASM). Pinned and
+# fetched by scripts/fetch-emulatorjs.sh — never committed.
+frontend/public/emulatorjs/
 
 # --- Editor / OS noise ---
 .DS_Store

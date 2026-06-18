@@ -24,6 +24,7 @@ the surface area grows without the core getting messier.
 |---|---|
 | **Dashboard** | At-a-glance widgets: CPU/RAM/uptime, storage usage, RAID health, per-drive SMART, running containers, Plex now-playing + recently-added. |
 | **Plex** | A fast, searchable library browser backed by a local SQLite cache (movies, shows, episodes), with on-demand detail pages and token-safe proxied artwork. **Insights** page charts activity over time — concurrent streams, transcode load, and bandwidth — with peak/stream-hours/busiest-hour stats from a lightweight in-app sampler. |
+| **Library** | A mobile-first hub for content you **own and consume directly** — the counterpart to Plex's streamed video. Play your game ROMs in the browser (Game Boy / Color / GBA via a self-hosted, pinned EmulatorJS engine, all client-side so the server stays a file server) straight from your storage, with **auto-fetched box art** (matched by name from libretro-thumbnails, cached + proxied), cleaned-up titles, a per-game **detail page**, and a **Recently Played** row. Built on a generic section framework + a read-only, range-capable, traversal-guarded file streamer, so comics, ebooks, and subscription PDFs slot in next. Hides sections you haven't configured. |
 | **Containers** | Every Docker container with live status, image, uptime, and per-container CPU/mem/network detail, plus an on-demand **log viewer** (tail recent stdout/stderr; sensitive containers can be excluded via config). |
 | **Printer** | Live 3D-printer telemetry (Bambu Lab over local MQTT, no cloud) — print state, progress, layer count, time remaining, nozzle/bed/chamber temps, and AMS filament (color-named, in-use spool highlighted). Optional live **chamber camera** (MJPEG stream on the Printer page) and **controls** (pause/resume/stop with a confirm guard, light toggle). Reads on the LAN while the printer stays cloud-connected; the module hides itself until a printer is configured. Logs each completed print to keep a **history with stats** (count, success rate, total print time). |
 | **Network** | Live per-interface throughput graphs, with rates computed client-side from cumulative counters (the backend stays stateless). |
@@ -171,6 +172,7 @@ every value with placeholders only. Nothing secret is ever committed.
 | `SERVER_NAME` | Display name for this host |
 | `RAID_MOUNT` | Storage mount the disk/backup widgets report |
 | `PLEX_URL` / `PLEX_TOKEN` | Plex address + token (optional; degrades if unset) |
+| `GAMES_ROM_DIR` | Folder of game ROMs for the Library's Games section, under `RAID_MOUNT` (optional; section hides if unset). Install the engine once with `scripts/fetch-emulatorjs.sh`. |
 | `API_PORT` | Host port the backend listens on |
 | `DOCKER_SOCKET` | Host Docker socket path, mounted into the backend |
 | `AGE_RECIPIENT` / `BACKUP_DIR` / `BACKUP_RETENTION` | Config-backup settings (optional) |

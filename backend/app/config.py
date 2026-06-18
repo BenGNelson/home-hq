@@ -27,6 +27,19 @@ class Settings(BaseSettings):
     plex_url: str = "http://localhost:32400"
     plex_token: str = ""
 
+    # --- Library (your owned games + reading content, played/read in-app) ---
+    # Per-section content dirs. Keep them under RAID_MOUNT so they're readable via
+    # the existing read-only RAID mount (no extra mount needed) — same trick as
+    # BACKUP_DIR. Empty/missing = that section reports "not configured" and the
+    # hub hides it. Read-only: the backend only lists + streams files, never
+    # writes. Phase 1 ships the games section (Game Boy/Color .gb/.gbc + GBA .gba);
+    # the reading sections (comics/books/papers) get their own dirs as they land.
+    games_rom_dir: str = ""
+    # Where downloaded game box art is cached (a writable Docker volume, like the
+    # SQLite DB). The backend matches each ROM to libretro-thumbnails art by its
+    # No-Intro name, fetches it once, and serves it locally thereafter.
+    covers_dir: str = "/data/covers"
+
     # --- Backend ---
     api_port: int = 8000
     docker_socket: str = "/var/run/docker.sock"

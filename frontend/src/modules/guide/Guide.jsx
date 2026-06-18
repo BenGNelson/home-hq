@@ -52,6 +52,7 @@ const ENDPOINTS = [
     '/api/plex · …',
     'Status (streams/transcodes), now-playing sessions, recently added, libraries, background sync, cached library items & show episodes, on-demand item detail, and a poster proxy.',
   ],
+  ['/api/library · /{section} · /file · /games/cover', 'The owned-content hub: sections + counts, a section’s items, a range-capable traversal-guarded file stream, and proxied/cached game box art (games now; comics/books/papers later).'],
 ]
 
 // Plain-language one-liners for the tools named on this page, so the guide
@@ -79,6 +80,8 @@ const GLOSSARY = [
   ['SMART', 'Self-monitoring data that drives expose — temperature, wear, reallocated sectors — used to catch a failing disk early.'],
   ['systemd timer', "Linux's built-in scheduler (a modern cron) that runs a task on a schedule, like the daily SMART collector."],
   ['MQTT', 'A lightweight publish/subscribe messaging protocol for devices. The 3D printer publishes its state to a local broker and the backend subscribes — the one push-based data source (everything else is pulled on request).'],
+  ['EmulatorJS', 'A browser game-emulator engine (WebAssembly). It runs retro consoles entirely client-side, so the Library can play your ROMs on the device while the server just streams the file. Self-hosted at a pinned version and run in an isolated iframe.'],
+  ['HTTP range request', 'A way to ask a server for just part of a file (a byte range) instead of the whole thing — so a reader or emulator fetches only what it needs, which keeps big PDFs snappy on a phone.'],
 ]
 
 // The live, host-specific part: real containers from the API + your notes.
@@ -239,6 +242,34 @@ export default function Guide() {
           <strong>fetch single-item detail + posters on demand</strong> (viewed
           rarely, not searched). Posters are proxied so the Plex token never
           reaches the browser.
+        </p>
+      </Section>
+
+      <Section title="Library (owned content)">
+        <p>
+          The counterpart to Plex: where Plex <em>streams video</em>, the{' '}
+          <strong>Library</strong> is for content you <strong>own and consume
+          directly</strong> — game ROMs now, comics / ebooks / subscription PDFs
+          next — played or read <strong>in the app</strong>, mobile-first. It's a
+          generic <strong>section</strong> framework: each section reads a folder
+          under your storage mount and recognizes some file types, so adding a new
+          content type is a small config change, not a new subsystem.
+        </p>
+        <p>
+          The backend stays a <strong>read-only file server</strong> —{' '}
+          <Code>/api/library/file</Code> streams bytes with <strong>HTTP range</strong>{' '}
+          support (so a reader fetches only the pages it shows) and a strict
+          <strong> traversal guard</strong> (a crafted id can't escape the content
+          folder). All the actual rendering is <strong>client-side</strong>: an
+          emulator core or a reader runs on your phone, so the server never breaks a
+          sweat no matter how much you play or read. Games use{' '}
+          <strong>EmulatorJS</strong>, run inside an isolated <Code>&lt;iframe&gt;</Code>
+          {' '}(so its globals never leak into the app) and self-hosted at a pinned
+          version. <strong>Box art</strong> is matched to each ROM by name and cached
+          locally (proxied like Plex artwork); titles are cleaned up from raw filenames,
+          each game has a detail page, and a <strong>Recently played</strong> row lives
+          in the browser. Saves currently live in the browser too; cross-device save
+          roaming is the next step.
         </p>
       </Section>
 

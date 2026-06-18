@@ -39,8 +39,14 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Precache the build output only; never let the SW serve API responses.
-        navigateFallbackDenylist: [/^\/api/],
+        // Precache the build output only; never let the SW serve API responses,
+        // and never intercept the isolated emulator page (a real file nginx
+        // serves, not a SPA route).
+        navigateFallbackDenylist: [/^\/api/, /^\/emulator\.html/],
+        // The self-hosted EmulatorJS engine/cores (frontend/public/emulatorjs/,
+        // ~300 MB) and the emulator host page load on demand — never precache
+        // them (it would bloat the install and blow workbox's size cap anyway).
+        globIgnores: ['**/emulatorjs/**', 'emulator.html'],
       },
     }),
   ],
