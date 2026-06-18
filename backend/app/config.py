@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     # saves roam across devices AND ride the off-site restic backup (the RAID is
     # NOT in that backup). Capped per upload so a bad client can't fill the disk.
     games_saves_dir: str = "/data/saves"
+    # Where Plex posters are cached (downscaled WebP, keyed by rating key) so
+    # repeat loads skip the per-image Plex round-trip. Same writable volume.
+    plex_art_dir: str = "/data/plex-art"
 
     # --- Backend ---
     api_port: int = 8000

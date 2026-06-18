@@ -18,6 +18,7 @@ export default function RecentlyAdded() {
                 src={`${API_BASE}/plex/art/${it.rating_key}`}
                 alt={it.title}
                 loading="lazy"
+                decoding="async"
                 className="h-full w-full object-cover"
                 onError={(e) => {
                   e.currentTarget.style.visibility = 'hidden'

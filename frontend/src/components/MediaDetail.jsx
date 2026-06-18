@@ -71,6 +71,8 @@ export default function MediaDetail({ ratingKey, fallbackTitle, onLoaded }) {
         <img
           src={`${API_BASE}/plex/art/${ratingKey}`}
           alt=""
+          loading="lazy"
+          decoding="async"
           onError={() => setImgOk(false)}
           className="h-44 w-auto self-start rounded-lg border border-slate-800 object-cover"
         />

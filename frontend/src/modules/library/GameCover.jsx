@@ -16,6 +16,7 @@ export default function GameCover({ game, className = '' }) {
           src={coverUrl(game.id)}
           alt={game.name}
           loading="lazy"
+          decoding="async"
           onError={() => setFailed(true)}
           className="h-full w-full object-cover"
         />

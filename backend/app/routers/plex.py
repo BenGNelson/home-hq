@@ -14,16 +14,18 @@ Each reports its state gracefully (configured / reachable / unreachable) so the
 dashboard can render something sensible instead of erroring.
 """
 
+import os
 import threading
 import time
 from datetime import datetime, timezone
 
 import requests
 from fastapi import APIRouter, Response
+from fastapi.responses import FileResponse
 from plexapi.server import PlexServer
 from pydantic import BaseModel, Field
 
-from app import db
+from app import db, images
 from app.config import settings
 
 router = APIRouter()
@@ -622,25 +624,56 @@ def plex_item(rating_key: str):
         return {"found": False, "error": str(exc)}
 
 
+# Posters change rarely; cache the downscaled WebP keyed by rating key so repeat
+# loads skip the per-image Plex round-trip (connect + fetchItem + full download).
+# Not "immutable" since the poster *could* change — a week of browser caching is
+# the trade. Clear /data/plex-art to force a refresh.
+_PLEX_ART_CACHE_HEADERS = {"Cache-Control": "public, max-age=604800"}
+
+
 @router.get("/plex/art/{rating_key}")
 def plex_art(rating_key: str):
-    """Proxy an item's poster from Plex so the token never reaches the browser."""
+    """Proxy an item's poster from Plex (token stays server-side), downscaled to
+    a small WebP and cached on disk so the poster strips load fast."""
+    try:
+        key = int(rating_key)  # also rejects any path-traversal in the filename
+    except (TypeError, ValueError):
+        return Response(status_code=404)
+
+    cache_dir = settings.plex_art_dir
+    cached = os.path.join(cache_dir, f"{key}.webp")
+    if os.path.isfile(cached):
+        return FileResponse(cached, media_type="image/webp", headers=_PLEX_ART_CACHE_HEADERS)
+
     try:
         server = _connect(timeout=10)
-        it = server.fetchItem(int(rating_key))
+        it = server.fetchItem(key)
         url = it.thumbUrl  # full URL incl. token — used server-side only
         if not url:
             return Response(status_code=404)
         r = requests.get(url, timeout=10)
-        if r.status_code != 200:
+        if r.status_code != 200 or not r.content:
             return Response(status_code=404)
-        return Response(
-            content=r.content,
-            media_type=r.headers.get("Content-Type", "image/jpeg"),
-            headers={"Cache-Control": "max-age=86400"},  # let the browser reuse it
-        )
     except Exception:
         return Response(status_code=404)
+
+    thumb = images.to_thumbnail(r.content)
+    if thumb:
+        try:
+            os.makedirs(cache_dir, exist_ok=True)
+            with open(cached, "wb") as fh:
+                fh.write(thumb)
+        except OSError:
+            pass
+        return Response(
+            content=thumb, media_type="image/webp", headers=_PLEX_ART_CACHE_HEADERS
+        )
+    # Not a decodable image — pass the original through without caching.
+    return Response(
+        content=r.content,
+        media_type=r.headers.get("Content-Type", "image/jpeg"),
+        headers=_PLEX_ART_CACHE_HEADERS,
+    )
 
 
 @router.get("/plex/export")

@@ -161,11 +161,11 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/plex/library/{key}/items` | a library's items (movies or shows) | SQLite cache |
 | `GET /api/plex/show/{key}/episodes` | one show's episodes, in order | SQLite cache |
 | `GET /api/plex/item/{key}` | rich metadata for one item (detail page) | `PlexAPI` (on-demand) |
-| `GET /api/plex/art/{key}` | item poster, proxied so the token stays server-side | `PlexAPI` + stream |
+| `GET /api/plex/art/{key}` | item poster, proxied so the token stays server-side | downscaled to a small WebP, disk-cached by rating key so repeat loads skip the Plex round-trip |
 | `GET /api/library` | every section + whether it's configured + item count (the hub landing) | scans the per-section content dirs |
 | `GET /api/library/{section}` | one section's items (the browse list) | recursive scan of the section's dir |
 | `GET /api/library/file?section=&id=` | stream one item's bytes (range-capable) | `FileResponse` from the section dir, traversal-guarded |
-| `GET /api/library/games/cover?id=` | a game's box art (cached) | matches the No-Intro name to libretro-thumbnails, fetches once into the covers cache, serves locally (404 → placeholder) |
+| `GET /api/library/games/cover?id=` | a game's box art (cached) | matches the No-Intro name to libretro-thumbnails, fetches once, downscales to a small WebP in the covers cache, serves locally (404 → placeholder) |
 | `POST /api/library/games/save-states` | upload a save state (blob + screenshot) | multipart; backend-assigned ms slot id; size-capped; stored under `/data/saves` |
 | `GET /api/library/games/save-states?id=` | a game's save states, newest first | lists the slots in the game's saves dir |
 | `GET /api/library/games/save-state?id=&slot=` | a save state's bytes | `FileResponse` — the `EJS_loadStateURL` target for resuming |
@@ -315,10 +315,11 @@ region/version tags, moves the trailing article, and turns ` - ` into `: `
 (`The Legend of Zelda: The Minish Cap`), and the list sorts ignoring a leading
 article. The raw filename stays the streaming id — only the display changes.
 **Box art** comes from **libretro-thumbnails**, keyed by the exact No-Intro name
-per system: `/api/library/games/cover` matches, fetches once into a covers cache
-(a writable volume), and serves it locally thereafter — same "cache + proxy"
-shape as Plex artwork; a no-match (e.g. a ROM hack) is remembered as a miss and
-the UI shows a titled placeholder. Each game gets a **detail page** (cover +
+per system: `/api/library/games/cover` matches, fetches once, downscales to a
+small **WebP** thumbnail in a covers cache (a writable volume), and serves it
+locally thereafter — same "cache + proxy" shape as Plex artwork (which gets the
+same WebP-thumbnail treatment, see `app/images.py`); a no-match (e.g. a ROM hack)
+is remembered as a miss and the UI shows a titled placeholder. Each game gets a **detail page** (cover +
 title + Play). **Recently played** is tracked **client-side** (localStorage, this
 device) for now — consistent with in-browser saves; it graduates to the backend
 with save roaming.

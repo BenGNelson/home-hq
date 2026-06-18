@@ -23,3 +23,7 @@ paho-mqtt>=2.1
 # Multipart form parsing — used by the Library save-state upload (the emulator
 # POSTs a state blob + screenshot as multipart/form-data).
 python-multipart>=0.0.9
+
+# Image processing — downscales + re-encodes box art / Plex posters to small
+# WebP thumbnails so the art grids load fast (see app/images.py).
+Pillow>=10.3
