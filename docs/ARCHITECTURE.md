@@ -264,12 +264,16 @@ newspaper/magazine subscriptions — read/played **in-app**, mobile-first.
 **Section framework.** `app/library.py` (pure, unit-tested) defines an ordered
 list of **sections**, each with a content dir (a `.env` path under `RAID_MOUNT`,
 so the existing read-only RAID mount serves it — no extra mount), recognized file
-extensions, and per-item metadata. Phase 1 ships the **games** section
-(`.gb`/`.gbc` → the `gb` core, `.gba` → `gba`); adding comics/books/papers is a
-new SECTION entry + a dir setting, no router changes. `routers/library.py` is the
-thin HTTP layer: `/library` (hub summary), `/library/{section}` (browse list),
-and `/library/file` (stream). Sections degrade like everything else —
-`configured: false` when their dir is unset, so the hub shows a hint.
+extensions, and per-item metadata. Sections so far: **games**
+(`.gb`/`.gbc` → the `gb` core, `.gba` → `gba`) and **papers** (Magazines &
+Papers — `.pdf`, read in-browser via PDF.js). A section also carries a
+`title_style` (ROM filenames get the No-Intro cleanup; document names are kept
+verbatim) and a `reader` hint per format so the frontend knows which engine to
+open. Adding comics/books is a new SECTION entry + a dir setting, no router
+changes. `routers/library.py` is the thin HTTP layer: `/library` (hub summary),
+`/library/{section}` (browse list), and `/library/file` (stream). Sections
+degrade like everything else — `configured: false` when their dir is unset, so
+the hub shows a hint.
 
 **The streaming endpoint is the security boundary.** `safe_path()` resolves a
 listed item's id (its path relative to the content dir) to an absolute path with
@@ -283,9 +287,13 @@ large scanned PDFs the reading sections will serve.
 **Engines run client-side; the server is just a file server.** Rendering happens
 on the device (an emulator core, or a reader), so the server stays a dumb byte-streamer
 no matter how much is played/read — and the work scales with the phone, not the
-box. Phase 1's engine is **EmulatorJS**; the planned reading sections add
-**foliate-js** (EPUB/MOBI/AZW3/CBZ) and **PDF.js** (newspaper/magazine PDFs),
-each DRM-free only.
+box. The first engine is **EmulatorJS** (games); the **papers** section reads
+PDFs with **PDF.js** — lazily imported (its own chunk, not in the app shell), the
+*legacy* build for broad iOS support, rendering one page at a time to a canvas
+(fit-to-width) with swipe/buttons and a remembered last page (client-side for
+now, like Recently Played). Still planned: **foliate-js** (EPUB/MOBI/AZW3/CBZ)
+for ebooks/comics, and per-item **offline download** for airplane-mode reading.
+DRM-free content only.
 
 **The emulator runs in an isolated `<iframe>`.** EmulatorJS sets many `window.*`
 globals and has no clean teardown, so it lives in a static page,

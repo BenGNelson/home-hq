@@ -52,7 +52,7 @@ const ENDPOINTS = [
     '/api/plex · …',
     'Status (streams/transcodes), now-playing sessions, recently added, libraries, background sync, cached library items & show episodes, on-demand item detail, and a poster proxy.',
   ],
-  ['/api/library · /{section} · /file · /games/cover · /games/save-states', 'The owned-content hub: sections + counts, a section’s items, a range-capable traversal-guarded file stream, proxied/cached game box art, and server-side save states (upload/list/serve/delete) that roam across devices.'],
+  ['/api/library · /{section} · /file · /games/cover · /games/save-states', 'The owned-content hub: sections + counts (games, magazines & papers), a section’s items, a range-capable traversal-guarded file stream (used by both the emulator and the PDF reader), proxied/cached game box art, and server-side save states (upload/list/serve/delete) that roam across devices.'],
 ]
 
 // Plain-language one-liners for the tools named on this page, so the guide
@@ -249,8 +249,9 @@ export default function Guide() {
         <p>
           The counterpart to Plex: where Plex <em>streams video</em>, the{' '}
           <strong>Library</strong> is for content you <strong>own and consume
-          directly</strong> — game ROMs now, comics / ebooks / subscription PDFs
-          next — played or read <strong>in the app</strong>, mobile-first. It's a
+          directly</strong> — game ROMs and your magazines / papers (PDFs, read
+          in-app via PDF.js) now, comics and ebooks next — played or read{' '}
+          <strong>in the app</strong>, mobile-first. It's a
           generic <strong>section</strong> framework: each section reads a folder
           under your storage mount and recognizes some file types, so adding a new
           content type is a small config change, not a new subsystem.

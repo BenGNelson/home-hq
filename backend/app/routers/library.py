@@ -50,6 +50,7 @@ class ItemModel(BaseModel):
     name: str
     label: str | None = Field(default=None, description="Sub-type (e.g. the game's system)")
     core: str | None = Field(default=None, description="EmulatorJS core, for play-kind items")
+    reader: str | None = Field(default=None, description="Reader engine, for read-kind items (e.g. 'pdf')")
     size: int | None = None
 
 
