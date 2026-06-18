@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-from app import library
+from app import db, library
 from app.config import settings
 
 GAMES = library.get_section("games")
@@ -43,6 +43,76 @@ def test_papers_safe_path_blocks_non_pdf_and_traversal(papers_dir):
     assert library.safe_path(PAPERS, settings, "Science News - March 25, 2023.pdf")
     assert library.safe_path(PAPERS, settings, "cover.jpg") is None  # wrong ext
     assert library.safe_path(PAPERS, settings, "../etc/passwd") is None
+
+
+def test_display_name_plain_vs_rom():
+    # Plain section keeps the real document title; ROM section gets the cleanup.
+    assert (
+        library.display_name(PAPERS, "Science News - March 25, 2023.pdf")
+        == "Science News - March 25, 2023"
+    )
+    assert (
+        library.display_name(GAMES, "Legend of Zelda, The - Link's Awakening (USA).gb")
+        == "The Legend of Zelda: Link's Awakening"
+    )
+
+
+def test_reading_progress_upsert_list_delete():
+    db.set_reading_progress("papers", "a.pdf", 5, 80, now_ms=1000)
+    db.set_reading_progress("papers", "b.pdf", 1, 50, now_ms=2000)  # page 1 → not on shelf
+    db.set_reading_progress("papers", "c.pdf", 12, 100, now_ms=3000)
+    assert db.get_reading_progress("papers", "a.pdf")["page"] == 5
+    assert db.get_reading_progress("papers", "missing.pdf") is None
+    # Shelf = page >= 2, newest first; the page-1 entry is excluded.
+    assert [r["item_id"] for r in db.list_reading_progress()] == ["c.pdf", "a.pdf"]
+    # Upsert updates the page and bumps it to newest.
+    db.set_reading_progress("papers", "a.pdf", 9, 80, now_ms=4000)
+    assert db.get_reading_progress("papers", "a.pdf")["page"] == 9
+    assert db.list_reading_progress()[0]["item_id"] == "a.pdf"
+    # Delete (idempotent return).
+    assert db.delete_reading_progress("papers", "a.pdf") is True
+    assert db.delete_reading_progress("papers", "a.pdf") is False
+    assert db.get_reading_progress("papers", "a.pdf") is None
+
+
+def test_reading_progress_endpoints(client, papers_dir):
+    # Exercises the HTTP layer (the unit tests above call db directly, which
+    # wouldn't catch a router-wiring bug like a missing import).
+    pid = "Science News - March 25, 2023.pdf"
+    assert (
+        client.put(
+            "/api/library/reading-progress",
+            json={"section": "papers", "id": pid, "page": 3, "total": 40},
+        ).status_code
+        == 200
+    )
+    assert (
+        client.get(
+            "/api/library/reading-progress/item",
+            params={"section": "papers", "id": pid},
+        ).json()["page"]
+        == 3
+    )
+    shelf = client.get("/api/library/reading-progress").json()["items"]
+    assert any(
+        i["id"] == pid and i["name"] == "Science News - March 25, 2023" for i in shelf
+    )
+    # A bad id is rejected (not stored).
+    assert (
+        client.put(
+            "/api/library/reading-progress",
+            json={"section": "papers", "id": "../secret", "page": 2},
+        ).status_code
+        == 404
+    )
+    # Remove clears the bookmark.
+    assert (
+        client.delete(
+            "/api/library/reading-progress", params={"section": "papers", "id": pid}
+        ).status_code
+        == 204
+    )
+    assert client.get("/api/library/reading-progress").json()["items"] == []
 
 
 @pytest.fixture

@@ -119,6 +119,22 @@ CREATE TABLE IF NOT EXISTS plex_samples (
     bandwidth_kbps INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_plex_samples_ts ON plex_samples (ts);
+
+-- Reading progress: where you are in a Library reading item (PDF page now;
+-- other readers later). Keyed by (section, item_id) so it upserts. Powers the
+-- "Continue reading" shelf and cross-device resume — server-side so it roams
+-- and rides the backup. One row per opened item (bounded by library size), so
+-- no retention prune. Nothing host-specific: just a relative item id + a page.
+CREATE TABLE IF NOT EXISTS reading_progress (
+    section    TEXT NOT NULL,
+    item_id    TEXT NOT NULL,
+    page       INTEGER NOT NULL,
+    total      INTEGER,
+    updated_ms INTEGER NOT NULL,
+    PRIMARY KEY (section, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_reading_progress_updated
+    ON reading_progress (updated_ms);
 """
 
 # Tables the in-app samplers append to. Each is bounded two ways: a time-based
@@ -437,3 +453,52 @@ def set_meta(key, value):
             "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             (key, str(value)),
         )
+
+
+def set_reading_progress(section, item_id, page, total=None, now_ms=None):
+    """Upsert where the reader is in an item (the saved page IS the bookmark)."""
+    if now_ms is None:
+        now_ms = int(time.time() * 1000)
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO reading_progress (section, item_id, page, total, updated_ms)"
+            " VALUES (?, ?, ?, ?, ?)"
+            " ON CONFLICT(section, item_id) DO UPDATE SET"
+            " page = excluded.page, total = excluded.total,"
+            " updated_ms = excluded.updated_ms",
+            (section, item_id, page, total, now_ms),
+        )
+
+
+def get_reading_progress(section, item_id):
+    """One item's saved position, or None."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT section, item_id, page, total, updated_ms FROM reading_progress"
+            " WHERE section = ? AND item_id = ?",
+            (section, item_id),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def list_reading_progress(min_page=2, limit=50):
+    """In-progress items (past the first page = actually started), newest first —
+    for the Continue Reading shelf."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT section, item_id, page, total, updated_ms FROM reading_progress"
+            " WHERE page >= ? ORDER BY updated_ms DESC LIMIT ?",
+            (min_page, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def delete_reading_progress(section, item_id):
+    """Remove an item from Continue Reading (clear its saved page). Returns
+    whether a row was deleted."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM reading_progress WHERE section = ? AND item_id = ?",
+            (section, item_id),
+        )
+        return cur.rowcount > 0

@@ -21,7 +21,7 @@ from fastapi import APIRouter, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from app import images, library
+from app import db, images, library
 from app.config import settings
 
 router = APIRouter()
@@ -231,6 +231,93 @@ def delete_save_state(
         if p and os.path.isfile(p):
             os.remove(p)
             removed = True
+    return Response(status_code=204 if removed else 404)
+
+
+# --- reading progress / Continue Reading ----------------------------------
+# Where you are in a reading item, stored server-side so it roams across devices
+# (the saved page IS the bookmark). Powers the Continue Reading shelf + resume.
+
+
+class ReadingProgressEntry(BaseModel):
+    section: str
+    id: str
+    name: str = Field(description="Display title, resolved from the id")
+    page: int
+    total: int | None = None
+    updated_ms: int
+
+
+class ReadingProgressListModel(BaseModel):
+    items: list[ReadingProgressEntry]
+
+
+class ReadingProgressItemModel(BaseModel):
+    page: int | None = Field(default=None, description="Saved page, or null if none")
+    total: int | None = None
+
+
+class ReadingProgressUpdate(BaseModel):
+    section: str
+    id: str
+    page: int
+    total: int | None = None
+
+
+@router.get("/library/reading-progress", response_model=ReadingProgressListModel)
+def reading_progress_list():
+    """The Continue Reading shelf: in-progress items, newest first. Skips entries
+    whose section is gone or whose file no longer exists (stale)."""
+    out = []
+    for row in db.list_reading_progress():
+        section_def = library.get_section(row["section"])
+        if not section_def:
+            continue
+        if not library.safe_path(section_def, settings, row["item_id"]):
+            continue  # file removed — don't show a dead Resume
+        out.append(
+            {
+                "section": row["section"],
+                "id": row["item_id"],
+                "name": library.display_name(section_def, row["item_id"]),
+                "page": row["page"],
+                "total": row["total"],
+                "updated_ms": row["updated_ms"],
+            }
+        )
+    return {"items": out}
+
+
+@router.get("/library/reading-progress/item", response_model=ReadingProgressItemModel)
+def reading_progress_item(
+    section: str = Query(description="Section key"),
+    id: str = Query(description="Item id"),
+):
+    """One item's saved page — the reader fetches this on open to resume."""
+    row = db.get_reading_progress(section, id)
+    return {"page": row["page"], "total": row["total"]} if row else {"page": None}
+
+
+@router.put("/library/reading-progress")
+def reading_progress_update(body: ReadingProgressUpdate):
+    """Save where the reader is (upsert). Validated against a real item so a bad
+    client can't pollute the shelf."""
+    section_def = library.get_section(body.section)
+    if not section_def or not library.safe_path(section_def, settings, body.id):
+        return Response(status_code=404)
+    if body.page < 1:
+        return Response(status_code=400)
+    db.set_reading_progress(body.section, body.id, body.page, body.total)
+    return {"ok": True}
+
+
+@router.delete("/library/reading-progress")
+def reading_progress_delete(
+    section: str = Query(description="Section key"),
+    id: str = Query(description="Item id"),
+):
+    """Remove an item from Continue Reading (clear its bookmark)."""
+    removed = db.delete_reading_progress(section, id)
     return Response(status_code=204 if removed else 404)
 
 

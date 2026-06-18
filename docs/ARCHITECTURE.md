@@ -171,6 +171,10 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/library/games/save-state?id=&slot=` | a save state's bytes | `FileResponse` — the `EJS_loadStateURL` target for resuming |
 | `GET /api/library/games/save-state/screenshot?id=&slot=` | a save state's screenshot | `FileResponse` (the detail-page thumbnail) |
 | `DELETE /api/library/games/save-states?id=&slot=` | delete a save state | removes the slot's files |
+| `GET /api/library/reading-progress` | the Continue Reading shelf (in-progress items, newest first) | reads the `reading_progress` table; skips entries whose file is gone |
+| `GET /api/library/reading-progress/item?section=&id=` | one item's saved page | the reader fetches this on open to resume |
+| `PUT /api/library/reading-progress` | save reading position (upsert) | body `{section,id,page,total}`; validated against a real item |
+| `DELETE /api/library/reading-progress?section=&id=` | remove an item from Continue Reading | clears its bookmark |
 
 **Graceful degradation:** every endpoint that touches an external system
 (Docker, Plex, a mount) catches failures and returns a friendly
@@ -294,6 +298,14 @@ PDFs with **PDF.js** — lazily imported (its own chunk, not in the app shell), 
 now, like Recently Played). Still planned: **foliate-js** (EPUB/MOBI/AZW3/CBZ)
 for ebooks/comics, and per-item **offline download** for airplane-mode reading.
 DRM-free content only.
+
+**Reading position is server-side.** The reader saves where you are (the page)
+to a `reading_progress` table keyed by `(section, item_id)` — so it **roams
+across devices** and rides the off-site backup (unlike the games' per-device
+"Recently Played"). The saved page *is* the bookmark: opening a document resumes
+to it, and the Library hub's **Continue Reading** shelf lists in-progress items
+(newest first) with resume + a remove (clear-bookmark) action. The shelf skips
+entries whose file no longer exists, so it can't offer a dead resume.
 
 **The emulator runs in an isolated `<iframe>`.** EmulatorJS sets many `window.*`
 globals and has no clean teardown, so it lives in a static page,
