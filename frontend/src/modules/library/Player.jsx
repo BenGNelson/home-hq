@@ -5,9 +5,9 @@ import { playerSrc, saveStateUrl } from '../../lib/library.js'
 // Full-screen game player. The emulator runs inside an isolated <iframe>
 // (emulator.html) so unmounting this route fully tears the engine down. It's a
 // real route, so the phone back gesture exits the game. We deliberately DON'T
-// auto-fullscreen — the top bar's "Exit" stays visible, which is the only way
-// out in the installed PWA (no browser chrome). Overlays the shell (fixed
-// inset-0) for an immersive, mobile-first view.
+// auto-fullscreen — the top bar's "Exit" (back to the game's detail page) stays
+// visible, which is the only way out in the installed PWA (no browser chrome).
+// Overlays the shell (fixed inset-0) for an immersive, mobile-first view.
 export default function Player() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
@@ -35,6 +35,11 @@ export default function Player() {
       </div>
     )
   }
+
+  // Exit to the game's own detail page (its save states, Play) rather than the
+  // Games list — sensible whether you arrived from the detail page or resumed
+  // from the hub's Jump Back In shelf.
+  const exitToDetail = () => navigate(`/library/games/detail?id=${encodeURIComponent(id)}`)
 
   // Native fullscreen where supported (desktop); CSS immersive otherwise (iOS).
   const goFullscreen = () => {
@@ -81,7 +86,7 @@ export default function Player() {
       ) : (
         <div className="flex items-center gap-2 bg-slate-900 px-3 py-2" style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>
           <button
-            onClick={() => navigate('/library/games')}
+            onClick={exitToDetail}
             className="shrink-0 whitespace-nowrap rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 active:bg-slate-700"
           >
             ✕ Exit
