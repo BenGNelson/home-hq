@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     # writes. Phase 1 ships the games section (Game Boy/Color .gb/.gbc + GBA .gba);
     # the reading sections (comics/books/papers) get their own dirs as they land.
     games_rom_dir: str = ""
+    # Reading sections (each its own content dir under RAID_MOUNT, served by the
+    # existing read-only mount). Papers = magazines / journals / PDFs, read in
+    # the browser via PDF.js. Books (EPUB/MOBI) land in a later phase.
+    papers_dir: str = ""
     # Where downloaded game box art is cached (a writable Docker volume, like the
     # SQLite DB). The backend matches each ROM to libretro-thumbnails art by its
     # No-Intro name, fetches it once, and serves it locally thereafter.

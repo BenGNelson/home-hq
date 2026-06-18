@@ -42,6 +42,21 @@ SECTIONS = [
             ".gba": {"label": "Game Boy Advance", "core": "gba"},
         },
     },
+    {
+        "key": "papers",
+        "label": "Magazines & Papers",
+        "icon": "📰",
+        "kind": "read",
+        "dir_setting": "papers_dir",
+        # Plain titles: these are real document names ("Science News - March 25,
+        # 2023"), not No-Intro ROM filenames, so don't run the ROM cleanup (which
+        # would strip parenthetical info). `reader` tells the frontend which
+        # engine renders the item.
+        "title_style": "plain",
+        "formats": {
+            ".pdf": {"label": "PDF", "reader": "pdf"},
+        },
+    },
 ]
 
 _SECTIONS_BY_KEY = {s["key"]: s for s in SECTIONS}
@@ -144,12 +159,17 @@ def list_items(section, settings):
                 size = os.path.getsize(full)
             except OSError:
                 size = None
+            stem = os.path.splitext(fn)[0]
+            # ROM filenames get the No-Intro cleanup; document names are real
+            # titles already, so a "plain" section keeps them as-is.
+            name = stem if section.get("title_style") == "plain" else clean_title(stem)
             items.append(
                 {
                     "id": os.path.relpath(full, root).replace(os.sep, "/"),
-                    "name": clean_title(os.path.splitext(fn)[0]),
+                    "name": name,
                     "label": meta.get("label"),
                     "core": meta.get("core"),
+                    "reader": meta.get("reader"),
                     "size": size,
                 }
             )

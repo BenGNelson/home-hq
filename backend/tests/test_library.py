@@ -10,6 +10,39 @@ from app import library
 from app.config import settings
 
 GAMES = library.get_section("games")
+PAPERS = library.get_section("papers")
+
+
+@pytest.fixture
+def papers_dir(tmp_path, monkeypatch):
+    """A populated reading dir wired into settings.papers_dir."""
+    (tmp_path / "Science News - March 25, 2023.pdf").write_bytes(b"%PDF-1")
+    (tmp_path / "The Atlantic - April 2023.pdf").write_bytes(b"%PDF-2")
+    (tmp_path / "cover.jpg").write_bytes(b"not a doc")  # ignored
+    monkeypatch.setattr(settings, "papers_dir", str(tmp_path))
+    return tmp_path
+
+
+def test_papers_section_lists_pdfs_with_plain_titles(papers_dir):
+    items = library.list_items(PAPERS, settings)
+    by_name = {it["name"]: it for it in items}
+    # Plain titles: the real document name is kept verbatim (no ROM cleanup that
+    # would turn " - " into ": " or strip parentheses).
+    assert "Science News - March 25, 2023" in by_name
+    assert "The Atlantic - April 2023" in by_name
+    assert by_name["Science News - March 25, 2023"]["label"] == "PDF"
+    assert by_name["Science News - March 25, 2023"]["reader"] == "pdf"
+    # The non-PDF is ignored, and sorting ignores the leading article ("The").
+    assert [it["name"] for it in items] == [
+        "The Atlantic - April 2023",
+        "Science News - March 25, 2023",
+    ]
+
+
+def test_papers_safe_path_blocks_non_pdf_and_traversal(papers_dir):
+    assert library.safe_path(PAPERS, settings, "Science News - March 25, 2023.pdf")
+    assert library.safe_path(PAPERS, settings, "cover.jpg") is None  # wrong ext
+    assert library.safe_path(PAPERS, settings, "../etc/passwd") is None
 
 
 @pytest.fixture
