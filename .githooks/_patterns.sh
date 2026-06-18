@@ -1,5 +1,6 @@
 # Sourced by the git hooks. Builds $FORBIDDEN — a regex alternation of the
-# things this repo must never contain (host identifiers, AI/attribution refs).
+# things this repo must never contain (host identifiers, attribution trailers,
+# secrets — whatever you list).
 #
 # The actual values live in the gitignored .githooks/patterns.local (one POSIX
 # extended-regex per line; blank lines and "#" comments ignored), so the literal
