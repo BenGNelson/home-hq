@@ -410,7 +410,7 @@ reads that file via the same `/smart` mount and serves it at
 and self-recovery history — surfacing a drive that SMART can't read through a USB
 bridge.
 
-### VPN egress health (host script)
+## VPN egress health (host script)
 
 If you route a container's traffic through a VPN (a common privacy setup), you
 want to *prove* it's actually masked — and catch a leak where traffic falls back
@@ -433,7 +433,7 @@ HTTP 429'd by ipinfo's free tier regardless of our request rate, and without the
 fallback that would read as a false "down". The fallbacks return only the IP —
 which is exactly what the leak verdict compares — so geo/org just goes blank.
 
-### Tailscale mesh status (host script)
+## Tailscale mesh status (host script)
 
 If the host is on a [Tailscale](https://tailscale.com) tailnet (the same mesh
 that lets you reach this dashboard from anywhere without opening ports), the
@@ -448,7 +448,7 @@ exit-node detection, stale check) in a pure, unit-tested `summarize()`. The
 script deliberately drops the tailnet's login email, keeping only the MagicDNS
 domain, so nothing identifying is committed or even written to the state file.
 
-### Uptime monitoring (host prober)
+## Uptime monitoring (host prober)
 
 The **Uptime** page shows each configured service's current status, uptime %
 (24h / 7d), latency, and a recent up/down sparkline. The probing is a **host
@@ -465,7 +465,7 @@ into the uptime %s. The file is self-bounding — samples are capped and buckets
 pruned to the retention window. `GET /api/uptime` reads it and shapes it in a
 pure summarizer.
 
-### Database growth guardrails
+## Database growth guardrails
 
 Three in-app samplers (storage, plex, uptime-via-host) plus the alert log write
 to one SQLite file, so its growth is bounded and visible. **Retention pruning**
@@ -478,7 +478,7 @@ Separately, the Compose services set a `json-file` log driver with
 `max-size`/`max-file` so a container's stdout can't fill the disk either (the
 default driver is unbounded).
 
-### Alerting (push notifications)
+## Alerting (push notifications)
 
 Most of the app is pull-on-demand, but you don't want to *watch* the dashboard to
 learn a drive is failing. `app/alerting.py` is a background thread (started in the
@@ -518,7 +518,7 @@ it still *consumes its edge* silently — so unmuting resumes notifications on t
 next state change rather than replaying whatever it's doing at that moment. It's
 for silencing one known-noisy condition without killing the whole engine.
 
-### The printer: the one push-based source
+## The printer: the one push-based source
 
 Every endpoint above is **pull** — it gathers data when the request arrives. A
 3D printer is different: in Bambu's LAN mode it *publishes* a telemetry blob to
