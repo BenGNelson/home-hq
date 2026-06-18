@@ -67,30 +67,31 @@ export default function Player() {
       {immersive ? (
         // Slim strip above the game (in-flow, so the iframe starts below it and
         // nothing overlaps). The container's safe-area padding already clears
-        // the notch, so the strip just holds the small "back to menu" button.
-        <div className="flex items-center px-1 pb-1">
+        // the notch. Right-aligned on purpose: the fullscreen toggle lives on
+        // the right in both states, so leaving fullscreen doesn't drop your
+        // finger onto the "Exit" button that reappears on the left.
+        <div className="flex items-center px-2 pb-1">
           <button
             onClick={() => setImmersive(false)}
-            aria-label="Exit fullscreen"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800/90 text-lg leading-none text-slate-100 ring-1 ring-white/30 active:bg-slate-700"
+            className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-slate-800/90 px-3 py-1.5 text-sm font-medium text-slate-100 ring-1 ring-white/30 active:bg-slate-700"
           >
-            ⌄
+            ⤡ Exit Fullscreen
           </button>
         </div>
       ) : (
-        <div className="flex items-center gap-3 bg-slate-900 px-3 py-2" style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>
+        <div className="flex items-center gap-2 bg-slate-900 px-3 py-2" style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>
           <button
             onClick={() => navigate('/library/games')}
-            className="rounded bg-slate-800 px-3 py-1 text-sm font-medium text-slate-100 active:bg-slate-700"
+            className="shrink-0 whitespace-nowrap rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 active:bg-slate-700"
           >
             ✕ Exit
           </button>
-          <span className="truncate font-medium text-slate-100">{name}</span>
+          <span className="min-w-0 flex-1 truncate text-center font-medium text-slate-100">{name}</span>
           <button
             onClick={goFullscreen}
-            className="ml-auto rounded bg-slate-800 px-3 py-1 text-sm text-slate-200 active:bg-slate-700"
+            className="shrink-0 whitespace-nowrap rounded bg-slate-800 px-3 py-1.5 text-sm text-slate-200 active:bg-slate-700"
           >
-            Fullscreen
+            ⛶ Fullscreen
           </button>
         </div>
       )}
