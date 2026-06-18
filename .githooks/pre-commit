@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Privacy guard: block a commit whose staged changes contain forbidden
+# references (host identifiers, AI/attribution). Patterns come from the
+# gitignored .githooks/patterns.local — see _patterns.sh. Genuine, reviewed
+# exception: git commit --no-verify
+set -euo pipefail
+
+DIR="$(git rev-parse --show-toplevel)/.githooks"
+# shellcheck source=/dev/null
+. "$DIR/_patterns.sh"
+
+if [ -z "${FORBIDDEN:-}" ]; then
+  echo "privacy hook: no patterns configured (.githooks/patterns.local missing) — skipping." >&2
+  exit 0
+fi
+
+# Scan only ADDED lines in the staged diff, with the leading '+' stripped (so the
+# diff marker can't fake a match), case-insensitive. Exclude the hook machinery
+# itself (it legitimately names the patterns it scans for).
+hits="$(git diff --cached --no-color -U0 -- . ':(exclude).githooks/' \
+  | grep '^+' | grep -v '^+++' | sed 's/^+//' \
+  | grep -nEi "$FORBIDDEN" || true)"
+
+if [ -n "$hits" ]; then
+  echo "" >&2
+  echo "✖ commit blocked — staged changes contain forbidden references:" >&2
+  echo "$hits" | sed 's/^/    /' >&2
+  echo "" >&2
+  echo "  Host identifiers belong in .env / *.local, never committed." >&2
+  echo "  Reviewed, deliberate exception only:  git commit --no-verify" >&2
+  exit 1
+fi
+exit 0

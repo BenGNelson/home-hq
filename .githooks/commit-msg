@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Privacy guard for the commit MESSAGE: block forbidden references (host
+# identifiers, AI/attribution — e.g. a "co-authored-by" trailer) in the message.
+# Patterns come from the gitignored .githooks/patterns.local (see _patterns.sh).
+set -euo pipefail
+
+DIR="$(git rev-parse --show-toplevel)/.githooks"
+# shellcheck source=/dev/null
+. "$DIR/_patterns.sh"
+[ -z "${FORBIDDEN:-}" ] && exit 0
+
+if grep -nEi "$FORBIDDEN" "$1" >/dev/null 2>&1; then
+  echo "" >&2
+  echo "✖ commit message contains forbidden references:" >&2
+  grep -nEi "$FORBIDDEN" "$1" | sed 's/^/    /' >&2
+  echo "  (no host identifiers or AI/attribution in commit messages)" >&2
+  exit 1
+fi
+exit 0

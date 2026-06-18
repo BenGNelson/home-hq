@@ -1,0 +1,17 @@
+# Forbidden-pattern list for the pre-commit / commit-msg privacy hooks.
+#
+# Copy this to  patterns.local  (gitignored) and fill in YOUR machine's real
+# values, so they're enforced locally and can never be committed to this public
+# repo. One POSIX extended-regex per line; blank lines and "#" comments ignored;
+# matching is case-insensitive.
+#
+# Use SPECIFIC values, not broad regexes, so legitimate placeholders in the repo
+# (documentation IPs, example mounts) don't trip the hook. Examples:
+#
+#   my-hostname
+#   203\.0\.113\.[0-9]+        # this host's real LAN/public IP (RFC5737 shown)
+#   100\.64\.[0-9]+\.[0-9]+    # tailnet IP range
+#   /mnt/myarray               # real mount path (repo uses a generic placeholder)
+#   me@example\.com            # your email
+#
+# Activate the hooks once:  git config core.hooksPath .githooks
