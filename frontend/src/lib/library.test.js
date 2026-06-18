@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest'
-import { fileUrl, coverUrl, playerSrc, groupByLabel, libraryHeadline } from './library.js'
+import {
+  fileUrl,
+  coverUrl,
+  saveStatesUrl,
+  saveStateUrl,
+  saveStateShotUrl,
+  playerSrc,
+  groupByLabel,
+  libraryHeadline,
+} from './library.js'
 
 describe('fileUrl', () => {
   it('encodes section + id as query params', () => {
@@ -27,9 +36,27 @@ describe('playerSrc', () => {
     expect(q.get('data')).toBe('/emulatorjs/')
     expect(q.get('name')).toBe('Tetris')
   })
-  it('omits name when absent', () => {
+  it('omits name when absent but always carries the game id (gid)', () => {
     const q = new URLSearchParams(playerSrc({ id: 'Tetris.gb', core: 'gb' }).split('?')[1])
     expect(q.has('name')).toBe(false)
+    expect(q.get('gid')).toBe('Tetris.gb')
+    expect(q.has('loadstate')).toBe(false)
+  })
+  it('passes a resume-state URL through as loadstate', () => {
+    const q = new URLSearchParams(
+      playerSrc({ id: 'Tetris.gb', core: 'gb', loadStateUrl: '/api/library/games/save-state?id=Tetris.gb&slot=42' }).split('?')[1]
+    )
+    expect(q.get('loadstate')).toBe('/api/library/games/save-state?id=Tetris.gb&slot=42')
+  })
+})
+
+describe('save-state urls', () => {
+  it('build list / blob / screenshot urls', () => {
+    expect(saveStatesUrl('A B.gba')).toBe('/api/library/games/save-states?id=A%20B.gba')
+    expect(saveStateUrl('A B.gba', '99')).toBe('/api/library/games/save-state?id=A%20B.gba&slot=99')
+    expect(saveStateShotUrl('A B.gba', '99')).toBe(
+      '/api/library/games/save-state/screenshot?id=A%20B.gba&slot=99'
+    )
   })
 })
 

@@ -166,6 +166,11 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/library/{section}` | one section's items (the browse list) | recursive scan of the section's dir |
 | `GET /api/library/file?section=&id=` | stream one item's bytes (range-capable) | `FileResponse` from the section dir, traversal-guarded |
 | `GET /api/library/games/cover?id=` | a game's box art (cached) | matches the No-Intro name to libretro-thumbnails, fetches once into the covers cache, serves locally (404 → placeholder) |
+| `POST /api/library/games/save-states` | upload a save state (blob + screenshot) | multipart; backend-assigned ms slot id; size-capped; stored under `/data/saves` |
+| `GET /api/library/games/save-states?id=` | a game's save states, newest first | lists the slots in the game's saves dir |
+| `GET /api/library/games/save-state?id=&slot=` | a save state's bytes | `FileResponse` — the `EJS_loadStateURL` target for resuming |
+| `GET /api/library/games/save-state/screenshot?id=&slot=` | a save state's screenshot | `FileResponse` (the detail-page thumbnail) |
+| `DELETE /api/library/games/save-states?id=&slot=` | delete a save state | removes the slot's files |
 
 **Graceful degradation:** every endpoint that touches an external system
 (Docker, Plex, a mount) catches failures and returns a friendly
@@ -318,10 +323,17 @@ title + Play). **Recently played** is tracked **client-side** (localStorage, thi
 device) for now — consistent with in-browser saves; it graduates to the backend
 with save roaming.
 
-**Saves are in-browser** (EmulatorJS IndexedDB) for now; cross-device
-**save/position roaming** (synced through the backend, stored under `/` so it
-rides the off-site restic backup) plus a server-side recently-played is the next
-phase.
+**Save states roam.** The engine fires `EJS_onSaveState` (state blob +
+screenshot) when you save a state in-game; the iframe POSTs it to the backend,
+which stores it under `/data/saves` — a writable volume that lives under the
+host's `/`, so save states **roam across devices AND ride the off-site restic
+backup** (the RAID is *not* in that backup). A game's detail page lists its
+states (screenshot thumbnails), and **Resume** relaunches the game with
+`EJS_loadStateURL` pointed at the chosen state's bytes. Slot ids are
+backend-assigned millisecond timestamps (digits only) — that's also the
+traversal guard for the file paths. Still in-browser / client-side for now:
+in-game SRAM (the "save in the game" battery) and the Recently Played row;
+custom slot names + auto-save-on-exit are easy follow-ups.
 
 ## Config backup (host script, app only lists)
 

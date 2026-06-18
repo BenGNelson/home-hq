@@ -14,9 +14,10 @@ reports configured=False instead of erroring, so the hub renders a hint.
 
 import hashlib
 import os
+import time
 
 import requests
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
@@ -24,6 +25,11 @@ from app import library
 from app.config import settings
 
 router = APIRouter()
+
+# Upload caps so a buggy/abusive client can't fill the volume. Save states are
+# small (GB/GBA well under 1 MB); these are generous headroom.
+_MAX_STATE_BYTES = 16 * 1024 * 1024
+_MAX_SHOT_BYTES = 4 * 1024 * 1024
 
 
 class SectionSummaryModel(BaseModel):
@@ -111,6 +117,92 @@ def get_game_cover(id: str = Query(description="Game id from the section listing
         return FileResponse(hit, media_type="image/png")
     open(miss, "w").close()  # remember the no-match
     return Response(status_code=404)
+
+
+class SaveStateModel(BaseModel):
+    slot: str = Field(description="Slot id (also its creation time in ms)")
+    created_ms: int
+    has_shot: bool = Field(description="True if a screenshot was captured")
+
+
+class SaveStatesModel(BaseModel):
+    states: list[SaveStateModel]
+
+
+@router.post("/library/games/save-states")
+async def create_save_state(
+    id: str = Form(description="Game id from the section listing"),
+    state: UploadFile = File(description="The emulator save-state blob"),
+    screenshot: UploadFile | None = File(default=None, description="Optional PNG screenshot"),
+):
+    """Store a new save state (server-side, so it roams across devices and rides
+    the off-site backup). The slot id is a backend-assigned ms timestamp — never
+    client-supplied — so it can't traverse. Capped in size."""
+    saves_root = settings.games_saves_dir
+    slot = str(int(time.time() * 1000))
+    state_path, shot_path = library.save_state_files(saves_root, id, slot)
+    if not state_path:
+        return Response(status_code=400)
+    data = await state.read()
+    if not data or len(data) > _MAX_STATE_BYTES:
+        return Response(status_code=413)
+    os.makedirs(os.path.dirname(state_path), exist_ok=True)
+    with open(state_path, "wb") as fh:
+        fh.write(data)
+    if screenshot is not None:
+        shot = await screenshot.read()
+        if shot and len(shot) <= _MAX_SHOT_BYTES:
+            with open(shot_path, "wb") as fh:
+                fh.write(shot)
+    return {"slot": slot, "created_ms": int(slot)}
+
+
+@router.get("/library/games/save-states", response_model=SaveStatesModel)
+def list_save_states(id: str = Query(description="Game id from the section listing")):
+    """A game's save states, newest first."""
+    return {"states": library.list_save_states(settings.games_saves_dir, id)}
+
+
+@router.get("/library/games/save-state")
+def get_save_state(
+    id: str = Query(description="Game id"),
+    slot: str = Query(description="Slot id"),
+):
+    """Serve a save state's bytes — this is what EJS_loadStateURL points at to
+    resume a game into that state."""
+    state_path, _ = library.save_state_files(settings.games_saves_dir, id, slot)
+    if not state_path or not os.path.isfile(state_path):
+        return Response(status_code=404)
+    return FileResponse(state_path, media_type="application/octet-stream")
+
+
+@router.get("/library/games/save-state/screenshot")
+def get_save_state_screenshot(
+    id: str = Query(description="Game id"),
+    slot: str = Query(description="Slot id"),
+):
+    """The screenshot for a save state (the detail-page thumbnail)."""
+    _, shot_path = library.save_state_files(settings.games_saves_dir, id, slot)
+    if not shot_path or not os.path.isfile(shot_path):
+        return Response(status_code=404)
+    return FileResponse(shot_path, media_type="image/png")
+
+
+@router.delete("/library/games/save-states")
+def delete_save_state(
+    id: str = Query(description="Game id"),
+    slot: str = Query(description="Slot id"),
+):
+    """Delete one save state (and its screenshot)."""
+    state_path, shot_path = library.save_state_files(settings.games_saves_dir, id, slot)
+    if not state_path:
+        return Response(status_code=400)
+    removed = False
+    for p in (state_path, shot_path):
+        if p and os.path.isfile(p):
+            os.remove(p)
+            removed = True
+    return Response(status_code=204 if removed else 404)
 
 
 @router.get("/library/{section}", response_model=SectionModel)

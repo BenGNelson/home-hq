@@ -19,3 +19,7 @@ PlexAPI>=4.15
 # MQTT broker in LAN mode. We keep a persistent background connection and cache
 # the latest snapshot (the only push-based source; everything else is pull).
 paho-mqtt>=2.1
+
+# Multipart form parsing — used by the Library save-state upload (the emulator
+# POSTs a state blob + screenshot as multipart/form-data).
+python-multipart>=0.0.9

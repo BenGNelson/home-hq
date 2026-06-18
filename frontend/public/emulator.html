@@ -24,6 +24,8 @@
         var core = p.get('core');
         var rom = p.get('rom');
         var name = p.get('name');
+        var gid = p.get('gid'); // game id, for uploading save states
+        var loadstate = p.get('loadstate'); // optional: resume into a saved state
         var data = p.get('data') || '/emulatorjs/';
         // Only allow a same-origin path or the official EmulatorJS CDN as the
         // engine source — never an arbitrary URL handed in via ?data=.
@@ -40,6 +42,23 @@
         window.EJS_gameUrl = rom;
         window.EJS_gameName = name || '';
         window.EJS_pathtodata = data;
+        // Resume into a saved state, if one was requested (same-origin path only).
+        if (loadstate && loadstate.charAt(0) === '/') {
+          window.EJS_loadStateURL = loadstate;
+        }
+        // When the user saves a state in the in-game menu, push it (and its
+        // screenshot) to the backend so it roams across devices + is backed up.
+        // e = { state: Uint8Array, screenshot: Uint8Array, format }.
+        window.EJS_onSaveState = function (e) {
+          if (!gid || !e || !e.state) return;
+          try {
+            var fd = new FormData();
+            fd.append('id', gid);
+            fd.append('state', new Blob([e.state]));
+            if (e.screenshot) fd.append('screenshot', new Blob([e.screenshot]), 'shot.png');
+            fetch('/api/library/games/save-states', { method: 'POST', body: fd });
+          } catch (err) {}
+        };
         // NOT EJS_startOnLoaded: auto-start gets paused immediately by iOS's
         // audio policy (the white screen + "Click to resume"). Letting the
         // engine show its own Play button means one clean tap starts it with
