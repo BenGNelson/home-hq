@@ -5,6 +5,9 @@
 scripts/backup.includes
 # Per-host "How it works" notes (container descriptions). Generic UI is committed.
 frontend/src/modules/guide/host.local.jsx
+# Real forbidden-pattern list for the pre-commit privacy hook (this machine's
+# hostname / IPs / paths). The hook machinery + a generic .example are committed.
+.githooks/*.local
 
 # --- Python ---
 __pycache__/
