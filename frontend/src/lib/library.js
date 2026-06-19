@@ -19,6 +19,12 @@ export function coverUrl(id) {
   return `${API_BASE}/library/games/cover?id=${encodeURIComponent(id)}`
 }
 
+// A book's cover art, extracted from the file + cached as WebP (404 → caller
+// shows a titled placeholder, same as game box art).
+export function bookCoverUrl(id) {
+  return `${API_BASE}/library/books/cover?id=${encodeURIComponent(id)}`
+}
+
 // Server-side save states for a game (roam across devices).
 export function saveStatesUrl(id) {
   return `${API_BASE}/library/games/save-states?id=${encodeURIComponent(id)}`

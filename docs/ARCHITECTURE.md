@@ -166,6 +166,7 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/library/{section}` | one section's items (the browse list) | recursive scan of the section's dir |
 | `GET /api/library/books/search?q=&limit=` | search Books by title/author | queries the `book_meta` cache (empty `q` = first results alphabetically) |
 | `GET /api/library/books/index-status` | book-indexer progress | from the indexer + cache count (drives the "indexing…" UI) |
+| `GET /api/library/books/cover?id=` | a book's cover art (cached) | extracts the embedded cover from the EPUB/MOBI on first view, downscales to a small WebP, serves locally thereafter (404 → titled placeholder) |
 | `GET /api/library/file?section=&id=` | stream one item's bytes (range-capable) | `FileResponse` from the section dir, traversal-guarded |
 | `GET /api/library/games/cover?id=` | a game's box art (cached) | matches the No-Intro name to libretro-thumbnails, fetches once, downscales to a small WebP in the covers cache, serves locally (404 → placeholder) |
 | `POST /api/library/games/save-states` | upload a save state (blob + screenshot) | multipart; backend-assigned ms slot id; size-capped; stored under `/data/saves` |
@@ -334,7 +335,18 @@ changed files (by mtime) and prunes rows for deleted files. The cache is
 **text-only** (no covers, no copies), so it stays a few MB even for a huge
 library. `GET /library/books/search` then matches title OR author
 case-insensitively; naming is normalized for **display only** (the files on disk
-are never touched — the mount is read-only). Covers are a deferred follow-up.
+are never touched — the mount is read-only).
+
+**Book covers are extracted on demand, not indexed.** Search results show cover
+thumbnails via `GET /library/books/cover?id=`, which pulls the embedded cover out
+of the EPUB (OPF manifest) or MOBI (EXTH 201 → the indexed image record) the
+first time a book is viewed, downscales it to a small WebP (`images.to_thumbnail`,
+the same path as game box art / Plex posters), and caches it keyed by a hash of
+the id. A book with no cover (or a PDF) is remembered as a `.miss` → 404 and the
+UI shows a titled placeholder. Doing this lazily — rather than during indexing —
+keeps the on-disk cache tiny: only books you actually open ever get a cover file,
+so the metadata index stays text-only and a huge library costs nothing extra
+until browsed.
 
 **The emulator runs in an isolated `<iframe>`.** EmulatorJS sets many `window.*`
 globals and has no clean teardown, so it lives in a static page,

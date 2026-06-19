@@ -605,3 +605,61 @@ def test_cover_no_match_remembers_miss(client, rom_dir, tmp_path, monkeypatch):
     assert client.get("/api/library/games/cover", params=p).status_code == 404
     assert client.get("/api/library/games/cover", params=p).status_code == 404
     assert len(calls) == 1  # miss remembered; not refetched
+
+
+# --- book cover proxy -----------------------------------------------------
+
+def _epub_with_png_cover(path):
+    """An EPUB carrying a real (tiny) PNG cover, so the proxy can thumbnail it."""
+    import io
+    import zipfile
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (600, 900), (20, 40, 80)).save(buf, format="PNG")
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr(
+            "META-INF/container.xml",
+            '<?xml version="1.0"?>'
+            '<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container">'
+            '<rootfiles><rootfile full-path="content.opf"/></rootfiles></container>',
+        )
+        z.writestr(
+            "content.opf",
+            '<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf">'
+            '<metadata><meta name="cover" content="cov"/></metadata>'
+            '<manifest><item id="cov" href="cover.png" media-type="image/png"/></manifest>'
+            "</package>",
+        )
+        z.writestr("cover.png", buf.getvalue())
+
+
+@pytest.fixture
+def book_covers_dir(tmp_path, monkeypatch):
+    d = tmp_path / "book-covers"
+    monkeypatch.setattr(settings, "book_covers_dir", str(d))
+    return d
+
+
+def test_book_cover_extracts_caches_and_serves(client, books_dir, book_covers_dir):
+    _epub_with_png_cover(books_dir / "Withcover.epub")
+    r = client.get("/api/library/books/cover", params={"id": "Withcover.epub"})
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/webp"
+    # The WebP is cached on disk; a second request serves the cached file.
+    assert list(book_covers_dir.glob("*.webp"))
+    assert client.get("/api/library/books/cover", params={"id": "Withcover.epub"}).status_code == 200
+
+
+def test_book_cover_missing_is_remembered_as_404(client, books_dir, book_covers_dir):
+    # Dune.epub (from the books_dir fixture) is just bytes with no real cover.
+    assert client.get("/api/library/books/cover", params={"id": "Dune.epub"}).status_code == 404
+    assert list(book_covers_dir.glob("*.miss"))  # the miss is cached, not refetched
+
+
+def test_book_cover_rejects_unknown_and_traversal(client, books_dir, book_covers_dir):
+    assert client.get("/api/library/books/cover", params={"id": "nope.epub"}).status_code == 404
+    assert client.get(
+        "/api/library/books/cover", params={"id": "../etc/passwd"}
+    ).status_code == 404

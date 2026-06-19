@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     # Where Plex posters are cached (downscaled WebP, keyed by rating key) so
     # repeat loads skip the per-image Plex round-trip. Same writable volume.
     plex_art_dir: str = "/data/plex-art"
+    # Where extracted book cover thumbnails are cached (WebP, keyed by a hash of
+    # the item id). Same writable volume; a book's embedded cover is pulled on
+    # first view, downscaled, and served locally thereafter — no covers for books
+    # you never open (keeps the cache small even for a huge library).
+    book_covers_dir: str = "/data/book-covers"
 
     # --- Backend ---
     api_port: int = 8000
