@@ -24,6 +24,7 @@ function Code({ children }) {
 const ENDPOINTS = [
   ['/api/health', 'Liveness + server name.'],
   ['/api/system', 'CPU %, RAM used/total, uptime (psutil).'],
+  ['/api/gpu', 'NVIDIA GPU load, VRAM, temp + active encode sessions, from a host timer running `nvidia-smi` (the System widget self-hides it with no GPU).'],
   ['/api/disk', 'Total / used / free for the storage array.'],
   ['/api/containers · /{name} · /{name}/logs', 'Container list, one container’s live CPU/mem/net, and its recent logs (tail-limited; sensitive ones excludable).'],
   ['/api/network', 'Per-interface byte counters (read from the host’s /proc).'],

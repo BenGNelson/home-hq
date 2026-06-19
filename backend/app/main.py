@@ -27,6 +27,7 @@ from app.routers import (
     containers,
     disk,
     diskio,
+    gpu,
     library,
     network,
     plex,
@@ -166,6 +167,7 @@ def health():
 # Mount feature routers. Each router's routes get the /api prefix here,
 # so system.py's "/system" becomes "/api/system".
 app.include_router(system.router, prefix="/api", tags=["System"])
+app.include_router(gpu.router, prefix="/api", tags=["System"])
 app.include_router(disk.router, prefix="/api", tags=["Storage"])
 app.include_router(diskio.router, prefix="/api", tags=["Storage"])
 app.include_router(containers.router, prefix="/api", tags=["System"])
