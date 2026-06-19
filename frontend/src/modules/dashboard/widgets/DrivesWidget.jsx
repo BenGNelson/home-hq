@@ -1,4 +1,5 @@
 import { useApi } from '../../../lib/useApi.js'
+import { WidgetSkeleton } from '../../../components/ui.jsx'
 import { formatAgo, formatBytes } from '../../../lib/format.js'
 import { watchdogBadge } from '../../../lib/watchdog.js'
 import { smartBadge, roleTag } from '../../../lib/storage.js'
@@ -15,7 +16,7 @@ export default function DrivesWidget() {
   const empty = drives.length === 0 && !watched
 
   return (
-    <Widget title="Drives" loading={loading} error={error}>
+    <Widget title="Drives" loading={loading} error={error} skeleton={<WidgetSkeleton rows={4} />}>
       {data && empty && (
         <p className="text-sm text-slate-500">
           No SMART data yet — the host collector hasn’t run.

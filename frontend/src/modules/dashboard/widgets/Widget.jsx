@@ -10,22 +10,25 @@ import { useDelayedFlag } from '../../../lib/useDelayedFlag.js'
 // the slot still reserves the height immediately, so the card never collapses.
 // Widgets that pass no `skeleton` keep the original plain "loading…" text.
 export default function Widget({ title, loading, error, skeleton, className = '', children }) {
-  // The skeleton occupies the card whenever the first load is pending (no data,
-  // no error) and the widget opted in by providing one.
-  const skeletonPending = Boolean(skeleton) && loading && !error && !children
+  // The skeleton occupies the card during the first load (when a widget opted in
+  // by providing one). We key off `loading` rather than the absence of children:
+  // a widget with several child expressions passes `children` as a truthy array
+  // even before its data arrives, so `!children` would never fire for it.
+  // `loading` is only true until the first response, so this can't linger.
+  const skeletonPending = Boolean(skeleton) && loading && !error
   const revealed = useDelayedFlag(skeletonPending)
 
   let body
   if (error) {
     body = <p className="text-sm text-rose-400">unavailable — {error}</p>
-  } else if (children) {
-    body = children
   } else if (skeletonPending) {
     body = (
       <div className={`transition-opacity duration-150 ${revealed ? 'opacity-100' : 'opacity-0'}`}>
         {skeleton}
       </div>
     )
+  } else if (children) {
+    body = children
   } else {
     body = <p className="text-sm text-slate-500">loading…</p>
   }
