@@ -20,6 +20,36 @@ export function SkeletonLine({ className = '' }) {
   )
 }
 
+// A generic widget loading placeholder: `rows` label/value lines and `bars`
+// progress-bar shapes, in the common "rows then bars" order (set `barsFirst`
+// for the usage-bar-on-top widgets like Storage). Sized to roughly match a
+// card's real body so the data swaps in without a big jump. Widgets with a
+// bespoke layout can still pass their own node instead.
+const _ROW_WIDTHS = ['w-16', 'w-20', 'w-14', 'w-24', 'w-16', 'w-20']
+
+export function WidgetSkeleton({ rows = 0, bars = 0, barsFirst = false }) {
+  const rowEls = Array.from({ length: rows }, (_, i) => (
+    <div key={`r${i}`} className="flex items-center justify-between">
+      <SkeletonLine className={`h-4 ${_ROW_WIDTHS[i % _ROW_WIDTHS.length]}`} />
+      <SkeletonLine className="h-4 w-24" />
+    </div>
+  ))
+  const barEls = Array.from({ length: bars }, (_, i) => (
+    <div key={`b${i}`}>
+      <div className="mb-1 flex items-center justify-between">
+        <SkeletonLine className="h-3 w-14" />
+        <SkeletonLine className="h-3 w-20" />
+      </div>
+      <SkeletonLine className="h-2 w-full rounded-full" />
+    </div>
+  ))
+  return (
+    <dl className="space-y-3 text-sm" aria-hidden="true">
+      {barsFirst ? [...barEls, ...rowEls] : [...rowEls, ...barEls]}
+    </dl>
+  )
+}
+
 // A label/value line.
 export function Row({ label, value }) {
   return (

@@ -1,4 +1,5 @@
 import { useApi } from '../../../lib/useApi.js'
+import { WidgetSkeleton } from '../../../components/ui.jsx'
 import { formatUptime } from '../../../lib/format.js'
 import { containerUrl } from '../../../lib/hostLocal.js'
 import Widget from './Widget.jsx'
@@ -11,7 +12,7 @@ export default function ContainersWidget() {
   const title = data && !unavailable ? `Containers · ${running}/${list.length}` : 'Containers'
 
   return (
-    <Widget title={title} loading={loading} error={error}>
+    <Widget title={title} loading={loading} error={error} skeleton={<WidgetSkeleton rows={6} />}>
       {data &&
         (unavailable ? (
           <p className="text-sm text-amber-400">Docker unavailable</p>

@@ -852,9 +852,13 @@ Short record of *why* things are the way they are, so future changes have contex
   "loading…" line that pops in and shifts layout, a widget may pass the shared
   `Widget` frame a `skeleton` node shaped like its real body; the frame reserves
   that height immediately and fades the skeleton in only after a short delay
-  (`useDelayedFlag`), so a fast load never flashes a placeholder. It's opt-in —
-  widgets without a `skeleton` keep the plain text — so the pattern can spread
-  one widget at a time instead of all at once.
+  (`useDelayedFlag`), so a fast load never flashes a placeholder. Most widgets
+  reuse a generic `WidgetSkeleton` (N label/value rows + M bars); the System,
+  Storage, Drives, Plex, and Containers cards opt in. It's keyed off `loading`
+  (not the absence of children, since a multi-child widget passes a truthy
+  `children` array even before its data lands). It stays opt-in — widgets that
+  self-hide when unconfigured (Printer, Tailscale) skip it so they never flash a
+  skeleton and then vanish on installs without them.
 - **Page title lives in the shell, not each page.** The persistent top bar shows
   the current section's name, resolved from the route by `activeModule()` in
   `lib/nav.js` (longest matching path prefix, so a deep route like

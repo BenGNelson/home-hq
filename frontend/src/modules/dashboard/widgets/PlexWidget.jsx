@@ -1,5 +1,5 @@
 import { useApi } from '../../../lib/useApi.js'
-import { Row } from '../../../components/ui.jsx'
+import { Row, WidgetSkeleton } from '../../../components/ui.jsx'
 import { formatResolution } from '../../../lib/format.js'
 import Widget from './Widget.jsx'
 
@@ -52,7 +52,7 @@ export default function PlexWidget() {
   const sessions = npData?.sessions ?? []
 
   return (
-    <Widget title="Plex" loading={loading} error={error}>
+    <Widget title="Plex" loading={loading} error={error} skeleton={<WidgetSkeleton rows={6} />}>
       {data &&
         (!data.configured ? (
           <p className="text-sm text-slate-500">not configured</p>
