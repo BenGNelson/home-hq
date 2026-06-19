@@ -5,6 +5,7 @@ import { libraryHeadline, resumeHref } from '../../lib/library.js'
 import { progressLabel, progressFraction } from '../../lib/reading.js'
 import { formatAgo } from '../../lib/format.js'
 import GameCover from './GameCover.jsx'
+import BookCover from './BookCover.jsx'
 
 // The Library hub: your owned content (games + magazines/papers now, more
 // later), played/read in-app. Mobile-first — big tap-target section cards that
@@ -80,6 +81,9 @@ function JumpBackIn() {
 
 function ContinueCard({ entry, onResume, onRemove }) {
   const isPlay = entry.kind === 'play'
+  // Books now have cover art (extracted from the file); show it like game box
+  // art. Papers (PDFs) have no cover source, so they keep the title tile.
+  const isBook = !isPlay && entry.section === 'books'
   const sub = isPlay
     ? `saved ${formatAgo(entry.updated_ms / 1000)}`
     : progressLabel(entry.page, entry.total, entry.fraction)
@@ -89,6 +93,8 @@ function ContinueCard({ entry, onResume, onRemove }) {
       <button onClick={onResume} className="block w-full text-left active:opacity-80">
         {isPlay ? (
           <GameCover game={entry} />
+        ) : isBook ? (
+          <BookCover book={entry} className="w-full rounded-lg" />
         ) : (
           <div className="flex aspect-[3/4] items-center justify-center rounded-lg bg-slate-800 p-2 text-center">
             <span className="line-clamp-5 text-xs font-medium text-slate-300">{entry.name}</span>
