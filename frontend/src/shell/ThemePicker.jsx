@@ -9,8 +9,6 @@ export const THEMES = [
   { id: 'olive', name: 'Olive', bg: '#141a0f', accent: '#a3e635' },
   { id: 'crimson', name: 'Crimson', bg: '#1d0d0f', accent: '#f87171' },
   { id: 'indigo', name: 'Midnight', bg: '#11132e', accent: '#818cf8' },
-  { id: 'slategray', name: 'Slate Gray', bg: '#17191c', accent: '#34d399' },
-  { id: 'gunmetal', name: 'Gunmetal', bg: '#14161a', accent: '#34d399' },
   { id: 'onyx', name: 'Onyx', bg: '#101216', accent: '#34d399' },
 ]
 
