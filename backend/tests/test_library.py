@@ -739,3 +739,43 @@ def test_comic_endpoints_reject_traversal_and_unknown(client, comics_dir):
     assert client.get(
         "/api/library/comics/page", params={"id": "nope.cbz", "n": 0}
     ).status_code == 404
+
+
+# --- pinned folders -------------------------------------------------------
+
+def test_pin_db_add_list_remove():
+    db.add_pin("comics", "Star Wars/04. Rebellion era", now_ms=100)
+    db.add_pin("comics", "Saga", now_ms=200)
+    db.add_pin("comics", "Saga", now_ms=300)  # idempotent — no duplicate
+    paths = [p["path"] for p in db.list_pins("comics")]
+    assert paths == ["Saga", "Star Wars/04. Rebellion era"]  # newest first
+    assert db.list_pins("books") == []  # section filter
+    assert db.remove_pin("comics", "Saga") is True
+    assert db.remove_pin("comics", "Saga") is False  # already gone
+    assert [p["path"] for p in db.list_pins()] == ["Star Wars/04. Rebellion era"]
+
+
+@pytest.fixture
+def comics_with_folder(tmp_path, monkeypatch):
+    d = tmp_path / "comics"
+    (d / "Star Wars" / "Rebellion").mkdir(parents=True)
+    _make_cbz_with_pages(d / "Star Wars" / "Rebellion" / "issue 1.cbz", n=1)
+    monkeypatch.setattr(settings, "comics_dir", str(d))
+    return d
+
+
+def test_pin_endpoints_validate_folder(client, comics_with_folder):
+    # Pin a real folder → ok, shows up in the list.
+    r = client.post("/api/library/pins", json={"section": "comics", "path": "Star Wars/Rebellion"})
+    assert r.status_code == 200
+    pins = client.get("/api/library/pins", params={"section": "comics"}).json()["pins"]
+    assert [p["path"] for p in pins] == ["Star Wars/Rebellion"]
+    # A path with no items under it is rejected (no dead pins).
+    assert client.post(
+        "/api/library/pins", json={"section": "comics", "path": "Star Wars/Nope"}
+    ).status_code == 404
+    # Unpin.
+    assert client.delete(
+        "/api/library/pins", params={"section": "comics", "path": "Star Wars/Rebellion"}
+    ).status_code == 204
+    assert client.get("/api/library/pins").json()["pins"] == []

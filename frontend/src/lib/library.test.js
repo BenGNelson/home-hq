@@ -12,6 +12,7 @@ import {
   browseFolder,
   searchComics,
   folderCrumbs,
+  pinLabel,
   comicPageUrl,
   comicCoverUrl,
   libraryHeadline,
@@ -182,6 +183,17 @@ describe('folderCrumbs', () => {
       { name: 'Doctor Aphra', path: 'Star Wars/Doctor Aphra' },
     ])
     expect(folderCrumbs('')).toEqual([])
+  })
+})
+
+describe('pinLabel', () => {
+  it('splits a pinned path into leaf name + parent trail', () => {
+    expect(pinLabel('Star Wars/04. Rebellion era')).toEqual({
+      name: '04. Rebellion era',
+      parent: 'Star Wars',
+    })
+    expect(pinLabel('Saga')).toEqual({ name: 'Saga', parent: '' })
+    expect(pinLabel('A/B/C')).toEqual({ name: 'C', parent: 'A / B' })
   })
 })
 
