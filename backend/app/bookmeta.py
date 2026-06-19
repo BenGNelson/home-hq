@@ -170,6 +170,6 @@ def extract_meta(path, ext):
     ext = (ext or "").lower()
     if ext == ".epub":
         return parse_epub_meta(path)
-    if ext in (".mobi", ".azw3"):
+    if ext in (".mobi", ".azw3", ".prc"):  # .prc = Mobipocket (same container)
         return parse_mobi_meta(path)
     return None, None

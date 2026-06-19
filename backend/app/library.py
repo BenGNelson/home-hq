@@ -71,6 +71,7 @@ SECTIONS = [
             ".epub": {"label": "EPUB", "reader": "epub"},
             ".mobi": {"label": "MOBI", "reader": "epub"},
             ".azw3": {"label": "AZW3", "reader": "epub"},
+            ".prc": {"label": "MOBI", "reader": "epub"},  # Mobipocket — foliate reads it
             ".pdf": {"label": "PDF", "reader": "pdf"},
         },
     },

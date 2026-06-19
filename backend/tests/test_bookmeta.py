@@ -150,6 +150,15 @@ def test_extract_meta_dispatch(tmp_path):
     epub = tmp_path / "x.epub"
     _make_epub(epub, "T", "A")
     assert bookmeta.extract_meta(str(epub), ".EPUB") == ("T", "A")  # case-insensitive ext
+    # .prc (Mobipocket) is parsed like MOBI.
+    rec0 = _make_record0(title="Made in America", author="Bill Bryson")
+    rec0_off = 78 + 2 * 8
+    rec_info = struct.pack(">II", rec0_off, 0) + struct.pack(">II", rec0_off + len(rec0), 0)
+    header = bytearray(78)
+    struct.pack_into(">H", header, 76, 2)
+    prc = tmp_path / "book.prc"
+    prc.write_bytes(bytes(header) + rec_info + rec0 + b"REC1")
+    assert bookmeta.extract_meta(str(prc), ".PRC") == ("Made in America", "Bill Bryson")
     # PDFs and unknown types: no extraction here → caller uses the filename.
     assert bookmeta.extract_meta(str(tmp_path / "x.pdf"), ".pdf") == (None, None)
     assert bookmeta.extract_meta(str(tmp_path / "x.txt"), ".txt") == (None, None)
