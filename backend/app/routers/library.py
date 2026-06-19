@@ -21,7 +21,7 @@ from fastapi import APIRouter, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from app import book_sync, db, images, library
+from app import book_sync, bookmeta, db, images, library
 from app.config import settings
 
 router = APIRouter()
@@ -432,6 +432,48 @@ def books_search(
         for r in rows
     ]
     return {"items": items, "total": db.count_books_meta(), "query": q}
+
+
+# Book covers are extracted from the book file and keyed by item id (a path),
+# which could in principle be replaced — so cache them for a good while but not
+# `immutable` (clear the cache dir to force a re-extract). Mirrors the Plex art
+# proxy's choice for the same reason.
+_BOOK_COVER_HEADERS = {"Cache-Control": "public, max-age=2592000"}
+
+
+@router.get("/library/books/cover")
+def get_book_cover(id: str = Query(description="Book item id from the search/listing")):
+    """A book's cover art, extracted from its embedded image once and cached as a
+    small WebP (same cache-and-proxy shape as game box art / Plex posters). On
+    first view we pull the cover out of the EPUB/MOBI, downscale it, and store the
+    WebP keyed by a hash of the id; later views serve that local file. A book with
+    no embedded cover (or a PDF) is remembered as a miss → 404, and the frontend
+    shows a titled placeholder."""
+    books = library.get_section("books")
+    if not books:
+        return Response(status_code=404)
+    path = library.safe_path(books, settings, id)
+    if not path:
+        return Response(status_code=404)
+    cache_dir = settings.book_covers_dir
+    key = hashlib.sha1(id.encode()).hexdigest()
+    webp = os.path.join(cache_dir, key + ".webp")
+    miss = os.path.join(cache_dir, key + ".miss")
+
+    if os.path.isfile(webp):
+        return FileResponse(webp, media_type="image/webp", headers=_BOOK_COVER_HEADERS)
+    if os.path.isfile(miss):
+        return Response(status_code=404)
+
+    raw = bookmeta.extract_cover(path, os.path.splitext(id)[1])
+    thumb = images.to_thumbnail(raw) if raw else None
+    os.makedirs(cache_dir, exist_ok=True)
+    if thumb:
+        with open(webp, "wb") as fh:
+            fh.write(thumb)
+        return FileResponse(webp, media_type="image/webp", headers=_BOOK_COVER_HEADERS)
+    open(miss, "w").close()  # no cover (or unreadable) — remember it
+    return Response(status_code=404)
 
 
 class BookIndexStatusModel(BaseModel):

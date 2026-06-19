@@ -162,3 +162,118 @@ def test_extract_meta_dispatch(tmp_path):
     # PDFs and unknown types: no extraction here → caller uses the filename.
     assert bookmeta.extract_meta(str(tmp_path / "x.pdf"), ".pdf") == (None, None)
     assert bookmeta.extract_meta(str(tmp_path / "x.txt"), ".txt") == (None, None)
+
+
+# --- cover extraction -----------------------------------------------------
+
+def _make_epub_with_cover(path, cover_bytes, mode="meta", img_href="images/cover.jpg"):
+    """An EPUB whose OPF declares a cover image one of three ways."""
+    if mode == "meta":  # EPUB2: a <meta name="cover"> pointer into the manifest
+        meta = '<meta name="cover" content="cover-img"/>'
+        item = f'<item id="cover-img" href="{img_href}" media-type="image/jpeg"/>'
+    elif mode == "property":  # EPUB3: properties="cover-image"
+        meta = ""
+        item = f'<item id="c" href="{img_href}" media-type="image/jpeg" properties="cover-image"/>'
+    else:  # heuristic: an image item whose id/href just mentions "cover"
+        meta = ""
+        item = f'<item id="the-cover" href="{img_href}" media-type="image/jpeg"/>'
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr(
+            "META-INF/container.xml",
+            '<?xml version="1.0"?>'
+            '<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container">'
+            '<rootfiles><rootfile full-path="OEBPS/content.opf"/></rootfiles></container>',
+        )
+        z.writestr(
+            "OEBPS/content.opf",
+            '<?xml version="1.0"?>'
+            '<package xmlns="http://www.idpf.org/2007/opf">'
+            f"<metadata>{meta}</metadata><manifest>{item}</manifest></package>",
+        )
+        z.writestr(f"OEBPS/{img_href}", cover_bytes)  # hrefs are OPF-relative
+
+
+def test_parse_epub_cover_meta_pointer(tmp_path):
+    p = tmp_path / "b.epub"
+    _make_epub_with_cover(p, b"\xff\xd8\xffJPEGDATA", mode="meta")
+    assert bookmeta.parse_epub_cover(str(p)) == b"\xff\xd8\xffJPEGDATA"
+
+
+def test_parse_epub_cover_epub3_property(tmp_path):
+    p = tmp_path / "b.epub"
+    _make_epub_with_cover(p, b"\x89PNGcover", mode="property")
+    assert bookmeta.parse_epub_cover(str(p)) == b"\x89PNGcover"
+
+
+def test_parse_epub_cover_heuristic(tmp_path):
+    p = tmp_path / "b.epub"
+    _make_epub_with_cover(p, b"coverbytes", mode="heuristic")
+    assert bookmeta.parse_epub_cover(str(p)) == b"coverbytes"
+
+
+def test_parse_epub_cover_none_when_absent(tmp_path):
+    p = tmp_path / "b.epub"
+    _make_epub(p, "No Cover", "Author")  # OPF has no cover image
+    assert bookmeta.parse_epub_cover(str(p)) is None
+
+
+def _make_mobi_with_cover(cover_bytes, cover_index=0):
+    """A minimal MOBI: record 0 carries an EXTH 201 cover index; `cover_index`
+    filler image records precede the cover image record."""
+    mobi_header = bytearray(132)
+    mobi_header[0:4] = b"MOBI"
+    struct.pack_into(">I", mobi_header, 4, len(mobi_header))
+    body = struct.pack(">II", bookmeta._EXTH_COVER, 12) + struct.pack(">I", cover_index)
+    exth = b"EXTH" + struct.pack(">II", 12 + len(body), 1) + body
+    rec0 = bytes(16) + bytes(mobi_header) + exth
+    images = [b"\xff\xd8\xff" + b"filler" for _ in range(cover_index)] + [cover_bytes]
+    records = [rec0] + images
+    header = bytearray(78)
+    struct.pack_into(">H", header, 76, len(records))
+    rec_info = b""
+    off = 78 + len(records) * 8
+    for rec in records:
+        rec_info += struct.pack(">II", off, 0)
+        off += len(rec)
+    return bytes(header) + rec_info + b"".join(records)
+
+
+def test_parse_mobi_cover_first_image(tmp_path):
+    p = tmp_path / "b.mobi"
+    p.write_bytes(_make_mobi_with_cover(b"\xff\xd8\xffTHECOVER", cover_index=0))
+    assert bookmeta.parse_mobi_cover(str(p)) == b"\xff\xd8\xffTHECOVER"
+
+
+def test_parse_mobi_cover_indexed(tmp_path):
+    # Cover is the 2nd image record (index 1); the filler image is skipped.
+    p = tmp_path / "b.mobi"
+    p.write_bytes(_make_mobi_with_cover(b"\xff\xd8\xffSECOND", cover_index=1))
+    assert bookmeta.parse_mobi_cover(str(p)) == b"\xff\xd8\xffSECOND"
+
+
+def test_parse_mobi_cover_none_without_exth(tmp_path):
+    # The plain title/author record0 has no EXTH 201 → no cover.
+    rec0 = _make_record0(title="T", author="A")
+    records = [rec0, b"\xff\xd8\xffimg"]
+    header = bytearray(78)
+    struct.pack_into(">H", header, 76, len(records))
+    rec_info = b""
+    off = 78 + len(records) * 8
+    for rec in records:
+        rec_info += struct.pack(">II", off, 0)
+        off += len(rec)
+    p = tmp_path / "b.mobi"
+    p.write_bytes(bytes(header) + rec_info + b"".join(records))
+    assert bookmeta.parse_mobi_cover(str(p)) is None
+
+
+def test_extract_cover_dispatch(tmp_path):
+    epub = tmp_path / "x.epub"
+    _make_epub_with_cover(epub, b"\xff\xd8\xffJPG", mode="meta")
+    assert bookmeta.extract_cover(str(epub), ".EPUB") == b"\xff\xd8\xffJPG"
+    mobi = tmp_path / "x.mobi"
+    mobi.write_bytes(_make_mobi_with_cover(b"\xff\xd8\xffM"))
+    assert bookmeta.extract_cover(str(mobi), ".mobi") == b"\xff\xd8\xffM"
+    # PDFs / unknown types have no extractor here.
+    assert bookmeta.extract_cover(str(tmp_path / "x.pdf"), ".pdf") is None
+    assert bookmeta.extract_cover(str(tmp_path / "x.txt"), ".txt") is None

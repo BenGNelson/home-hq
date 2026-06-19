@@ -52,7 +52,7 @@ const ENDPOINTS = [
     '/api/plex · …',
     'Status (streams/transcodes), now-playing sessions, recently added, libraries, background sync, cached library items & show episodes, on-demand item detail, and a poster proxy.',
   ],
-  ['/api/library · /{section} · /file · /games/cover · /games/save-states · /reading-progress · /continue', 'The owned-content hub: sections + counts (games, books, magazines & papers), a section’s items, a range-capable traversal-guarded file stream (used by the emulator and the PDF + ebook readers), proxied/cached game box art, server-side save states + reading position (both roam across devices), and the unified "Jump back in" shelf that resumes books/documents (to your spot) and games (into the last save state).'],
+  ['/api/library · /{section} · /file · /games/cover · /books/cover · /games/save-states · /reading-progress · /continue', 'The owned-content hub: sections + counts (games, books, magazines & papers), a section’s items, a range-capable traversal-guarded file stream (used by the emulator and the PDF + ebook readers), proxied/cached game box art and book covers (each extracted from the file on first view, downscaled to a cached WebP), server-side save states + reading position (both roam across devices), and the unified "Jump back in" shelf that resumes books/documents (to your spot) and games (into the last save state).'],
 ]
 
 // Plain-language one-liners for the tools named on this page, so the guide

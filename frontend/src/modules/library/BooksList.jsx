@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApi, API_BASE } from '../../lib/useApi.js'
 import { readerHref, bookSubtitle } from '../../lib/library.js'
+import BookCover from './BookCover.jsx'
 
 // The Books section. With 10k+ books a flat list is useless, so this is purely
 // search-driven: an empty box just prompts you to search, and results (from the
@@ -112,7 +113,7 @@ export default function BooksList() {
                     onClick={() => navigate(readerHref('books', it))}
                     className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-slate-800"
                   >
-                    <span className="text-xl">📖</span>
+                    <BookCover book={it} className="w-10" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-slate-100">{it.title}</span>
                       <span className="block truncate text-xs text-slate-500">{bookSubtitle(it)}</span>
