@@ -284,7 +284,8 @@ audiobooks, and the PDFs from newspaper/magazine subscriptions — read/played/h
 list of **sections**, each with a content dir (a `.env` path under `RAID_MOUNT`,
 so the existing read-only RAID mount serves it — no extra mount), recognized file
 extensions, and per-item metadata. Sections so far: **games**
-(`.gb`/`.gbc` → the `gb` core, `.gba` → `gba`), **papers** (Magazines &
+(`.gb` → the `gb` core, `.gbc`/`.gba` → `gba`/mGBA — GBC uses mGBA because
+gambatte crashes GBC games on iOS Safari), **papers** (Magazines &
 Papers — `.pdf`, read in-browser via PDF.js), **books** (EPUB/MOBI/AZW3 read
 via foliate-js, plus `.pdf` falling back to PDF.js), and **comics**
 (CBZ/CBR/CB7 read page-by-page). A section also carries a

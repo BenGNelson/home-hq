@@ -332,7 +332,7 @@ def test_list_items_metadata(rom_dir):
     by_name = {it["name"]: it for it in library.list_items(GAMES, settings)}
     assert by_name["Tetris"]["label"] == "Game Boy"
     assert by_name["Tetris"]["core"] == "gb"
-    assert by_name["Zelda"]["label"] == "Game Boy Color" and by_name["Zelda"]["core"] == "gb"
+    assert by_name["Zelda"]["label"] == "Game Boy Color" and by_name["Zelda"]["core"] == "gba"
     assert by_name["Metroid"]["label"] == "Game Boy Advance" and by_name["Metroid"]["core"] == "gba"
     assert by_name["Metroid"]["id"] == "sub/Metroid.gba"
     assert by_name["Tetris"]["size"] == len(b"GBROM-tetris")

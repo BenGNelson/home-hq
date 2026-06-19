@@ -38,7 +38,11 @@ SECTIONS = [
         "dir_setting": "games_rom_dir",
         "formats": {
             ".gb": {"label": "Game Boy", "core": "gb"},
-            ".gbc": {"label": "Game Boy Color", "core": "gb"},
+            # GBC routed through mGBA (the `gba` core) instead of gambatte: the
+            # gambatte core crashes GBC games on iOS Safari (~15s in), while mGBA
+            # — which also emulates GB/GBC — is proven stable for GBA on the same
+            # device. mGBA auto-detects the GBC ROM.
+            ".gbc": {"label": "Game Boy Color", "core": "gba"},
             ".gba": {"label": "Game Boy Advance", "core": "gba"},
         },
     },
