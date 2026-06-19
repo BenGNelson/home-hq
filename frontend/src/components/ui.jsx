@@ -28,15 +28,18 @@ export function SkeletonLine({ className = '' }) {
 const _ROW_WIDTHS = ['w-16', 'w-20', 'w-14', 'w-24', 'w-16', 'w-20']
 
 export function WidgetSkeleton({ rows = 0, bars = 0, barsFirst = false }) {
+  // The h-5 wrappers make each row/bar-label the height of a real text-sm line
+  // (20px), so the placeholder body matches the real card's height — no grow on
+  // load — even though the pulse bars themselves are thinner than the text.
   const rowEls = Array.from({ length: rows }, (_, i) => (
-    <div key={`r${i}`} className="flex items-center justify-between">
+    <div key={`r${i}`} className="flex h-5 items-center justify-between">
       <SkeletonLine className={`h-4 ${_ROW_WIDTHS[i % _ROW_WIDTHS.length]}`} />
       <SkeletonLine className="h-4 w-24" />
     </div>
   ))
   const barEls = Array.from({ length: bars }, (_, i) => (
     <div key={`b${i}`}>
-      <div className="mb-1 flex items-center justify-between">
+      <div className="mb-1 flex h-5 items-center justify-between">
         <SkeletonLine className="h-3 w-14" />
         <SkeletonLine className="h-3 w-20" />
       </div>
