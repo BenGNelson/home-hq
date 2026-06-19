@@ -9,7 +9,9 @@ import {
   resumeHref,
   readerHref,
   groupByLabel,
-  groupBySeries,
+  browseFolder,
+  searchComics,
+  folderCrumbs,
   comicPageUrl,
   comicCoverUrl,
   libraryHeadline,
@@ -122,24 +124,64 @@ describe('groupByLabel', () => {
   })
 })
 
-describe('groupBySeries', () => {
-  it('splits items into series folders and singles', () => {
-    const items = [
-      { id: 'Star Wars/Issue 2.cbr' },
-      { id: 'One-Punch Man.cbz' }, // no folder → single
-      { id: 'Star Wars/Issue 1.cbr' },
-      { id: 'Batman/Year One.cbr' },
-    ]
-    const { series, singles } = groupBySeries(items)
-    expect(series.map(([name]) => name)).toEqual(['Batman', 'Star Wars']) // alphabetical
-    expect(series.find(([n]) => n === 'Star Wars')[1].map((i) => i.id)).toEqual([
-      'Star Wars/Issue 2.cbr',
-      'Star Wars/Issue 1.cbr',
+describe('browseFolder', () => {
+  const items = [
+    { id: 'One-Punch Man.cbz', name: 'One-Punch Man' }, // root issue
+    { id: 'Star Wars/Doctor Aphra/01.cbr', name: '01' },
+    { id: 'Star Wars/Doctor Aphra/02.cbr', name: '02' },
+    { id: 'Star Wars/Darth Vader/01.cbr', name: '01' },
+    { id: 'Batman/Year One.cbr', name: 'Year One' },
+  ]
+  it('lists immediate folders (with deep counts) + issues at the root', () => {
+    const { folders, issues } = browseFolder(items, '')
+    expect(folders.map((f) => [f.name, f.count])).toEqual([
+      ['Batman', 1],
+      ['Star Wars', 3],
     ])
-    expect(singles.map((i) => i.id)).toEqual(['One-Punch Man.cbz'])
+    expect(issues.map((i) => i.id)).toEqual(['One-Punch Man.cbz'])
+  })
+  it('drills into a subfolder', () => {
+    const { folders, issues } = browseFolder(items, 'Star Wars')
+    expect(folders.map((f) => [f.name, f.path, f.count])).toEqual([
+      ['Darth Vader', 'Star Wars/Darth Vader', 1],
+      ['Doctor Aphra', 'Star Wars/Doctor Aphra', 2],
+    ])
+    expect(issues).toEqual([])
+  })
+  it('lists issues in a leaf folder', () => {
+    const { folders, issues } = browseFolder(items, 'Star Wars/Doctor Aphra')
+    expect(folders).toEqual([])
+    expect(issues.map((i) => i.id)).toEqual([
+      'Star Wars/Doctor Aphra/01.cbr',
+      'Star Wars/Doctor Aphra/02.cbr',
+    ])
   })
   it('handles empty/undefined', () => {
-    expect(groupBySeries(undefined)).toEqual({ series: [], singles: [] })
+    expect(browseFolder(undefined, '')).toEqual({ folders: [], issues: [] })
+  })
+})
+
+describe('searchComics', () => {
+  const items = [
+    { id: 'Star Wars/Darth Vader/01.cbr', name: 'Darth Vader 01' },
+    { id: 'Batman/Year One.cbr', name: 'Year One' },
+  ]
+  it('matches name or path, case-insensitive', () => {
+    expect(searchComics(items, 'vader').map((i) => i.name)).toEqual(['Darth Vader 01'])
+    expect(searchComics(items, 'batman').map((i) => i.name)).toEqual(['Year One']) // path match
+  })
+  it('empty query → no results', () => {
+    expect(searchComics(items, '   ')).toEqual([])
+  })
+})
+
+describe('folderCrumbs', () => {
+  it('builds a cumulative trail', () => {
+    expect(folderCrumbs('Star Wars/Doctor Aphra')).toEqual([
+      { name: 'Star Wars', path: 'Star Wars' },
+      { name: 'Doctor Aphra', path: 'Star Wars/Doctor Aphra' },
+    ])
+    expect(folderCrumbs('')).toEqual([])
   })
 })
 

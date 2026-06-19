@@ -322,8 +322,14 @@ bytes, and the router downscales each page to a reading-size WebP and caches it
 (keyed by a hash of the id + page index), exactly like the cover proxies. The
 `comic` reader is then a dumb `<img>` pager that fetches `/comics/page?n=`,
 prefetches the next page, and bookmarks by `page` like a PDF. Page extraction is
-lazy + cached, so only comics you open take cache space, and a big per-series
-library is browsed by folder (series → issues) rather than as one flat list.
+lazy + cached, so only comics you open take cache space. The browse UI is a
+**folder browser** that mirrors the library on disk at any depth (it builds the
+tree client-side from the flat item paths via `browseFolder` — no backend
+change): you drill in folder-by-folder (e.g. a per-series tree) instead of
+rendering thousands of covers at once, the issue grid **paginates** (60 at a
+time) so even a flat mega-folder stays responsive, and a client-side **search**
+filters every comic by name. The same `reading_progress` table gives the
+roaming bookmark.
 Still planned: per-item **offline download** for airplane-mode reading. DRM-free
 content only.
 

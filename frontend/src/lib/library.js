@@ -37,22 +37,48 @@ export function comicCoverUrl(id) {
   return `${API_BASE}/library/comics/cover?id=${encodeURIComponent(id)}`
 }
 
-// Group comic items into series (by their top-level folder) + loose "singles".
-// A big comic library lives in per-series folders, so the browse view lists
-// series first (cheap) and only loads issue covers once you open one.
-// → { series: [[name, items], …] (alphabetical), singles: items[] }
-export function groupBySeries(items) {
-  const series = {}
-  const singles = []
+// Browse a comic library as a folder tree (it mirrors the filesystem, at any
+// nesting depth). Given all items (ids are POSIX-style paths) and the current
+// folder `path` ('' = root), return the immediate child folders (with a count of
+// everything beneath them) + the issues that live directly in this folder. This
+// keeps any one screen small even for a huge library — you drill in folder by
+// folder instead of rendering thousands of covers at once.
+// → { folders: [{ name, path, count }] (alphabetical), issues: items[] }
+export function browseFolder(items, path = '') {
+  const prefix = path ? path + '/' : ''
+  const folderCounts = {}
+  const issues = []
   for (const it of items ?? []) {
-    const slash = it.id.indexOf('/')
-    if (slash === -1) singles.push(it)
-    else (series[it.id.slice(0, slash)] ??= []).push(it)
+    if (prefix && !it.id.startsWith(prefix)) continue
+    const rest = it.id.slice(prefix.length)
+    const slash = rest.indexOf('/')
+    if (slash === -1) issues.push(it)
+    else {
+      const name = rest.slice(0, slash)
+      folderCounts[name] = (folderCounts[name] || 0) + 1
+    }
   }
-  return {
-    series: Object.entries(series).sort(([a], [b]) => a.localeCompare(b)),
-    singles,
-  }
+  const folders = Object.keys(folderCounts)
+    .sort((a, b) => a.localeCompare(b))
+    .map((name) => ({ name, path: prefix + name, count: folderCounts[name] }))
+  return { folders, issues }
+}
+
+// Filter comics by a free-text query over their title/path (client-side — the
+// item list is just names, so no backend index is needed). Empty query → [].
+export function searchComics(items, query) {
+  const q = (query || '').trim().toLowerCase()
+  if (!q) return []
+  return (items ?? []).filter(
+    (it) => (it.name || '').toLowerCase().includes(q) || it.id.toLowerCase().includes(q)
+  )
+}
+
+// The breadcrumb trail for a folder path → [{ name, path }] from root to here.
+export function folderCrumbs(path) {
+  if (!path) return []
+  const parts = path.split('/')
+  return parts.map((name, i) => ({ name, path: parts.slice(0, i + 1).join('/') }))
 }
 
 // Server-side save states for a game (roam across devices).
