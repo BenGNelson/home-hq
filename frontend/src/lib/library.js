@@ -47,8 +47,8 @@ export function playerSrc(item, data = EMULATORJS_DATA) {
 }
 
 // Where a "Jump back in" entry resumes to. A reading entry opens the reader
-// (which resumes to its saved page itself); a play entry opens the player into
-// the entry's newest save state.
+// (which resumes to its saved position itself; `reader` picks PDF vs ebook
+// engine); a play entry opens the player into the entry's newest save state.
 export function resumeHref(entry) {
   if (entry.kind === 'play') {
     const q = new URLSearchParams({ id: entry.id, core: entry.core || '', name: entry.name || '' })
@@ -56,6 +56,15 @@ export function resumeHref(entry) {
     return `/library/play?${q.toString()}`
   }
   const q = new URLSearchParams({ section: entry.section, id: entry.id })
+  if (entry.reader) q.set('reader', entry.reader)
+  return `/library/read?${q.toString()}`
+}
+
+// The reader route for a section item (used by the browse lists). Carries the
+// item's reader hint so the /library/read dispatcher picks the right engine.
+export function readerHref(section, item) {
+  const q = new URLSearchParams({ section, id: item.id })
+  if (item.reader) q.set('reader', item.reader)
   return `/library/read?${q.toString()}`
 }
 

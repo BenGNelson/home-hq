@@ -37,8 +37,10 @@ class Settings(BaseSettings):
     games_rom_dir: str = ""
     # Reading sections (each its own content dir under RAID_MOUNT, served by the
     # existing read-only mount). Papers = magazines / journals / PDFs, read in
-    # the browser via PDF.js. Books (EPUB/MOBI) land in a later phase.
+    # the browser via PDF.js. Books = EPUB/MOBI/AZW3 (and PDFs), read via
+    # foliate-js (the MOBI/AZW3 parser is built in — no server-side conversion).
     papers_dir: str = ""
+    books_dir: str = ""
     # Where downloaded game box art is cached (a writable Docker volume, like the
     # SQLite DB). The backend matches each ROM to libretro-thumbnails art by its
     # No-Intro name, fetches it once, and serves it locally thereafter.

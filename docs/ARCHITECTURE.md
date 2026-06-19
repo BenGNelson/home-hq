@@ -172,8 +172,8 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/library/games/save-state/screenshot?id=&slot=` | a save state's screenshot | `FileResponse` (the detail-page thumbnail) |
 | `DELETE /api/library/games/save-states?id=&slot=` | delete a save state | removes the slot's files |
 | `GET /api/library/continue` | the unified "Jump back in" shelf | merges in-progress reading items + recently-played games (newest save), newest first; skips entries whose file is gone |
-| `GET /api/library/reading-progress/item?section=&id=` | one item's saved page | the reader fetches this on open to resume |
-| `PUT /api/library/reading-progress` | save reading position (upsert) | body `{section,id,page,total}`; validated against a real item |
+| `GET /api/library/reading-progress/item?section=&id=` | one item's saved position (page/total or locator/fraction) | the reader fetches this on open to resume |
+| `PUT /api/library/reading-progress` | save reading position (upsert) | body `{section,id,page,total}` (PDF) or `{section,id,locator,fraction}` (ebook); validated against a real item |
 | `DELETE /api/library/reading-progress?section=&id=` | remove a document from the shelf | clears its bookmark |
 | `DELETE /api/library/games/last-played?id=` | remove a game from the shelf | clears the marker; keeps the save files |
 
@@ -260,22 +260,24 @@ detail + posters are on-demand** from Plex (viewed occasionally, not searched �
 no reason to store long summaries or binary art). Posters are **proxied** through
 `/api/plex/art/{key}` so the Plex token never reaches the browser.
 
-## Library (owned content: games now; comics/books/papers later)
+## Library (owned content: games, papers, books; comics later)
 
 Where Plex streams *video*, the **Library** is the hub for content you **own and
-consume directly** — ROMs you play, and (later) comics, ebooks, and the PDFs from
-newspaper/magazine subscriptions — read/played **in-app**, mobile-first.
+consume directly** — ROMs you play, ebooks (EPUB/MOBI/AZW3), and the PDFs from
+newspaper/magazine subscriptions — read/played **in-app**, mobile-first (comics
+slot in next).
 
 **Section framework.** `app/library.py` (pure, unit-tested) defines an ordered
 list of **sections**, each with a content dir (a `.env` path under `RAID_MOUNT`,
 so the existing read-only RAID mount serves it — no extra mount), recognized file
 extensions, and per-item metadata. Sections so far: **games**
-(`.gb`/`.gbc` → the `gb` core, `.gba` → `gba`) and **papers** (Magazines &
-Papers — `.pdf`, read in-browser via PDF.js). A section also carries a
+(`.gb`/`.gbc` → the `gb` core, `.gba` → `gba`), **papers** (Magazines &
+Papers — `.pdf`, read in-browser via PDF.js), and **books** (EPUB/MOBI/AZW3 read
+via foliate-js, plus `.pdf` falling back to PDF.js). A section also carries a
 `title_style` (ROM filenames get the No-Intro cleanup; document names are kept
-verbatim) and a `reader` hint per format so the frontend knows which engine to
-open. Adding comics/books is a new SECTION entry + a dir setting, no router
-changes. `routers/library.py` is the thin HTTP layer: `/library` (hub summary),
+verbatim) and a `reader` hint per format (`pdf` | `epub`) so the frontend knows
+which engine to open. Adding a content type is a new SECTION entry + a dir
+setting, no router changes. `routers/library.py` is the thin HTTP layer: `/library` (hub summary),
 `/library/{section}` (browse list), and `/library/file` (stream). Sections
 degrade like everything else — `configured: false` when their dir is unset, so
 the hub shows a hint.
@@ -292,17 +294,24 @@ large scanned PDFs the reading sections will serve.
 **Engines run client-side; the server is just a file server.** Rendering happens
 on the device (an emulator core, or a reader), so the server stays a dumb byte-streamer
 no matter how much is played/read — and the work scales with the phone, not the
-box. The first engine is **EmulatorJS** (games); the **papers** section reads
-PDFs with **PDF.js** — lazily imported (its own chunk, not in the app shell), the
-*legacy* build for broad iOS support, rendering one page at a time to a canvas
-(fit-to-width) with swipe/buttons and a remembered last page (client-side for
-now, like Recently Played). Still planned: **foliate-js** (EPUB/MOBI/AZW3/CBZ)
-for ebooks/comics, and per-item **offline download** for airplane-mode reading.
-DRM-free content only.
+box. The engines: **EmulatorJS** (games); **PDF.js** for the **papers** section
+and any PDF book (lazily imported as its own chunk, *legacy* build for broad iOS
+support, rendering one page at a time to a canvas with swipe/buttons); and
+**foliate-js** for the **books** section's EPUB/MOBI/AZW3 — also lazily imported,
+it sniffs the format by magic bytes and parses MOBI/AZW3 itself, so there's **no
+server-side conversion**. `/library/read` is a small dispatcher that picks the
+reader from the item's `reader` hint. foliate renders each book into a `blob:`
+iframe that (a WebKit quirk) must run with `allow-scripts`, so a
+**Content-Security-Policy** on the app shell (`frontend/nginx.conf`) is the real
+boundary there — it allows our inline theme script and the reader's `blob:`
+iframe/styles/fonts, same-origin everything else. Still planned: CBZ comics and
+per-item **offline download** for airplane-mode reading. DRM-free content only.
 
 **"Jump back in" — one resume shelf across content types.** Reading position is
-server-side: the reader saves the page to a `reading_progress` table keyed by
-`(section, item_id)`, and games record a `game_progress` "last played" marker
+server-side in a `reading_progress` table keyed by `(section, item_id)`: PDFs
+bookmark by `page`/`total`, while ebooks (no stable pages) bookmark by a foliate
+location string (`locator`, a CFI) plus a 0..1 `fraction` — both readers
+self-resume on open. Games record a `game_progress` "last played" marker
 when a save state is written (the on-disk save dir is a *hash* of the game id,
 so this table holds the real id + core to resume + show art). Both **roam across
 devices** and ride the backup. The Library hub's **Jump back in** shelf merges

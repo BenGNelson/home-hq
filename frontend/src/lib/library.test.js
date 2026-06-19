@@ -7,6 +7,7 @@ import {
   saveStateShotUrl,
   playerSrc,
   resumeHref,
+  readerHref,
   groupByLabel,
   libraryHeadline,
 } from './library.js'
@@ -17,10 +18,26 @@ describe('resumeHref', () => {
       '/library/read?section=papers&id=a.pdf'
     )
   })
+  it('carries the reader hint for an ebook reading entry', () => {
+    expect(resumeHref({ kind: 'read', section: 'books', id: 'Dune.epub', reader: 'epub' })).toBe(
+      '/library/read?section=books&id=Dune.epub&reader=epub'
+    )
+  })
   it('routes a play entry to the player with its save slot', () => {
     expect(
       resumeHref({ kind: 'play', id: 'Tetris.gb', core: 'gb', name: 'Tetris', slot: '123' })
     ).toBe('/library/play?id=Tetris.gb&core=gb&name=Tetris&slot=123')
+  })
+})
+
+describe('readerHref', () => {
+  it('builds a reader route with the item reader hint', () => {
+    expect(readerHref('books', { id: 'sub/Dune.epub', reader: 'epub' })).toBe(
+      '/library/read?section=books&id=sub%2FDune.epub&reader=epub'
+    )
+  })
+  it('omits the reader param when the item has none', () => {
+    expect(readerHref('papers', { id: 'a.pdf' })).toBe('/library/read?section=papers&id=a.pdf')
   })
 })
 

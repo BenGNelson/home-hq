@@ -120,11 +120,14 @@ CREATE TABLE IF NOT EXISTS plex_samples (
 );
 CREATE INDEX IF NOT EXISTS idx_plex_samples_ts ON plex_samples (ts);
 
--- Reading progress: where you are in a Library reading item (PDF page now;
--- other readers later). Keyed by (section, item_id) so it upserts. Powers the
--- "Continue reading" shelf and cross-device resume — server-side so it roams
--- and rides the backup. One row per opened item (bounded by library size), so
--- no retention prune. Nothing host-specific: just a relative item id + a page.
+-- Reading progress: where you are in a Library reading item. PDFs bookmark by
+-- page/total; ebooks (EPUB/MOBI via foliate-js) have no stable pages, so they
+-- bookmark by a location string (`locator`, a foliate CFI) + a 0..1 `fraction`
+-- (page stays 0 for them — see set_reading_progress). Keyed by (section,
+-- item_id) so it upserts. Powers the "Continue reading" shelf and cross-device
+-- resume — server-side so it roams and rides the backup. One row per opened item
+-- (bounded by library size), so no retention prune. Nothing host-specific: just
+-- a relative item id + a position. (locator/fraction added via _MIGRATIONS.)
 CREATE TABLE IF NOT EXISTS reading_progress (
     section    TEXT NOT NULL,
     item_id    TEXT NOT NULL,
@@ -181,6 +184,11 @@ _MIGRATIONS = [
     "ALTER TABLE media_items ADD COLUMN episode_num INTEGER",
     "ALTER TABLE media_items ADD COLUMN show_title TEXT",
     "ALTER TABLE media_items ADD COLUMN grandparent_key TEXT",
+    # Reading progress for ebooks: PDFs bookmark by page/total; EPUB/MOBI have no
+    # stable pages, so they bookmark by an exact location string (foliate-js CFI)
+    # + a 0..1 read fraction. Both nullable — a PDF row leaves them NULL.
+    "ALTER TABLE reading_progress ADD COLUMN locator TEXT",
+    "ALTER TABLE reading_progress ADD COLUMN fraction REAL",
 ]
 
 
@@ -468,18 +476,25 @@ def set_meta(key, value):
         )
 
 
-def set_reading_progress(section, item_id, page, total=None, now_ms=None):
-    """Upsert where the reader is in an item (the saved page IS the bookmark)."""
+def set_reading_progress(
+    section, item_id, page=None, total=None, locator=None, fraction=None, now_ms=None
+):
+    """Upsert where the reader is in an item (the saved position IS the bookmark).
+    PDFs pass page/total; ebooks pass locator (a foliate CFI) + fraction. `page`
+    is NOT NULL in the table, so an ebook (no page) stores 0 and resumes by
+    locator/fraction instead."""
     if now_ms is None:
         now_ms = int(time.time() * 1000)
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO reading_progress (section, item_id, page, total, updated_ms)"
-            " VALUES (?, ?, ?, ?, ?)"
+            "INSERT INTO reading_progress"
+            " (section, item_id, page, total, locator, fraction, updated_ms)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)"
             " ON CONFLICT(section, item_id) DO UPDATE SET"
             " page = excluded.page, total = excluded.total,"
+            " locator = excluded.locator, fraction = excluded.fraction,"
             " updated_ms = excluded.updated_ms",
-            (section, item_id, page, total, now_ms),
+            (section, item_id, page or 0, total, locator, fraction, now_ms),
         )
 
 
@@ -487,20 +502,24 @@ def get_reading_progress(section, item_id):
     """One item's saved position, or None."""
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT section, item_id, page, total, updated_ms FROM reading_progress"
-            " WHERE section = ? AND item_id = ?",
+            "SELECT section, item_id, page, total, locator, fraction, updated_ms"
+            " FROM reading_progress WHERE section = ? AND item_id = ?",
             (section, item_id),
         ).fetchone()
         return dict(row) if row else None
 
 
 def list_reading_progress(min_page=2, limit=50):
-    """In-progress items (past the first page = actually started), newest first —
-    for the Continue Reading shelf."""
+    """In-progress items (actually started, not just opened), newest first — for
+    the Continue Reading shelf. "Started" = past the first PDF page OR any ebook
+    read fraction above zero (ebooks store page 0, so the page test alone would
+    miss them)."""
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT section, item_id, page, total, updated_ms FROM reading_progress"
-            " WHERE page >= ? ORDER BY updated_ms DESC LIMIT ?",
+            "SELECT section, item_id, page, total, locator, fraction, updated_ms"
+            " FROM reading_progress"
+            " WHERE page >= ? OR (fraction IS NOT NULL AND fraction > 0)"
+            " ORDER BY updated_ms DESC LIMIT ?",
             (min_page, limit),
         ).fetchall()
         return [dict(r) for r in rows]
