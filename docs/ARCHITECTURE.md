@@ -866,3 +866,13 @@ Short record of *why* things are the way they are, so future changes have contex
   pages all return via a shared `components/BackLink.jsx` ("← Label", muted,
   `to` for a route or `onClick` for history-back) instead of each hand-rolling a
   styled `<Link>`. Keeps back navigation visually identical everywhere.
+- **GPU stats via the same host-script pattern (`/api/gpu`).** The backend
+  container has no GPU passthrough and no `nvidia-smi`, so it can't read GPU load
+  itself — exactly the SMART/VPN/Tailscale situation. A host timer
+  (`scripts/gpu-stats.py`) runs `nvidia-smi --query-gpu=…` and writes
+  `gpu.json`, which the backend reads via the existing read-only `/smart` mount
+  and shapes in a pure `summarize()`. The System dashboard widget adds a GPU +
+  VRAM bar fed by `/api/gpu`; the rows self-hide when it's unavailable, so the
+  open-source default (no GPU) shows nothing. We surface
+  `encoder.stats.sessionCount` (active NVENC sessions) rather than a flaky
+  encoder-% — on a Plex box "2 encode sessions" is the meaningful number.

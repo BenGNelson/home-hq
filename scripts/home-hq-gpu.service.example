@@ -1,0 +1,13 @@
+# Home HQ — NVIDIA GPU stats collector (oneshot, run by the timer).
+# Install: copy to /etc/systemd/system/home-hq-gpu.service and replace
+# /path/to/home-hq with the real checkout path. Reads `nvidia-smi`, which works
+# for any user on a host with the NVIDIA driver installed.
+[Unit]
+Description=Home HQ — collect NVIDIA GPU stats
+
+[Service]
+Type=oneshot
+ExecStart=/path/to/home-hq/scripts/gpu-stats.py
+# Override either of these if your setup differs:
+# Environment=NVIDIA_SMI_BIN=nvidia-smi
+# Environment=GPU_JSON=/var/lib/home-hq/gpu.json

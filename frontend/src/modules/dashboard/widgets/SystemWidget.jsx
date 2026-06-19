@@ -2,7 +2,12 @@ import { useApi } from '../../../lib/useApi.js'
 import { useNetworkRates } from '../../../lib/useRates.js'
 import { Row, Bar, SkeletonLine } from '../../../components/ui.jsx'
 import { formatBytes, formatRate, formatUptime } from '../../../lib/format.js'
+import { primaryGpu, gpuCaption } from '../../../lib/gpu.js'
 import Widget from './Widget.jsx'
+
+// GPU stats come from a separate host-timer source (/api/gpu); the rows below
+// only render when a GPU is reported, so installs without one show nothing.
+const MIB = 1024 * 1024
 
 // A placeholder shaped like the real body below (3 label/value rows + 2 bars),
 // so the card holds its height and the data swaps in without a jump. /system
@@ -39,6 +44,9 @@ export default function SystemWidget() {
   // The physical wired interface is the meaningful "real" throughput to show.
   const wired = Object.keys(rates).find((n) => n.startsWith('en') || n.startsWith('eth'))
   const net = wired ? rates[wired] : null
+  // Optional extra source — self-hides on installs without an NVIDIA GPU.
+  const gpuApi = useApi('/gpu', 5000)
+  const g = primaryGpu(gpuApi.data)
 
   return (
     <Widget title="System" loading={loading} error={error} skeleton={<SystemSkeleton />}>
@@ -65,6 +73,16 @@ export default function SystemWidget() {
             percent={data.memory.percent}
             caption={`${formatBytes(data.memory.used_bytes)} / ${formatBytes(data.memory.total_bytes)}`}
           />
+          {g && (
+            <>
+              <Bar label="GPU" percent={g.utilization_percent ?? 0} caption={gpuCaption(g)} />
+              <Bar
+                label="VRAM"
+                percent={g.memory_percent ?? 0}
+                caption={`${formatBytes((g.memory_used_mb ?? 0) * MIB)} / ${formatBytes((g.memory_total_mb ?? 0) * MIB)}`}
+              />
+            </>
+          )}
         </dl>
       )}
     </Widget>

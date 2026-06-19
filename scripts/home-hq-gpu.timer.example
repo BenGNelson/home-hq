@@ -1,0 +1,17 @@
+# Home HQ — refresh NVIDIA GPU stats periodically.
+# Install: copy to /etc/systemd/system/home-hq-gpu.timer, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now home-hq-gpu.timer
+# NOTE: systemd does not support trailing inline comments on a directive line —
+# keep comments on their own lines, or the value parse fails.
+[Unit]
+Description=Home HQ — periodic NVIDIA GPU stats refresh
+
+[Timer]
+# Every minute — GPU load/VRAM/encode sessions change fast, and the dashboard
+# polls /api/gpu every 5s, so keep the underlying snapshot fresh.
+OnCalendar=*:*:0
+# Catch up on the next boot if the machine was off at the scheduled time.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

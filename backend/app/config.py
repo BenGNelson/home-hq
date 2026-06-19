@@ -118,6 +118,12 @@ class Settings(BaseSettings):
     # binary/socket, so the host script runs `tailscale status --json` for it.
     tailscale_json_path: str = "/smart/tailscale.json"
 
+    # NVIDIA GPU stats written by a host timer (scripts/gpu-stats.py), read via
+    # the same /smart mount. The backend container has no GPU passthrough or
+    # nvidia-smi, so the host script runs it. Absent file -> the System widget
+    # simply hides its GPU rows (host-agnostic: most installs have no GPU).
+    gpu_json_path: str = "/smart/gpu.json"
+
     # --- Alerting (push notifications via ntfy) ---
     # Push lands on the phone over normal internet (no tailnet needed). The topic
     # name is a shared secret — use an unguessable one. Empty topic disables push.
