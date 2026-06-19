@@ -10,21 +10,6 @@ html {
 }
 
 /*
-  Search box rendered as a contenteditable (not <input>) so iOS Safari doesn't
-  draw the keyboard's prev/next/Done accessory bar over it. It needs a manual
-  placeholder (shown only while empty) and single-line behavior.
-*/
-.search-box {
-  white-space: nowrap;
-  overflow-x: auto;
-}
-.search-box:empty::before {
-  content: attr(data-placeholder);
-  color: var(--color-slate-500);
-  pointer-events: none;
-}
-
-/*
   In-app README viewer. The rendered markdown is styled by hand (rather than via
   the typography plugin) so it tracks the active theme through the same
   --color-slate-* / --color-emerald-* variables the rest of the app uses.
@@ -190,37 +175,7 @@ html {
   --color-emerald-600: #4f46e5;
 }
 
-/* Gunmetal — cool gray, a little darker than Slate Gray (no green tint). */
-:root[data-theme="gunmetal"] {
-  --color-slate-950: #14161a;
-  --color-slate-900: #1c1f23;
-  --color-slate-800: #282c32;
-  --color-slate-700: #383d45;
-  --color-slate-600: #4b525b;
-  --color-slate-500: #6a717b;
-  --color-slate-400: #969da7;
-  --color-slate-300: #bec4cb;
-  --color-slate-200: #d3d8de;
-  --color-slate-100: #e9ecef;
-  --color-slate-50:  #f5f6f8;
-}
-
-/* Slate Gray — cool, muted neutral (less blue than the default Slate). */
-:root[data-theme="slategray"] {
-  --color-slate-950: #17191c;
-  --color-slate-900: #202327;
-  --color-slate-800: #2c3036;
-  --color-slate-700: #3c424a;
-  --color-slate-600: #4f565f;
-  --color-slate-500: #6d747e;
-  --color-slate-400: #99a0aa;
-  --color-slate-300: #c0c6cd;
-  --color-slate-200: #d5dadf;
-  --color-slate-100: #eaedf0;
-  --color-slate-50:  #f6f7f9;
-}
-
-/* Onyx — cool gray, darker still (near-black with a faint blue, no green). */
+/* Onyx — cool gray, near-black with a faint blue undertone (no green). */
 :root[data-theme="onyx"] {
   --color-slate-950: #101216;
   --color-slate-900: #181b1f;
