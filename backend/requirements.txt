@@ -27,3 +27,8 @@ python-multipart>=0.0.9
 # Image processing — downscales + re-encodes box art / Plex posters to small
 # WebP thumbnails so the art grids load fast (see app/images.py).
 Pillow>=10.3
+
+# Comic archive reading — CBZ/CBR/CB7 are zip/rar/7z archives of page images.
+# libarchive handles all of them through one binding (needs the system
+# libarchive13 lib, installed in the Dockerfile). See app/comics.py.
+libarchive-c>=5.1
