@@ -152,6 +152,98 @@ def test_library_continue_merges_reading_and_games(
     assert all(i["id"] != gid for i in after)
 
 
+BOOKS = library.get_section("books")
+
+
+@pytest.fixture
+def books_dir(tmp_path, monkeypatch):
+    """A populated ebook dir wired into settings.books_dir."""
+    (tmp_path / "Dune.epub").write_bytes(b"PK\x03\x04epub")
+    (tmp_path / "Neuromancer.mobi").write_bytes(b"mobi")
+    (tmp_path / "Snow Crash.azw3").write_bytes(b"azw3")
+    (tmp_path / "A Manual.pdf").write_bytes(b"%PDF-1")
+    (tmp_path / "cover.jpg").write_bytes(b"not a book")  # ignored
+    monkeypatch.setattr(settings, "books_dir", str(tmp_path))
+    return tmp_path
+
+
+def test_books_section_lists_with_reader_hints(books_dir):
+    items = library.list_items(BOOKS, settings)
+    by_name = {it["name"]: it for it in items}
+    # Plain titles (real book names kept verbatim) + the right reader per format.
+    assert by_name["Dune"]["label"] == "EPUB" and by_name["Dune"]["reader"] == "epub"
+    assert by_name["Neuromancer"]["reader"] == "epub"  # MOBI uses the ebook reader
+    assert by_name["Snow Crash"]["reader"] == "epub"  # AZW3 too
+    assert by_name["A Manual"]["reader"] == "pdf"  # a PDF book falls back to PDF.js
+    assert "cover" not in by_name  # the .jpg is ignored
+
+
+def test_books_safe_path_blocks_unknown_ext_and_traversal(books_dir):
+    assert library.safe_path(BOOKS, settings, "Dune.epub")
+    assert library.safe_path(BOOKS, settings, "cover.jpg") is None
+    assert library.safe_path(BOOKS, settings, "../etc/passwd") is None
+
+
+def test_item_reader():
+    assert library.item_reader(BOOKS, "Dune.epub") == "epub"
+    assert library.item_reader(BOOKS, "A Manual.pdf") == "pdf"
+    assert library.item_reader(PAPERS, "x.pdf") == "pdf"
+    assert library.item_reader(GAMES, "Tetris.gb") is None  # play-kind, no reader
+
+
+def test_ebook_reading_progress_locator_fraction():
+    # Ebooks bookmark by locator (CFI) + fraction; page stays 0 for them.
+    db.set_reading_progress(
+        "books", "Dune.epub", locator="epubcfi(/6/4!/4/2)", fraction=0.42, now_ms=1000
+    )
+    row = db.get_reading_progress("books", "Dune.epub")
+    assert row["page"] == 0
+    assert row["locator"] == "epubcfi(/6/4!/4/2)"
+    assert row["fraction"] == 0.42
+    # An ebook with fraction > 0 is "started" → on the shelf even though page is 0.
+    assert any(r["item_id"] == "Dune.epub" for r in db.list_reading_progress())
+    # A just-opened ebook (fraction 0) is not on the shelf, mirroring page-1 PDFs.
+    db.set_reading_progress(
+        "books", "Fresh.epub", locator="epubcfi(/2)", fraction=0.0, now_ms=2000
+    )
+    assert all(r["item_id"] != "Fresh.epub" for r in db.list_reading_progress())
+
+
+def test_ebook_reading_progress_endpoints(client, books_dir):
+    bid = "Dune.epub"
+    assert (
+        client.put(
+            "/api/library/reading-progress",
+            json={"section": "books", "id": bid, "locator": "epubcfi(/6/4)", "fraction": 0.3},
+        ).status_code
+        == 200
+    )
+    saved = client.get(
+        "/api/library/reading-progress/item", params={"section": "books", "id": bid}
+    ).json()
+    assert saved["locator"] == "epubcfi(/6/4)" and saved["fraction"] == 0.3
+    # Neither page nor locator → nothing to save → 400.
+    assert (
+        client.put(
+            "/api/library/reading-progress",
+            json={"section": "books", "id": bid},
+        ).status_code
+        == 400
+    )
+
+
+def test_continue_includes_reader_for_read_entries(client, books_dir):
+    db.set_reading_progress(
+        "books", "Dune.epub", locator="epubcfi(/6)", fraction=0.5, now_ms=5000
+    )
+    entry = next(
+        i for i in client.get("/api/library/continue").json()["items"] if i["id"] == "Dune.epub"
+    )
+    assert entry["kind"] == "read"
+    assert entry["reader"] == "epub"
+    assert entry["locator"] == "epubcfi(/6)" and entry["fraction"] == 0.5
+
+
 @pytest.fixture
 def rom_dir(tmp_path, monkeypatch):
     """A populated ROM dir wired into settings.games_rom_dir."""

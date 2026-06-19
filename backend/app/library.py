@@ -57,6 +57,23 @@ SECTIONS = [
             ".pdf": {"label": "PDF", "reader": "pdf"},
         },
     },
+    {
+        "key": "books",
+        "label": "Books",
+        "icon": "📖",
+        "kind": "read",
+        "dir_setting": "books_dir",
+        # Real book titles, not No-Intro ROM names → keep them verbatim. EPUB /
+        # MOBI / AZW3 render client-side via foliate-js (the `epub` reader hint);
+        # a PDF book falls back to the PDF.js reader, same as Papers.
+        "title_style": "plain",
+        "formats": {
+            ".epub": {"label": "EPUB", "reader": "epub"},
+            ".mobi": {"label": "MOBI", "reader": "epub"},
+            ".azw3": {"label": "AZW3", "reader": "epub"},
+            ".pdf": {"label": "PDF", "reader": "pdf"},
+        },
+    },
 ]
 
 _SECTIONS_BY_KEY = {s["key"]: s for s in SECTIONS}
@@ -109,6 +126,12 @@ def display_name(section, item_id):
     real document names verbatim; otherwise apply the No-Intro ROM cleanup."""
     stem = os.path.splitext(os.path.basename(item_id))[0]
     return stem if section.get("title_style") == "plain" else clean_title(stem)
+
+
+def item_reader(section, item_id):
+    """The reader engine for an item id (e.g. 'pdf' or 'epub'), from its
+    extension's format metadata — or None for a play-kind / unknown item."""
+    return section["formats"].get(_ext(item_id), {}).get("reader")
 
 
 def sort_key(title):

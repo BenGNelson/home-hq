@@ -245,26 +245,34 @@ def delete_save_state(
 
 
 class ReadingProgressItemModel(BaseModel):
-    page: int | None = Field(default=None, description="Saved page, or null if none")
+    page: int | None = Field(default=None, description="Saved PDF page, or null if none")
     total: int | None = None
+    locator: str | None = Field(default=None, description="Ebook location string (foliate CFI)")
+    fraction: float | None = Field(default=None, description="Ebook read fraction (0..1)")
 
 
 class ReadingProgressUpdate(BaseModel):
     section: str
     id: str
-    page: int
+    # PDFs send page/total; ebooks send locator/fraction. One pair is required.
+    page: int | None = None
     total: int | None = None
+    locator: str | None = None
+    fraction: float | None = None
 
 
 class ContinueEntry(BaseModel):
-    kind: str = Field(description="'read' (resume to a page) or 'play' (resume a save state)")
+    kind: str = Field(description="'read' (resume to a position) or 'play' (resume a save state)")
     section: str
     id: str
     name: str
     updated_ms: int
     # read-kind fields
+    reader: str | None = Field(default=None, description="Reader engine ('pdf' | 'epub')")
     page: int | None = None
     total: int | None = None
+    locator: str | None = None
+    fraction: float | None = None
     # play-kind fields
     core: str | None = None
     slot: str | None = Field(default=None, description="Newest save-state slot to resume")
@@ -292,8 +300,11 @@ def library_continue():
                 "section": row["section"],
                 "id": row["item_id"],
                 "name": library.display_name(section_def, row["item_id"]),
+                "reader": library.item_reader(section_def, row["item_id"]),
                 "page": row["page"],
                 "total": row["total"],
+                "locator": row["locator"],
+                "fraction": row["fraction"],
                 "updated_ms": row["updated_ms"],
             }
         )
@@ -333,21 +344,38 @@ def reading_progress_item(
     section: str = Query(description="Section key"),
     id: str = Query(description="Item id"),
 ):
-    """One item's saved page — the reader fetches this on open to resume."""
+    """One item's saved position — the reader fetches this on open to resume
+    (PDFs use page; ebooks use locator/fraction)."""
     row = db.get_reading_progress(section, id)
-    return {"page": row["page"], "total": row["total"]} if row else {"page": None}
+    if not row:
+        return {"page": None}
+    return {
+        "page": row["page"],
+        "total": row["total"],
+        "locator": row["locator"],
+        "fraction": row["fraction"],
+    }
 
 
 @router.put("/library/reading-progress")
 def reading_progress_update(body: ReadingProgressUpdate):
     """Save where the reader is (upsert). Validated against a real item so a bad
-    client can't pollute the shelf."""
+    client can't pollute the shelf. A PDF sends page (>=1); an ebook sends a
+    locator — one or the other is required."""
     section_def = library.get_section(body.section)
     if not section_def or not library.safe_path(section_def, settings, body.id):
         return Response(status_code=404)
-    if body.page < 1:
+    has_page = body.page is not None and body.page >= 1
+    if not has_page and not body.locator:
         return Response(status_code=400)
-    db.set_reading_progress(body.section, body.id, body.page, body.total)
+    db.set_reading_progress(
+        body.section,
+        body.id,
+        page=body.page,
+        total=body.total,
+        locator=body.locator,
+        fraction=body.fraction,
+    )
     return {"ok": True}
 
 

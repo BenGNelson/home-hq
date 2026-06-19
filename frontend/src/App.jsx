@@ -11,6 +11,7 @@ import GamesList from './modules/library/GamesList.jsx'
 import GameDetail from './modules/library/GameDetail.jsx'
 import Player from './modules/library/Player.jsx'
 import PapersList from './modules/library/PapersList.jsx'
+import BooksList from './modules/library/BooksList.jsx'
 import Reader from './modules/library/Reader.jsx'
 import Containers from './modules/containers/Containers.jsx'
 import Printer from './modules/printer/Printer.jsx'
@@ -79,6 +80,7 @@ export default function App() {
         <Route path="/library/games/detail" element={<GameDetail />} />
         <Route path="/library/play" element={<Player />} />
         <Route path="/library/papers" element={<PapersList />} />
+        <Route path="/library/books" element={<BooksList />} />
         <Route path="/library/read" element={<Reader />} />
         <Route path="/containers" element={<Containers />} />
         <Route path="/printer" element={<Printer />} />

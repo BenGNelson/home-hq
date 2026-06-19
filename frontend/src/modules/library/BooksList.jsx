@@ -3,10 +3,12 @@ import { useApi } from '../../lib/useApi.js'
 import { formatSize } from '../../lib/format.js'
 import { readerHref } from '../../lib/library.js'
 
-// The Magazines & Papers section: a tappable list of PDFs opened in the in-app
-// reader. Plain rows (no cover art) — mobile-first, big tap targets.
-export default function PapersList() {
-  const { data, error, loading } = useApi('/library/papers', 30000)
+// The Books section: a tappable list of ebooks (EPUB/MOBI/AZW3, and PDFs)
+// opened in the in-app reader. Plain rows — mobile-first, big tap targets. The
+// reader engine is chosen per item (readerHref carries its `reader` hint, so an
+// EPUB opens in foliate-js and a PDF book in the PDF reader).
+export default function BooksList() {
+  const { data, error, loading } = useApi('/library/books', 30000)
   const navigate = useNavigate()
 
   return (
@@ -14,14 +16,14 @@ export default function PapersList() {
       <Link to="/library" className="text-sm text-slate-400 hover:text-slate-200">
         ← Library
       </Link>
-      <h2 className="text-xl font-semibold">Magazines &amp; Papers</h2>
+      <h2 className="text-xl font-semibold">Books</h2>
 
       {loading && !data && <p className="text-sm text-slate-500">loading…</p>}
       {error && <p className="text-sm text-rose-400">unavailable — {error}</p>}
 
       {data && data.configured === false && <NotConfigured />}
       {data && data.configured && data.count === 0 && (
-        <p className="text-sm text-slate-400">Nothing here yet — drop some PDFs in the folder.</p>
+        <p className="text-sm text-slate-400">Nothing here yet — drop some ebooks in the folder.</p>
       )}
 
       {data && data.count > 0 && (
@@ -29,15 +31,16 @@ export default function PapersList() {
           {data.items.map((it) => (
             <li key={it.id}>
               <button
-                onClick={() => navigate(readerHref('papers', it))}
+                onClick={() => navigate(readerHref('books', it))}
                 className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-slate-800"
               >
-                <span className="text-xl">📄</span>
+                <span className="text-xl">📖</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-slate-100">{it.name}</span>
-                  {it.size != null && (
-                    <span className="block text-xs text-slate-500">{formatSize(it.size)}</span>
-                  )}
+                  <span className="block text-xs text-slate-500">
+                    {it.label}
+                    {it.size != null && ` · ${formatSize(it.size)}`}
+                  </span>
                 </span>
                 <span className="shrink-0 text-slate-600">›</span>
               </button>
@@ -52,11 +55,11 @@ export default function PapersList() {
 function NotConfigured() {
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
-      <p className="text-amber-400">No Magazines &amp; Papers folder configured.</p>
+      <p className="text-amber-400">No Books folder configured.</p>
       <p className="mt-2 text-sm text-slate-400">
-        Set <code className="rounded bg-slate-800 px-1">PAPERS_DIR</code> (a folder of PDFs under
-        your storage mount) in <code className="rounded bg-slate-800 px-1">.env</code>. See the
-        Server Guide.
+        Set <code className="rounded bg-slate-800 px-1">BOOKS_DIR</code> (a folder of EPUB/MOBI/AZW3
+        files under your storage mount) in <code className="rounded bg-slate-800 px-1">.env</code>.
+        See the Server Guide.
       </p>
     </div>
   )

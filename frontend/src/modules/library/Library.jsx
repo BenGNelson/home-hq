@@ -82,7 +82,7 @@ function ContinueCard({ entry, onResume, onRemove }) {
   const isPlay = entry.kind === 'play'
   const sub = isPlay
     ? `saved ${formatAgo(entry.updated_ms / 1000)}`
-    : progressLabel(entry.page, entry.total)
+    : progressLabel(entry.page, entry.total, entry.fraction)
 
   return (
     <div className="relative w-28 shrink-0">
@@ -100,7 +100,9 @@ function ContinueCard({ entry, onResume, onRemove }) {
           <span className="mt-1 block h-1 overflow-hidden rounded bg-slate-800">
             <span
               className="block h-full bg-sky-500"
-              style={{ width: `${Math.round(progressFraction(entry.page, entry.total) * 100)}%` }}
+              style={{
+                width: `${Math.round(progressFraction(entry.page, entry.total, entry.fraction) * 100)}%`,
+              }}
             />
           </span>
         )}
