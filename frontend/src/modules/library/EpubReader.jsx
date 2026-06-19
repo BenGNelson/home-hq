@@ -3,6 +3,29 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { fileUrl } from '../../lib/library.js'
 import { API_BASE } from '../../lib/useApi.js'
 
+// Reading theme injected into the book document via foliate's renderer.setStyles
+// (which foliate re-applies on every section load, so it sticks across pages).
+// A book often hard-codes black text, which is invisible on a dark page — so we
+// FORCE a comfortable dark theme (dark page, light text) regardless of the app
+// theme: light text on html/body, descendants inherit it (overriding hard-coded
+// colors) with transparent backgrounds (no stray white boxes), and links stay
+// distinguishable. Images/SVG keep their own pixels. !important is required to
+// beat the book's own stylesheet.
+const READER_CSS = `
+  @namespace epub "http://www.idpf.org/2007/ops";
+  html, body {
+    color: #e2e8f0 !important;
+    background-color: #0f172a !important;
+  }
+  body * {
+    color: inherit !important;
+    background-color: transparent !important;
+    border-color: currentColor;
+  }
+  a:link, a:visited, a:link *, a:visited * { color: #93c5fd !important; }
+  img, svg, video, picture { background-color: transparent !important; }
+`
+
 // In-app reader for EPUB / MOBI / AZW3 (the Books section). foliate-js renders
 // every one of these client-side — its makeBook() sniffs the format by magic
 // bytes and routes MOBI/AZW3 through its built-in parser, so there's NO
@@ -83,6 +106,7 @@ export default function EpubReader() {
         if (cancelled) return
         viewRef.current = view
         view.renderer?.setAttribute('flow', 'paginated')
+        view.renderer?.setStyles?.(READER_CSS) // force a readable dark theme
 
         // Resume where we left off (server-side, roams across devices).
         let saved = null
