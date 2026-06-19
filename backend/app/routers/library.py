@@ -86,7 +86,26 @@ def get_library_file(
     path = library.safe_path(section_def, settings, id)
     if not path:
         return Response(status_code=404)
-    return FileResponse(path, media_type="application/octet-stream")
+    return FileResponse(path, media_type=_media_type(id))
+
+
+# Audio needs a correct MIME type to play in an <audio> element (iOS Safari is
+# strict). ROMs/PDFs/EPUBs are read as bytes by their engines, so octet-stream is
+# fine for them; only audio must be labelled precisely.
+_AUDIO_TYPES = {
+    ".mp3": "audio/mpeg",
+    ".m4a": "audio/mp4",
+    ".m4b": "audio/mp4",
+    ".aac": "audio/aac",
+    ".ogg": "audio/ogg",
+    ".opus": "audio/ogg",
+    ".flac": "audio/flac",
+    ".wav": "audio/wav",
+}
+
+
+def _media_type(item_id: str) -> str:
+    return _AUDIO_TYPES.get(os.path.splitext(item_id)[1].lower(), "application/octet-stream")
 
 
 # Art is content-addressed (cover by sha1 of its source URL) and rarely
@@ -262,7 +281,7 @@ class ReadingProgressUpdate(BaseModel):
 
 
 class ContinueEntry(BaseModel):
-    kind: str = Field(description="'read' (resume to a position) or 'play' (resume a save state)")
+    kind: str = Field(description="'read' (to a position), 'play' (a save state), or 'listen' (an audiobook)")
     section: str
     id: str
     name: str
@@ -276,6 +295,9 @@ class ContinueEntry(BaseModel):
     # play-kind fields
     core: str | None = None
     slot: str | None = Field(default=None, description="Newest save-state slot to resume")
+    # listen-kind fields
+    chapter_id: str | None = None
+    position_s: float | None = None
 
 
 class ContinueModel(BaseModel):
@@ -331,6 +353,22 @@ def library_continue():
                 "core": row["core"],
                 "slot": states[0]["slot"],
                 "updated_ms": states[0]["created_ms"],
+            }
+        )
+    # Audiobooks in progress (resume the book → its saved chapter + position).
+    for row in db.list_listen_progress():
+        book_id = row["book_id"]
+        if not _folder_exists("audiobooks", book_id):
+            continue  # book folder gone
+        entries.append(
+            {
+                "kind": "listen",
+                "section": "audiobooks",
+                "id": book_id,
+                "name": book_id.rsplit("/", 1)[-1],
+                "chapter_id": row["chapter_id"],
+                "position_s": row["position_s"],
+                "updated_ms": row["updated_ms"],
             }
         )
     entries.sort(key=lambda e: e["updated_ms"], reverse=True)
@@ -446,6 +484,49 @@ def remove_pin(
 ):
     """Unpin a folder."""
     removed = db.remove_pin(section, path)
+    return Response(status_code=204 if removed else 404)
+
+
+# --- audiobook listening position -----------------------------------------
+# A book is a folder of chapter files; resume = which chapter (its item id) +
+# seconds into it. Keyed by the book folder path so there's one position per book.
+
+
+class ListenProgressModel(BaseModel):
+    chapter_id: str | None = None
+    position_s: float | None = None
+
+
+class ListenProgressUpdate(BaseModel):
+    book_id: str = Field(description="The book folder path")
+    chapter_id: str = Field(description="The currently-playing chapter's item id")
+    position_s: float = Field(ge=0, description="Seconds into the chapter")
+
+
+@router.get("/library/listen-progress", response_model=ListenProgressModel)
+def listen_progress_item(book: str = Query(description="The book folder path")):
+    """The saved position for an audiobook — the player fetches this on open."""
+    row = db.get_listen_progress(book)
+    if not row:
+        return {"chapter_id": None}
+    return {"chapter_id": row["chapter_id"], "position_s": row["position_s"]}
+
+
+@router.put("/library/listen-progress")
+def listen_progress_update(body: ListenProgressUpdate):
+    """Save the listening position (upsert). The chapter must be a real audiobook
+    file (traversal-guarded), so a bad client can't pollute the shelf."""
+    audiobooks = library.get_section("audiobooks")
+    if not audiobooks or not library.safe_path(audiobooks, settings, body.chapter_id):
+        return Response(status_code=404)
+    db.set_listen_progress(body.book_id, body.chapter_id, body.position_s)
+    return {"ok": True}
+
+
+@router.delete("/library/listen-progress")
+def listen_progress_delete(book: str = Query(description="The book folder path")):
+    """Drop an audiobook from Jump Back In (clears its saved position)."""
+    removed = db.delete_listen_progress(book)
     return Response(status_code=204 if removed else 404)
 
 

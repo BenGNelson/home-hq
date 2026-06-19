@@ -76,6 +76,28 @@ SECTIONS = [
         },
     },
     {
+        "key": "audiobooks",
+        "label": "Audiobooks",
+        "icon": "🎧",
+        "kind": "listen",
+        "dir_setting": "audiobooks_dir",
+        # A book = a folder of ordered audio files (its chapters). Real names kept
+        # verbatim. Streamed by the existing range-capable /library/file; the
+        # browser <audio> element + Media Session drive playback. (Audible .aa/.aax
+        # are DRM and won't play in a browser, so they're not recognized.)
+        "title_style": "plain",
+        "formats": {
+            ".mp3": {"label": "Audio"},
+            ".m4a": {"label": "Audio"},
+            ".m4b": {"label": "Audio"},
+            ".aac": {"label": "Audio"},
+            ".ogg": {"label": "Audio"},
+            ".opus": {"label": "Audio"},
+            ".flac": {"label": "Audio"},
+            ".wav": {"label": "Audio"},
+        },
+    },
+    {
         "key": "comics",
         "label": "Comics",
         "icon": "🦸",

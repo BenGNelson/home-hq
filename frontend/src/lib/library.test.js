@@ -13,6 +13,8 @@ import {
   searchComics,
   folderCrumbs,
   pinLabel,
+  naturalCompare,
+  formatTime,
   comicPageUrl,
   comicCoverUrl,
   libraryHeadline,
@@ -45,6 +47,26 @@ describe('resumeHref', () => {
     expect(
       resumeHref({ kind: 'play', id: 'Tetris.gb', core: 'gb', name: 'Tetris', slot: '123' })
     ).toBe('/library/play?id=Tetris.gb&core=gb&name=Tetris&slot=123')
+  })
+  it('routes a listen entry to the audiobook player at the book path', () => {
+    expect(resumeHref({ kind: 'listen', id: 'Orwell/Animal Farm' })).toBe(
+      '/library/audiobooks?path=Orwell%2FAnimal%20Farm'
+    )
+  })
+})
+
+describe('naturalCompare', () => {
+  it('orders embedded numbers numerically', () => {
+    expect(['ch10', 'ch2', 'ch1'].sort(naturalCompare)).toEqual(['ch1', 'ch2', 'ch10'])
+  })
+})
+
+describe('formatTime', () => {
+  it('formats seconds as m:ss / h:mm:ss', () => {
+    expect(formatTime(0)).toBe('0:00')
+    expect(formatTime(65)).toBe('1:05')
+    expect(formatTime(3725)).toBe('1:02:05')
+    expect(formatTime(NaN)).toBe('0:00')
   })
 })
 

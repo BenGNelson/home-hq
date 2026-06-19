@@ -52,7 +52,7 @@ const ENDPOINTS = [
     '/api/plex · …',
     'Status (streams/transcodes), now-playing sessions, recently added, libraries, background sync, cached library items & show episodes, on-demand item detail, and a poster proxy.',
   ],
-  ['/api/library · /{section} · /file · /games/cover · /books/cover · /comics/info · /comics/page · /games/save-states · /reading-progress · /continue', 'The owned-content hub: sections + counts (games, books, comics, magazines & papers), a section’s items, a range-capable traversal-guarded file stream (used by the emulator and the PDF + ebook readers), proxied/cached game box art and book covers, comic page count + per-page extraction (each comic page pulled from its CBZ/CBR/CB7 archive on the server, downscaled to a cached WebP), server-side save states + reading position + pinned folders (all roam across devices), and the unified "Jump back in" shelf that resumes books/comics/documents (to your spot) and games (into the last save state).'],
+  ['/api/library · /{section} · /file · /games/cover · /books/cover · /comics/page · /listen-progress · /reading-progress · /continue', 'The owned-content hub: sections + counts (games, books, comics, audiobooks, magazines & papers), a section’s items, a range-capable traversal-guarded file stream (used by the emulator, the PDF + ebook readers, and the audiobook player — audio gets a real MIME type so it plays on iOS), proxied/cached game box art and book covers, comic page count + per-page extraction (each comic page pulled from its CBZ/CBR/CB7 archive on the server, downscaled to a cached WebP), server-side save states + reading + listening position + pinned folders (all roam across devices), and the unified "Jump back in" shelf that resumes books/comics/documents (to your spot), audiobooks (chapter + position), and games (into the last save state).'],
 ]
 
 // Plain-language one-liners for the tools named on this page, so the guide
@@ -285,10 +285,15 @@ export default function Guide() {
           archive of page images that browsers can't open (RAR/7z), so the server
           extracts and shrinks each page on demand and the reader is a simple
           page-by-page viewer — big libraries are browsed by series.
-          Your <strong>reading position roams across devices</strong> (saved on the
-          server: PDFs and comics by page, ebooks by an exact location), and a unified{' '}
-          <strong>Jump back in</strong> shelf resumes books, comics, documents, and games
-          from one place. (foliate renders a book in a sandboxed frame, so a{' '}
+          <strong>Audiobooks</strong> are a folder of chapter files played by an
+          in-app audio player — chapters auto-advance, it keeps playing with the
+          screen locked, and the iOS lock-screen / Control-Center controls work
+          (via the Media Session API).
+          Your <strong>position roams across devices</strong> (saved on the
+          server: PDFs and comics by page, ebooks by an exact location, audiobooks
+          by chapter + seconds), and a unified{' '}
+          <strong>Jump back in</strong> shelf resumes books, comics, documents,
+          audiobooks, and games from one place. (foliate renders a book in a sandboxed frame, so a{' '}
           <strong>Content-Security-Policy</strong> on the app is the guardrail there.)
           DRM-free files only.
         </p>

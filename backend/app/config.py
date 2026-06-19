@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     # Comics = CBZ/CBR/CB7 archives of page images, read page-by-page in the
     # browser (the backend extracts + downscales each page; see app/comics.py).
     comics_dir: str = ""
+    # Audiobooks = folders of ordered audio files (a book = a folder, its files =
+    # chapters), played in-browser by the audio player. Streamed via the same
+    # range-capable /library/file, so no special endpoint.
+    audiobooks_dir: str = ""
     # Books search index: a background worker parses each ebook's embedded
     # title/author into a small text-only SQLite cache so Books is searchable by
     # title or author. Set false to disable; interval is how often it re-scans
