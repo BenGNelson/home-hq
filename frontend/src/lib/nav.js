@@ -22,3 +22,18 @@ export function groupModules(modules) {
   }
   return order.map((group) => ({ group, items: byGroup.get(group) }))
 }
+
+// The module a given route belongs to, by longest matching path prefix — so a
+// deep route (e.g. /plex/movie/123) resolves to its section ("Plex"), and a
+// more specific entry (/plex/insights) wins over its parent (/plex). Returns
+// null when nothing matches. The shell uses the result's `label` as the page
+// title in the top bar. External links (no client route) never match.
+export function activeModule(modules, pathname) {
+  let best = null
+  for (const m of modules) {
+    if (m.external || !m.path) continue
+    const isMatch = pathname === m.path || pathname.startsWith(m.path + '/')
+    if (isMatch && (!best || m.path.length > best.path.length)) best = m
+  }
+  return best
+}

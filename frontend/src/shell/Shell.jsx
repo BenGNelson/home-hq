@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useApi } from '../lib/useApi.js'
-import { groupModules, FOOTER_GROUP } from '../lib/nav.js'
+import { groupModules, activeModule, FOOTER_GROUP } from '../lib/nav.js'
 import ThemePicker from './ThemePicker.jsx'
 
 // A live health indicator: green when the API answers, red when it doesn't.
@@ -87,6 +87,10 @@ export default function Shell({ modules, children }) {
   const navSections = sections.filter((s) => s.group !== FOOTER_GROUP)
   const footer = sections.find((s) => s.group === FOOTER_GROUP)
 
+  // The current section's name, shown in the top bar on every screen — so the
+  // bar always has a purpose and pages no longer each render their own title.
+  const title = activeModule(modules, location.pathname)?.label ?? ''
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-950 text-slate-100">
       {/* Backdrop — only on mobile while the drawer is open. */}
@@ -126,26 +130,24 @@ export default function Shell({ modules, children }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Top bar — persistent so the theme picker sits top-right on every
-            screen. The hamburger + title only appear on mobile (where the
-            sidebar is a drawer); on md+ only the theme control shows. */}
+        {/* Top bar — persistent on every screen. The hamburger only shows on
+            mobile (where the sidebar is a drawer); the current section title
+            fills the bar everywhere, and the theme control sits top-right. */}
         <header className="flex items-center gap-3 border-b border-slate-800 bg-slate-900/50 px-4 pb-3 [padding-top:calc(env(safe-area-inset-top)+0.75rem)]">
-          <div className="flex items-center gap-3 md:hidden">
-            <button
-              type="button"
-              onClick={() => setOpen((v) => !v)}
-              aria-label="Toggle navigation"
-              className="rounded-lg p-1 text-slate-300 hover:bg-slate-800"
-            >
-              {/* Hamburger */}
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="18" x2="21" y2="18" />
-              </svg>
-            </button>
-            <span className="text-base font-semibold tracking-tight">Home HQ</span>
-          </div>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-label="Toggle navigation"
+            className="rounded-lg p-1 text-slate-300 hover:bg-slate-800 md:hidden"
+          >
+            {/* Hamburger */}
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+          <h1 className="truncate text-lg font-semibold tracking-tight">{title}</h1>
           <div className="ml-auto">
             <ThemePicker />
           </div>

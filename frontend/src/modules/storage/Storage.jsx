@@ -27,7 +27,6 @@ export default function Storage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Storage</h2>
       <Capacity disk={disk.data} projection={trends.data?.projection} />
       <SpaceBreakdown />
       <RaidDetail raid={raid.data} />

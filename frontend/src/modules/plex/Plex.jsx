@@ -49,7 +49,6 @@ export default function Plex() {
 
   return (
     <div>
-      <h2 className="mb-4 text-xl font-semibold">Plex</h2>
 
       {/* Server status card */}
       <section className="mb-4 rounded-xl border border-slate-800 bg-slate-900/50 p-4">

@@ -150,7 +150,6 @@ function ContainerReference() {
 export default function Guide() {
   return (
     <div className="max-w-3xl">
-      <h2 className="mb-1 text-xl font-semibold">Under the Hood</h2>
       <p className="mb-4 text-xs text-slate-400">
         How the Home HQ <em>software</em> fits together — architecture, modules,
         and the tech behind them. (For how this <em>server</em> is set up, see the

@@ -44,8 +44,7 @@ export default function Alerts() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold">Alerts</h2>
+      <div className="mb-4 flex items-center justify-end gap-3">
         <button
           onClick={sendTest}
           disabled={test === 'sending' || !data?.configured}

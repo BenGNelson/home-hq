@@ -19,7 +19,6 @@ export default function Insights() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <h2 className="text-xl font-semibold">Plex insights</h2>
         <div className="ml-auto flex gap-1">
           {WINDOWS.map((w) => (
             <button
