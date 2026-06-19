@@ -1,8 +1,36 @@
 import { useApi } from '../../../lib/useApi.js'
 import { useNetworkRates } from '../../../lib/useRates.js'
-import { Row, Bar } from '../../../components/ui.jsx'
+import { Row, Bar, SkeletonLine } from '../../../components/ui.jsx'
 import { formatBytes, formatRate, formatUptime } from '../../../lib/format.js'
 import Widget from './Widget.jsx'
+
+// A placeholder shaped like the real body below (3 label/value rows + 2 bars),
+// so the card holds its height and the data swaps in without a jump. /system
+// blocks ~300ms server-side (cpu_percent), so this is the widget that visibly
+// flashed on every dashboard open.
+function SystemSkeleton() {
+  // Literal width classes only — Tailwind's JIT can't see interpolated ones.
+  const labelWidths = ['w-16', 'w-14', 'w-20']
+  return (
+    <dl className="space-y-3 text-sm" aria-hidden="true">
+      {labelWidths.map((w, i) => (
+        <div key={i} className="flex items-center justify-between">
+          <SkeletonLine className={`h-4 ${w}`} />
+          <SkeletonLine className="h-4 w-24" />
+        </div>
+      ))}
+      {[0, 1].map((i) => (
+        <div key={i}>
+          <div className="mb-1 flex items-center justify-between">
+            <SkeletonLine className="h-3 w-14" />
+            <SkeletonLine className="h-3 w-20" />
+          </div>
+          <SkeletonLine className="h-2 w-full rounded-full" />
+        </div>
+      ))}
+    </dl>
+  )
+}
 
 export default function SystemWidget() {
   const { data, error, loading } = useApi('/system', 5000)
@@ -13,7 +41,7 @@ export default function SystemWidget() {
   const net = wired ? rates[wired] : null
 
   return (
-    <Widget title="System" loading={loading} error={error}>
+    <Widget title="System" loading={loading} error={error} skeleton={<SystemSkeleton />}>
       {data && (
         <dl className="space-y-3 text-sm">
           <Row label="Host" value={data.server_name} />

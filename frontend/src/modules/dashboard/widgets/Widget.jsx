@@ -1,6 +1,35 @@
+import { useDelayedFlag } from '../../../lib/useDelayedFlag.js'
+
 // Shared frame for every dashboard widget: a titled card that renders one of
 // three states — error, loading (no data yet), or its children (the data).
-export default function Widget({ title, loading, error, className = '', children }) {
+//
+// A widget may pass a `skeleton` node shaped like its real body. While the
+// first load is in flight that skeleton fills the card (sized to match the real
+// content, so swapping data in causes no layout shift). It only fades in after
+// a short delay (useDelayedFlag), so a fast load never flashes a placeholder —
+// the slot still reserves the height immediately, so the card never collapses.
+// Widgets that pass no `skeleton` keep the original plain "loading…" text.
+export default function Widget({ title, loading, error, skeleton, className = '', children }) {
+  // The skeleton occupies the card whenever the first load is pending (no data,
+  // no error) and the widget opted in by providing one.
+  const skeletonPending = Boolean(skeleton) && loading && !error && !children
+  const revealed = useDelayedFlag(skeletonPending)
+
+  let body
+  if (error) {
+    body = <p className="text-sm text-rose-400">unavailable — {error}</p>
+  } else if (children) {
+    body = children
+  } else if (skeletonPending) {
+    body = (
+      <div className={`transition-opacity duration-150 ${revealed ? 'opacity-100' : 'opacity-0'}`}>
+        {skeleton}
+      </div>
+    )
+  } else {
+    body = <p className="text-sm text-slate-500">loading…</p>
+  }
+
   return (
     <section
       className={`rounded-xl border border-slate-800 bg-slate-900/50 p-4 ${className}`}
@@ -9,11 +38,7 @@ export default function Widget({ title, loading, error, className = '', children
         <h3 className="text-sm font-medium text-slate-300">{title}</h3>
         {loading && <span className="text-xs text-slate-500">…</span>}
       </header>
-      {error ? (
-        <p className="text-sm text-rose-400">unavailable — {error}</p>
-      ) : (
-        children || <p className="text-sm text-slate-500">loading…</p>
-      )}
+      {body}
     </section>
   )
 }

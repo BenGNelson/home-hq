@@ -10,6 +10,16 @@ export function Spinner({ label = 'loading…' }) {
   )
 }
 
+// A pulsing placeholder block — the building piece for skeleton loading states.
+// Size it with utility classes (w-/h-) to mirror the real content it stands in
+// for, so swapping the real data in causes no layout shift. Always pass a height
+// (no default, to avoid two conflicting h-* classes on one element).
+export function SkeletonLine({ className = '' }) {
+  return (
+    <span className={`block animate-pulse rounded bg-slate-700/60 ${className}`} />
+  )
+}
+
 // A label/value line.
 export function Row({ label, value }) {
   return (
