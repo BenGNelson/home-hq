@@ -6,23 +6,24 @@ import { API_BASE } from '../../lib/useApi.js'
 // Reading theme injected into the book document via foliate's renderer.setStyles
 // (which foliate re-applies on every section load, so it sticks across pages).
 // A book often hard-codes black text, which is invisible on a dark page — so we
-// FORCE a comfortable dark theme (dark page, light text) regardless of the app
-// theme: light text on html/body, descendants inherit it (overriding hard-coded
-// colors) with transparent backgrounds (no stray white boxes), and links stay
-// distinguishable. Images/SVG keep their own pixels. !important is required to
-// beat the book's own stylesheet.
+// FORCE a comfortable dark theme regardless of the book's own (or the app's)
+// styling: a neutral dark-GRAY page with light gray text (deliberately not the
+// app's blue-tinted slate — a calmer, modern reading surface), descendants
+// inherit the text color (overriding hard-coded colors) with transparent
+// backgrounds (no stray white boxes), and links stay distinguishable.
+// Images/SVG keep their own pixels. !important is required to beat the book CSS.
 const READER_CSS = `
   @namespace epub "http://www.idpf.org/2007/ops";
   html, body {
-    color: #e2e8f0 !important;
-    background-color: #0f172a !important;
+    color: #e5e5e5 !important;
+    background-color: #1c1c1c !important;
   }
   body * {
     color: inherit !important;
     background-color: transparent !important;
     border-color: currentColor;
   }
-  a:link, a:visited, a:link *, a:visited * { color: #93c5fd !important; }
+  a:link, a:visited, a:link *, a:visited * { color: #9cafcf !important; }
   img, svg, video, picture { background-color: transparent !important; }
 `
 
@@ -48,6 +49,7 @@ export default function EpubReader() {
   const saveTimer = useRef(null)
   const [status, setStatus] = useState('loading') // loading | ready | error
   const [percent, setPercent] = useState(null)
+  const [title, setTitle] = useState('')
 
   useEffect(() => {
     if (!section || !id) {
@@ -107,6 +109,8 @@ export default function EpubReader() {
         viewRef.current = view
         view.renderer?.setAttribute('flow', 'paginated')
         view.renderer?.setStyles?.(READER_CSS) // force a readable dark theme
+        // Show the book's real (embedded) title in the header, not the filename.
+        setTitle(bookTitle(view.book) || filename)
 
         // Resume where we left off (server-side, roams across devices).
         let saved = null
@@ -166,26 +170,30 @@ export default function EpubReader() {
 
   const filename = decodeURIComponent(id.split('/').pop() || '')
 
+  // Fixed neutral-gray chrome (not the app's blue-tinted theme) to match the
+  // dark-gray reading surface above.
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950">
+    <div className="fixed inset-0 z-50 flex flex-col bg-neutral-950">
       <div
-        className="flex items-center gap-3 bg-slate-900 px-3 py-2"
+        className="flex items-center gap-3 bg-neutral-900 px-3 py-2"
         style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
       >
         <button
           onClick={() => navigate(back)}
-          className="shrink-0 whitespace-nowrap rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 active:bg-slate-700"
+          className="shrink-0 whitespace-nowrap rounded bg-neutral-800 px-3 py-1.5 text-sm font-medium text-neutral-100 active:bg-neutral-700"
         >
           ✕ Close
         </button>
-        <span className="min-w-0 flex-1 truncate text-center text-sm text-slate-300">{filename}</span>
-        <span className="shrink-0 text-sm tabular-nums text-slate-400">
+        <span className="min-w-0 flex-1 truncate text-center text-sm text-neutral-300">
+          {title || filename}
+        </span>
+        <span className="shrink-0 text-sm tabular-nums text-neutral-400">
           {percent != null ? `${percent}%` : '…'}
         </span>
       </div>
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        {status === 'loading' && <p className="p-4 text-sm text-slate-500">loading…</p>}
+        {status === 'loading' && <p className="p-4 text-sm text-neutral-500">loading…</p>}
         {status === 'error' && (
           <p className="p-4 text-sm text-rose-400">
             Couldn’t open this book. DRM-protected files can’t be read in the browser.
@@ -195,23 +203,31 @@ export default function EpubReader() {
       </div>
 
       <div
-        className="flex items-center justify-between gap-3 bg-slate-900 px-3 py-2"
+        className="flex items-center justify-between gap-3 bg-neutral-900 px-3 py-2"
         style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
       >
         <button
           onClick={() => go(-1)}
-          className="rounded bg-slate-800 px-4 py-1.5 text-sm text-slate-100 active:bg-slate-700"
+          className="rounded bg-neutral-800 px-4 py-1.5 text-sm text-neutral-100 active:bg-neutral-700"
         >
           ‹ Prev
         </button>
-        <span className="text-xs text-slate-500">swipe or use the buttons</span>
+        <span className="text-xs text-neutral-500">swipe or use the buttons</span>
         <button
           onClick={() => go(1)}
-          className="rounded bg-slate-800 px-4 py-1.5 text-sm text-slate-100 active:bg-slate-700"
+          className="rounded bg-neutral-800 px-4 py-1.5 text-sm text-neutral-100 active:bg-neutral-700"
         >
           Next ›
         </button>
       </div>
     </div>
   )
+}
+
+// foliate's metadata.title can be a plain string or a language map ({en: "…"}).
+function bookTitle(book) {
+  const t = book?.metadata?.title
+  if (!t) return ''
+  if (typeof t === 'string') return t
+  return Object.values(t).find(Boolean) || ''
 }
