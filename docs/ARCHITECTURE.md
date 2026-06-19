@@ -845,3 +845,13 @@ Short record of *why* things are the way they are, so future changes have contex
   `hostNavLinks()` — self-hiding when unset, resolved against the current
   hostname so it works on the LAN or over Tailscale. Same generic mechanism is
   reusable for any future sibling app.
+- **Delayed, shape-matched loading skeletons (opt-in per widget).** Every
+  dashboard widget fetches its own endpoint on mount, so there's an unavoidable
+  null→data gap on first paint (the System widget's is the most visible — its
+  `/system` endpoint blocks ~300ms on `cpu_percent`). Rather than a bare
+  "loading…" line that pops in and shifts layout, a widget may pass the shared
+  `Widget` frame a `skeleton` node shaped like its real body; the frame reserves
+  that height immediately and fades the skeleton in only after a short delay
+  (`useDelayedFlag`), so a fast load never flashes a placeholder. It's opt-in —
+  widgets without a `skeleton` keep the plain text — so the pattern can spread
+  one widget at a time instead of all at once.
