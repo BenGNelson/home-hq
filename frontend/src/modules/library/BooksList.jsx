@@ -3,28 +3,39 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useApi, API_BASE } from '../../lib/useApi.js'
 import { readerHref, bookSubtitle } from '../../lib/library.js'
 
-// The Books section. With 10k+ books a flat list is unusable, so this is
-// search-first: type a title or author and matches appear (served from the
-// metadata index). An empty query shows the first results alphabetically as a
-// browseable default. Each result opens in the right reader (EPUB → foliate,
-// PDF → PDF.js) via its `reader` hint. Mobile-first, big tap targets.
+// The Books section. With 10k+ books a flat list is useless, so this is purely
+// search-driven: an empty box just prompts you to search, and results (from the
+// metadata index) only render once you type — no giant list to scroll, and no
+// odd/garbled titles surfaced by default. Each result opens in the right reader
+// (EPUB → foliate, PDF → PDF.js) via its `reader` hint. Mobile-first.
 export default function BooksList() {
   const [input, setInput] = useState('')
-  const [results, setResults] = useState(null) // {items,total,query}
+  const [results, setResults] = useState(null) // {items,total,query} | null
   const [error, setError] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
-  // Indexer progress — drives the "not configured" and "indexing…" states.
+  // Indexer status — gives the library size + the "not configured"/"indexing…" UI.
   const status = useApi('/library/books/index-status', 5000).data
+  const total = status?.indexed ?? 0
+  const notConfigured = status && status.configured === false
+  const indexing = status && status.running
 
-  // Debounced search that keeps the previous results visible while the next
-  // query is in flight (no flicker between keystrokes), and aborts stale calls.
+  // Search only when there's a term — keep previous results visible while the
+  // next query is in flight (no flicker) and abort stale calls. An empty box
+  // clears results so we show the prompt instead of a list.
   useEffect(() => {
+    const term = input.trim()
+    if (!term) {
+      setResults(null)
+      setError(null)
+      setLoading(false)
+      return
+    }
     const ctrl = new AbortController()
     const t = setTimeout(() => {
       setLoading(true)
-      fetch(`${API_BASE}/library/books/search?q=${encodeURIComponent(input.trim())}&limit=100`, {
+      fetch(`${API_BASE}/library/books/search?q=${encodeURIComponent(term)}&limit=100`, {
         signal: ctrl.signal,
       })
         .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
@@ -47,9 +58,6 @@ export default function BooksList() {
   }, [input])
 
   const items = results?.items ?? []
-  const total = results?.total ?? 0
-  const notConfigured = status && status.configured === false
-  const indexing = status && status.running
 
   return (
     <div className="space-y-4">
@@ -66,7 +74,9 @@ export default function BooksList() {
             type="search"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={total ? `Search ${total.toLocaleString()} books by title or author…` : 'Search books…'}
+            placeholder={
+              total ? `Search ${total.toLocaleString()} books by title or author…` : 'Search books…'
+            }
             autoFocus
             className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-slate-100 placeholder-slate-500 outline-none focus:border-slate-500"
           />
@@ -78,13 +88,20 @@ export default function BooksList() {
             </p>
           )}
 
-          {error && <p className="text-sm text-rose-400">search failed — {error}</p>}
-          {loading && !results && <p className="text-sm text-slate-500">loading…</p>}
-
-          {results && items.length === 0 && (
-            <p className="text-sm text-slate-400">
-              {input.trim() ? `No books match “${input.trim()}”.` : 'No books indexed yet.'}
+          {/* Empty box → a prompt, not a list. */}
+          {!input.trim() && (
+            <p className="px-1 pt-6 text-center text-sm text-slate-500">
+              {total
+                ? `Search your ${total.toLocaleString()} books by title or author.`
+                : 'Type to search your books.'}
             </p>
+          )}
+
+          {error && <p className="text-sm text-rose-400">search failed — {error}</p>}
+          {loading && !results && <p className="text-sm text-slate-500">searching…</p>}
+
+          {input.trim() && results && items.length === 0 && !loading && (
+            <p className="text-sm text-slate-400">No books match “{input.trim()}”.</p>
           )}
 
           {items.length > 0 && (

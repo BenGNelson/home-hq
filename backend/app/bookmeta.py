@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import struct
 import xml.etree.ElementTree as ET
+import unicodedata
 import zipfile
 
 _DC = "{http://purl.org/dc/elements/1.1/}"
@@ -33,11 +34,31 @@ _MOBI_ENCODINGS = {1252: "cp1252", 65001: "utf-8"}
 
 
 def _clean(s):
-    """Trim + collapse whitespace; return None for an empty/None value."""
+    """Sanitize a metadata string for display: drop U+FFFD replacement chars and
+    control/format chars (zero-width, etc.) that render as empty 'tofu' boxes on
+    some devices, then trim + collapse whitespace. Returns None if nothing usable
+    is left (so the caller falls back to the cleaned filename)."""
     if not s:
         return None
+    s = s.replace("�", "")
+    s = "".join(ch for ch in s if unicodedata.category(ch)[0] != "C")
     s = " ".join(s.split())
     return s or None
+
+
+def _decode_text(b, encoding):
+    """Decode bytes trying the declared encoding, then common fallbacks, each
+    STRICT — so a mis-declared encoding raises and we move on rather than
+    silently inserting U+FFFD replacement chars (the source of the 'tofu' boxes).
+    Last resort drops undecodable bytes instead of replacing them."""
+    for enc in (encoding, "utf-8", "cp1252"):
+        if not enc:
+            continue
+        try:
+            return b.decode(enc)
+        except (UnicodeDecodeError, LookupError):
+            continue
+    return b.decode("utf-8", "ignore")
 
 
 # --- EPUB -----------------------------------------------------------------
@@ -87,7 +108,7 @@ def parse_exth(rec0, mobi_header_len, encoding="utf-8"):
         if rlen < 8 or pos + rlen > len(rec0):
             break
         if rtype in (_EXTH_AUTHOR, _EXTH_TITLE) and rtype not in out:
-            out[rtype] = rec0[pos + 8 : pos + rlen].decode(encoding, "replace")
+            out[rtype] = _decode_text(rec0[pos + 8 : pos + rlen], encoding)
         pos += rlen
     return out
 
@@ -136,7 +157,7 @@ def _mobi_full_name(rec0, encoding):
         name_len = struct.unpack_from(">I", rec0, 16 + 88)[0]
         if name_len <= 0 or name_off + name_len > len(rec0):
             return None
-        return rec0[name_off : name_off + name_len].decode(encoding, "replace")
+        return _decode_text(rec0[name_off : name_off + name_len], encoding)
     except struct.error:
         return None
 
