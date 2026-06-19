@@ -57,9 +57,11 @@ function JumpBackIn() {
     const url =
       it.kind === 'play'
         ? `${API_BASE}/library/games/last-played?id=${encodeURIComponent(it.id)}`
-        : `${API_BASE}/library/reading-progress?section=${encodeURIComponent(
-            it.section
-          )}&id=${encodeURIComponent(it.id)}`
+        : it.kind === 'listen'
+          ? `${API_BASE}/library/listen-progress?book=${encodeURIComponent(it.id)}`
+          : `${API_BASE}/library/reading-progress?section=${encodeURIComponent(
+              it.section
+            )}&id=${encodeURIComponent(it.id)}`
     fetch(url, { method: 'DELETE' }).catch(() => {})
   }
 
@@ -82,13 +84,17 @@ function JumpBackIn() {
 
 function ContinueCard({ entry, onResume, onRemove }) {
   const isPlay = entry.kind === 'play'
+  const isListen = entry.kind === 'listen'
   // Books + comics have cover art (extracted from the file); show it like game
-  // box art. Papers (PDFs) have no cover source, so they keep the title tile.
+  // box art. Papers (PDFs) and audiobooks have no cover source (v1), so they
+  // keep a title / icon tile.
   const isBook = !isPlay && entry.section === 'books'
   const isComic = !isPlay && entry.section === 'comics'
   const sub = isPlay
     ? `saved ${formatAgo(entry.updated_ms / 1000)}`
-    : progressLabel(entry.page, entry.total, entry.fraction)
+    : isListen
+      ? `${formatAgo(entry.updated_ms / 1000)}`
+      : progressLabel(entry.page, entry.total, entry.fraction)
 
   return (
     <div className="relative w-28 shrink-0">
@@ -99,6 +105,10 @@ function ContinueCard({ entry, onResume, onRemove }) {
           <BookCover book={entry} className="w-full rounded-lg" />
         ) : isComic ? (
           <ComicCover comic={entry} className="w-full rounded-lg" />
+        ) : isListen ? (
+          <div className="flex aspect-[3/4] items-center justify-center rounded-lg bg-slate-800 text-3xl">
+            🎧
+          </div>
         ) : (
           <div className="flex aspect-[3/4] items-center justify-center rounded-lg bg-slate-800 p-2 text-center">
             <span className="line-clamp-5 text-xs font-medium text-slate-300">{entry.name}</span>
@@ -106,7 +116,7 @@ function ContinueCard({ entry, onResume, onRemove }) {
         )}
         <span className="mt-1 block truncate text-xs text-slate-200">{entry.name}</span>
         <span className="block truncate text-[11px] text-slate-500">{sub}</span>
-        {!isPlay && (
+        {!isPlay && !isListen && (
           <span className="mt-1 block h-1 overflow-hidden rounded bg-slate-800">
             <span
               className="block h-full bg-sky-500"

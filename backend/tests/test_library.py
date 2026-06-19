@@ -779,3 +779,68 @@ def test_pin_endpoints_validate_folder(client, comics_with_folder):
         "/api/library/pins", params={"section": "comics", "path": "Star Wars/Rebellion"}
     ).status_code == 204
     assert client.get("/api/library/pins").json()["pins"] == []
+
+
+# --- audiobooks -----------------------------------------------------------
+
+AUDIOBOOKS = library.get_section("audiobooks")
+
+
+@pytest.fixture
+def audiobooks_dir(tmp_path, monkeypatch):
+    d = tmp_path / "audiobooks"
+    book = d / "George Orwell - Animal Farm"
+    book.mkdir(parents=True)
+    for n in (1, 2, 3):
+        (book / f"Animal Farm (Disc {n} of 3).mp3").write_bytes(b"ID3audio")
+    (book / "cover.jpg").write_bytes(b"img")  # not an audio format → ignored
+    monkeypatch.setattr(settings, "audiobooks_dir", str(d))
+    return d
+
+
+def test_audiobooks_section_lists_chapters(audiobooks_dir):
+    items = library.list_items(AUDIOBOOKS, settings)
+    assert len(items) == 3  # the 3 mp3s; the .jpg is ignored
+    assert all(it["id"].startswith("George Orwell - Animal Farm/") for it in items)
+    assert all(it["id"].endswith(".mp3") for it in items)
+
+
+def test_listen_progress_db_roundtrip():
+    db.set_listen_progress("Book A", "Book A/ch2.mp3", 123.5, now_ms=100)
+    db.set_listen_progress("Book A", "Book A/ch2.mp3", 200.0, now_ms=200)  # upsert
+    row = db.get_listen_progress("Book A")
+    assert row["chapter_id"] == "Book A/ch2.mp3" and row["position_s"] == 200.0
+    assert db.get_listen_progress("nope") is None
+    assert [r["book_id"] for r in db.list_listen_progress()] == ["Book A"]
+    assert db.delete_listen_progress("Book A") is True
+    assert db.delete_listen_progress("Book A") is False
+
+
+def test_listen_progress_endpoints(client, audiobooks_dir):
+    book = "George Orwell - Animal Farm"
+    chapter = f"{book}/Animal Farm (Disc 2 of 3).mp3"
+    assert client.put(
+        "/api/library/listen-progress",
+        json={"book_id": book, "chapter_id": chapter, "position_s": 42.0},
+    ).status_code == 200
+    got = client.get("/api/library/listen-progress", params={"book": book}).json()
+    assert got["chapter_id"] == chapter and got["position_s"] == 42.0
+    assert client.put(
+        "/api/library/listen-progress",
+        json={"book_id": book, "chapter_id": f"{book}/nope.mp3", "position_s": 1.0},
+    ).status_code == 404
+    cont = client.get("/api/library/continue").json()["items"]
+    listen = [e for e in cont if e["kind"] == "listen"]
+    assert listen and listen[0]["id"] == book and listen[0]["name"] == book
+    assert client.delete("/api/library/listen-progress", params={"book": book}).status_code == 204
+    assert client.get("/api/library/listen-progress", params={"book": book}).json()["chapter_id"] is None
+
+
+def test_audio_served_with_audio_mime(client, audiobooks_dir):
+    # iOS <audio> needs a real audio MIME, not octet-stream.
+    r = client.get(
+        "/api/library/file",
+        params={"section": "audiobooks", "id": "George Orwell - Animal Farm/Animal Farm (Disc 1 of 3).mp3"},
+    )
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("audio/mpeg")

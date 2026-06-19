@@ -184,6 +184,9 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/library/pins?section=` | pinned (starred) folders | from `pinned_folders`; the UI deep-links to each |
 | `POST /api/library/pins` | pin a folder | body `{section,path}`; 404 unless the path is a real folder (has items under it) |
 | `DELETE /api/library/pins?section=&path=` | unpin a folder | — |
+| `GET /api/library/listen-progress?book=` | an audiobook's saved position | `{chapter_id, position_s}` — the player resumes from it |
+| `PUT /api/library/listen-progress` | save listening position (upsert) | body `{book_id,chapter_id,position_s}`; chapter is traversal-validated |
+| `DELETE /api/library/listen-progress?book=` | drop an audiobook from the shelf | clears its position |
 | `DELETE /api/library/games/last-played?id=` | remove a game from the shelf | clears the marker; keeps the save files |
 
 **Graceful degradation:** every endpoint that touches an external system
@@ -269,12 +272,12 @@ detail + posters are on-demand** from Plex (viewed occasionally, not searched �
 no reason to store long summaries or binary art). Posters are **proxied** through
 `/api/plex/art/{key}` so the Plex token never reaches the browser.
 
-## Library (owned content: games, papers, books, comics)
+## Library (owned content: games, papers, books, comics, audiobooks)
 
 Where Plex streams *video*, the **Library** is the hub for content you **own and
 consume directly** — ROMs you play, ebooks (EPUB/MOBI/AZW3), comics (CBZ/CBR/CB7),
-and the PDFs from newspaper/magazine subscriptions — read/played **in-app**,
-mobile-first.
+audiobooks, and the PDFs from newspaper/magazine subscriptions — read/played/heard
+**in-app**, mobile-first.
 
 **Section framework.** `app/library.py` (pure, unit-tested) defines an ordered
 list of **sections**, each with a content dir (a `.env` path under `RAID_MOUNT`,
@@ -336,6 +339,19 @@ path)` row in `pinned_folders` (server-side, so it roams) surfaces on a "Pinned"
 shelf at the top of the section, so a deep, frequently-revisited folder (the next
 issue in a series) is one tap away instead of a re-drill. The same
 `reading_progress` table gives the roaming bookmark.
+
+**Audiobooks reuse the folder browser; a book is a folder of chapter files.** The
+`audiobooks` section reads a tree where a leaf folder of ordered audio files *is*
+a book and the files are its chapters (natural-sorted client-side). The player is
+a plain `<audio>` element streaming each chapter from the same range-capable
+`/library/file` — the one change there is that audio is served with a real MIME
+type (`audio/mpeg` etc., via `_media_type`) so iOS Safari will play it (ROMs/PDFs
+stay `octet-stream`, read as bytes by their engines). It auto-advances chapters,
+and the **Media Session API** wires the iOS lock-screen / Control-Center transport
++ background playback. Position resumes from a dedicated `listen_progress` table
+(`book_id` → `chapter_id` + `position_s`), saved debounced as you listen — so it
+roams across devices and joins the Jump-back-in shelf as a `listen` entry. (Audible
+`.aa/.aax` are DRM and not recognized; folder cover art is a fast-follow.)
 Still planned: per-item **offline download** for airplane-mode reading. DRM-free
 content only.
 

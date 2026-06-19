@@ -178,6 +178,17 @@ CREATE TABLE IF NOT EXISTS pinned_folders (
     created_ms INTEGER NOT NULL,
     PRIMARY KEY (section, path)
 );
+
+-- Audiobook listening position. A book is a folder of chapter files, so resume
+-- = which chapter (its item id) + seconds into it. Keyed by the book folder so
+-- there's one position per book. Roams + powers the Jump-back-in shelf.
+CREATE TABLE IF NOT EXISTS listen_progress (
+    book_id    TEXT PRIMARY KEY,
+    chapter_id TEXT NOT NULL,
+    position_s REAL NOT NULL,
+    updated_ms INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_listen_progress_updated ON listen_progress (updated_ms);
 """
 
 # Tables the in-app samplers append to. Each is bounded two ways: a time-based
@@ -635,6 +646,51 @@ def list_pins(section=None):
                 (section,),
             ).fetchall()
         return [dict(r) for r in rows]
+
+
+# --- audiobook listening position -----------------------------------------
+
+def set_listen_progress(book_id, chapter_id, position_s, now_ms=None):
+    """Save where you are in an audiobook (which chapter + seconds in)."""
+    now_ms = now_ms if now_ms is not None else int(time.time() * 1000)
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO listen_progress (book_id, chapter_id, position_s, updated_ms)"
+            " VALUES (?, ?, ?, ?)"
+            " ON CONFLICT(book_id) DO UPDATE SET"
+            " chapter_id = excluded.chapter_id, position_s = excluded.position_s,"
+            " updated_ms = excluded.updated_ms",
+            (book_id, chapter_id, position_s, now_ms),
+        )
+
+
+def get_listen_progress(book_id):
+    """The saved position for a book, or None."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT book_id, chapter_id, position_s, updated_ms FROM listen_progress"
+            " WHERE book_id = ?",
+            (book_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def list_listen_progress(limit=50):
+    """In-progress audiobooks, newest first (for the Jump-back-in shelf)."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT book_id, chapter_id, position_s, updated_ms FROM listen_progress"
+            " ORDER BY updated_ms DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def delete_listen_progress(book_id):
+    """Drop an audiobook from the shelf. Returns whether a row was deleted."""
+    with get_conn() as conn:
+        cur = conn.execute("DELETE FROM listen_progress WHERE book_id = ?", (book_id,))
+        return cur.rowcount > 0
 
 
 # --- book metadata cache (the Books search index) --------------------------

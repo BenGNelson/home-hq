@@ -120,18 +120,38 @@ export function playerSrc(item, data = EMULATORJS_DATA) {
   return `/emulator.html?${q.toString()}`
 }
 
-// Where a "Jump back in" entry resumes to. A reading entry opens the reader
-// (which resumes to its saved position itself; `reader` picks PDF vs ebook
-// engine); a play entry opens the player into the entry's newest save state.
+// Where a "Jump back in" entry resumes to. A play entry opens the emulator into
+// its newest save state; a listen entry opens the audiobook player at the book
+// (which resumes its saved chapter+position itself); a reading entry opens the
+// reader (which resumes its saved position; `reader` picks PDF vs ebook engine).
 export function resumeHref(entry) {
   if (entry.kind === 'play') {
     const q = new URLSearchParams({ id: entry.id, core: entry.core || '', name: entry.name || '' })
     if (entry.slot) q.set('slot', entry.slot)
     return `/library/play?${q.toString()}`
   }
+  if (entry.kind === 'listen') {
+    return `/library/audiobooks?path=${encodeURIComponent(entry.id)}`
+  }
   const q = new URLSearchParams({ section: entry.section, id: entry.id })
   if (entry.reader) q.set('reader', entry.reader)
   return `/library/read?${q.toString()}`
+}
+
+// Natural string compare so chapter files order 1,2,…,10 (not 1,10,2) and are
+// case-insensitive — used to sequence an audiobook's chapter files.
+export function naturalCompare(a, b) {
+  return (a || '').localeCompare(b || '', undefined, { numeric: true, sensitivity: 'base' })
+}
+
+// Seconds → h:mm:ss / m:ss for the audio player.
+export function formatTime(s) {
+  if (!Number.isFinite(s) || s < 0) return '0:00'
+  s = Math.floor(s)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = String(s % 60).padStart(2, '0')
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`
 }
 
 // The reader route for a section item (used by the browse lists). Carries the
