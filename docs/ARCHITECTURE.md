@@ -164,6 +164,8 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/plex/art/{key}` | item poster, proxied so the token stays server-side | downscaled to a small WebP, disk-cached by rating key so repeat loads skip the Plex round-trip |
 | `GET /api/library` | every section + whether it's configured + item count (the hub landing) | scans the per-section content dirs |
 | `GET /api/library/{section}` | one section's items (the browse list) | recursive scan of the section's dir |
+| `GET /api/library/books/search?q=&limit=` | search Books by title/author | queries the `book_meta` cache (empty `q` = first results alphabetically) |
+| `GET /api/library/books/index-status` | book-indexer progress | from the indexer + cache count (drives the "indexing…" UI) |
 | `GET /api/library/file?section=&id=` | stream one item's bytes (range-capable) | `FileResponse` from the section dir, traversal-guarded |
 | `GET /api/library/games/cover?id=` | a game's box art (cached) | matches the No-Intro name to libretro-thumbnails, fetches once, downscales to a small WebP in the covers cache, serves locally (404 → placeholder) |
 | `POST /api/library/games/save-states` | upload a save state (blob + screenshot) | multipart; backend-assigned ms slot id; size-capped; stored under `/data/saves` |
@@ -320,6 +322,19 @@ saved page) and recently-played games (resume the newest save state), newest
 first — so one tap skips the drill-down. Each kind's remove clears only its
 marker (`reading_progress` row, or `game_progress` row), never the content or
 the save files; the shelf also skips entries whose underlying file is gone.
+
+**Books are search-first, backed by a metadata index.** A large ebook library
+(10k+ files) is unbrowseable as a flat list, so the Books section is a search box
+that queries a **`book_meta` cache** (title + author per book) rather than
+returning the whole library. A background indexer (`book_sync.py`, started from
+the lifespan like the other samplers) parses each file's *embedded* metadata once
+— EPUB via zip+OPF, MOBI/AZW3 via the EXTH header (`bookmeta.py`, stdlib-only) —
+falling back to the cleaned filename when a file has no title. It re-scans only
+changed files (by mtime) and prunes rows for deleted files. The cache is
+**text-only** (no covers, no copies), so it stays a few MB even for a huge
+library. `GET /library/books/search` then matches title OR author
+case-insensitively; naming is normalized for **display only** (the files on disk
+are never touched — the mount is read-only). Covers are a deferred follow-up.
 
 **The emulator runs in an isolated `<iframe>`.** EmulatorJS sets many `window.*`
 globals and has no clean teardown, so it lives in a static page,

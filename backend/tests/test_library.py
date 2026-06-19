@@ -244,6 +244,67 @@ def test_continue_includes_reader_for_read_entries(client, books_dir):
     assert entry["locator"] == "epubcfi(/6)" and entry["fraction"] == 0.5
 
 
+def test_book_meta_upsert_get_search():
+    db.upsert_book_meta_many(
+        [
+            ("a.epub", "The Stand", "Stephen King", 100.0),
+            ("b.mobi", "Dragonflight", "Anne McCaffrey", 200.0),
+            ("c.pdf", "Untitled Report", None, 300.0),
+        ],
+        scanned_at=1.0,
+    )
+    assert db.count_books_meta() == 3
+    assert db.get_book_meta("a.epub")["author"] == "Stephen King"
+    assert db.get_book_meta("missing") is None
+    # search by title and by author, both case-insensitive
+    assert [r["item_id"] for r in db.search_books("stand")] == ["a.epub"]
+    assert [r["item_id"] for r in db.search_books("MCCAFFREY")] == ["b.mobi"]
+    # empty query → first results alphabetically by title
+    assert [r["title"] for r in db.search_books("")] == [
+        "Dragonflight",
+        "The Stand",
+        "Untitled Report",
+    ]
+    assert len(db.search_books("", limit=1)) == 1
+    # mtimes (change detection) + prune
+    assert db.book_mtimes()["b.mobi"] == 200.0
+    db.delete_book_meta_many(["c.pdf"])
+    assert db.count_books_meta() == 2
+    # upsert updates an existing row
+    db.upsert_book_meta_many([("a.epub", "The Stand: Complete", "Stephen King", 150.0)])
+    assert db.get_book_meta("a.epub")["title"] == "The Stand: Complete"
+
+
+def test_search_books_escapes_wildcards():
+    db.upsert_book_meta_many(
+        [("a.epub", "100% Pure", "X", 1.0), ("b.epub", "Other", "Y", 1.0)]
+    )
+    # A literal % must be matched literally, not act as a SQL LIKE wildcard.
+    assert [r["item_id"] for r in db.search_books("100%")] == ["a.epub"]
+
+
+def test_books_search_endpoint(client, books_dir):
+    db.upsert_book_meta_many(
+        [
+            ("Dune.epub", "Dune", "Frank Herbert", 1.0),
+            ("Neuromancer.mobi", "Neuromancer", "William Gibson", 1.0),
+        ]
+    )
+    body = client.get("/api/library/books/search", params={"q": "gibson"}).json()
+    assert body["total"] == 2  # whole indexed set
+    assert len(body["items"]) == 1  # only the match
+    hit = body["items"][0]
+    assert hit["id"] == "Neuromancer.mobi"
+    assert hit["title"] == "Neuromancer"
+    assert hit["reader"] == "epub"  # .mobi opens in the ebook reader
+
+
+def test_books_index_status_endpoint(client, books_dir):
+    body = client.get("/api/library/books/index-status").json()
+    assert body["configured"] is True
+    assert "running" in body and "indexed" in body and "total" in body
+
+
 @pytest.fixture
 def rom_dir(tmp_path, monkeypatch):
     """A populated ROM dir wired into settings.games_rom_dir."""

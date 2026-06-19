@@ -139,6 +139,23 @@ CREATE TABLE IF NOT EXISTS reading_progress (
 CREATE INDEX IF NOT EXISTS idx_reading_progress_updated
     ON reading_progress (updated_ms);
 
+-- Book metadata cache: one row per ebook, holding its embedded title + author
+-- so the Books section can search by title/author and show consistent names
+-- regardless of the filename. Populated by a background indexer (book_sync.py)
+-- that parses each file's embedded metadata once; `mtime` lets it re-index only
+-- changed files. Text only (no covers / no file copies), so it's a few MB even
+-- for a large library. `title` is always set (falls back to the cleaned
+-- filename when a file has no embedded title); `author` may be NULL.
+CREATE TABLE IF NOT EXISTS book_meta (
+    item_id    TEXT PRIMARY KEY,  -- relative path = the Library item id
+    title      TEXT NOT NULL,
+    author     TEXT,
+    mtime      REAL,              -- file mtime at index time (change detection)
+    scanned_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_book_meta_title ON book_meta (title COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS idx_book_meta_author ON book_meta (author COLLATE NOCASE);
+
 -- "Last played" marker for games that have save states — the games half of the
 -- Jump Back In shelf. Save files live on disk keyed by a HASH of the game id (so
 -- the raw filename never hits a path), which can't be reversed; this table holds
@@ -361,7 +378,7 @@ def _cap_table(conn, table):
 # Tables surfaced in the DB-size view + row-count breakdown (the ones that grow).
 _TRACKED_TABLES = (
     "media_items", "storage_samples", "plex_samples",
-    "print_history", "alert_log", "space_usage",
+    "print_history", "alert_log", "space_usage", "book_meta",
 )
 
 
@@ -569,3 +586,87 @@ def delete_game_progress(game_id):
             "DELETE FROM game_progress WHERE game_id = ?", (game_id,)
         )
         return cur.rowcount > 0
+
+
+# --- book metadata cache (the Books search index) --------------------------
+
+
+def upsert_book_meta_many(records, scanned_at=None):
+    """Bulk upsert book metadata in ONE transaction (the indexer flushes in
+    chunks — far cheaper than a connection per book over a large library).
+    `records` = iterable of (item_id, title, author, mtime)."""
+    if scanned_at is None:
+        scanned_at = time.time()
+    rows = [(i, t, a, m, scanned_at) for (i, t, a, m) in records]
+    if not rows:
+        return
+    with get_conn() as conn:
+        conn.executemany(
+            "INSERT INTO book_meta (item_id, title, author, mtime, scanned_at)"
+            " VALUES (?, ?, ?, ?, ?)"
+            " ON CONFLICT(item_id) DO UPDATE SET"
+            " title = excluded.title, author = excluded.author,"
+            " mtime = excluded.mtime, scanned_at = excluded.scanned_at",
+            rows,
+        )
+
+
+def get_book_meta(item_id):
+    """One book's cached title/author, or None if not indexed yet."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT item_id, title, author FROM book_meta WHERE item_id = ?",
+            (item_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def book_mtimes():
+    """{item_id: mtime} for every indexed book — lets the indexer skip unchanged
+    files and prune rows for files that are gone."""
+    with get_conn() as conn:
+        rows = conn.execute("SELECT item_id, mtime FROM book_meta").fetchall()
+        return {r["item_id"]: r["mtime"] for r in rows}
+
+
+def delete_book_meta_many(item_ids):
+    """Drop cache rows for books no longer present on disk."""
+    ids = list(item_ids)
+    if not ids:
+        return
+    with get_conn() as conn:
+        conn.executemany("DELETE FROM book_meta WHERE item_id = ?", [(i,) for i in ids])
+
+
+def count_books_meta():
+    """How many books are indexed (the search 'total')."""
+    with get_conn() as conn:
+        return conn.execute("SELECT COUNT(*) AS n FROM book_meta").fetchone()["n"]
+
+
+def _like_escape(s):
+    """Escape LIKE wildcards so a query of literal % or _ doesn't match-all."""
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def search_books(q, limit=100):
+    """Books whose title OR author matches `q` (case-insensitive substring),
+    ordered by title. An empty query returns the first `limit` alphabetically
+    (a browseable default rather than dumping the whole library)."""
+    q = (q or "").strip()
+    with get_conn() as conn:
+        if q:
+            like = f"%{_like_escape(q)}%"
+            rows = conn.execute(
+                "SELECT item_id, title, author FROM book_meta"
+                " WHERE title LIKE ? ESCAPE '\\' OR author LIKE ? ESCAPE '\\'"
+                " ORDER BY title COLLATE NOCASE LIMIT ?",
+                (like, like, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT item_id, title, author FROM book_meta"
+                " ORDER BY title COLLATE NOCASE LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in rows]

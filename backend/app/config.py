@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     # foliate-js (the MOBI/AZW3 parser is built in — no server-side conversion).
     papers_dir: str = ""
     books_dir: str = ""
+    # Books search index: a background worker parses each ebook's embedded
+    # title/author into a small text-only SQLite cache so Books is searchable by
+    # title or author. Set false to disable; interval is how often it re-scans
+    # for new/changed files (unchanged files are skipped by mtime).
+    books_index_enabled: bool = True
+    books_index_interval: int = 3600
     # Where downloaded game box art is cached (a writable Docker volume, like the
     # SQLite DB). The backend matches each ROM to libretro-thumbnails art by its
     # No-Intro name, fetches it once, and serves it locally thereafter.

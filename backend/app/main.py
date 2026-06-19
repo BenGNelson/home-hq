@@ -20,6 +20,7 @@ from app.printer import init_client
 from app.plex_history import init_sampler as init_plex_sampler
 from app.storage_history import init_sampler
 from app.space_usage import init_scanner
+from app.book_sync import init_indexer
 from app.routers import (
     alerts,
     backups,
@@ -89,6 +90,10 @@ async def lifespan(app: FastAPI):
         settings.space_scan_timeout,
     )
     scanner.start()
+    # Book indexer: parses each ebook's embedded title/author into the search
+    # cache so the Books section is searchable (no-op unless Books is configured).
+    book_indexer = init_indexer(settings.books_index_enabled, settings.books_index_interval)
+    book_indexer.start()
     try:
         yield
     finally:
@@ -98,6 +103,7 @@ async def lifespan(app: FastAPI):
         sampler.stop()
         plex_sampler.stop()
         scanner.stop()
+        book_indexer.stop()
 
 
 # Tag metadata groups the auto-generated API docs (/api/docs, /api/redoc) by

@@ -1,52 +1,112 @@
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useApi } from '../../lib/useApi.js'
-import { formatSize } from '../../lib/format.js'
-import { readerHref } from '../../lib/library.js'
+import { useApi, API_BASE } from '../../lib/useApi.js'
+import { readerHref, bookSubtitle } from '../../lib/library.js'
 
-// The Books section: a tappable list of ebooks (EPUB/MOBI/AZW3, and PDFs)
-// opened in the in-app reader. Plain rows — mobile-first, big tap targets. The
-// reader engine is chosen per item (readerHref carries its `reader` hint, so an
-// EPUB opens in foliate-js and a PDF book in the PDF reader).
+// The Books section. With 10k+ books a flat list is unusable, so this is
+// search-first: type a title or author and matches appear (served from the
+// metadata index). An empty query shows the first results alphabetically as a
+// browseable default. Each result opens in the right reader (EPUB → foliate,
+// PDF → PDF.js) via its `reader` hint. Mobile-first, big tap targets.
 export default function BooksList() {
-  const { data, error, loading } = useApi('/library/books', 30000)
+  const [input, setInput] = useState('')
+  const [results, setResults] = useState(null) // {items,total,query}
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
+  // Indexer progress — drives the "not configured" and "indexing…" states.
+  const status = useApi('/library/books/index-status', 5000).data
+
+  // Debounced search that keeps the previous results visible while the next
+  // query is in flight (no flicker between keystrokes), and aborts stale calls.
+  useEffect(() => {
+    const ctrl = new AbortController()
+    const t = setTimeout(() => {
+      setLoading(true)
+      fetch(`${API_BASE}/library/books/search?q=${encodeURIComponent(input.trim())}&limit=100`, {
+        signal: ctrl.signal,
+      })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+        .then((d) => {
+          setResults(d)
+          setError(null)
+          setLoading(false)
+        })
+        .catch((e) => {
+          if (e.name !== 'AbortError') {
+            setError(e.message)
+            setLoading(false)
+          }
+        })
+    }, 250)
+    return () => {
+      clearTimeout(t)
+      ctrl.abort()
+    }
+  }, [input])
+
+  const items = results?.items ?? []
+  const total = results?.total ?? 0
+  const notConfigured = status && status.configured === false
+  const indexing = status && status.running
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <Link to="/library" className="text-sm text-slate-400 hover:text-slate-200">
         ← Library
       </Link>
       <h2 className="text-xl font-semibold">Books</h2>
 
-      {loading && !data && <p className="text-sm text-slate-500">loading…</p>}
-      {error && <p className="text-sm text-rose-400">unavailable — {error}</p>}
+      {notConfigured ? (
+        <NotConfigured />
+      ) : (
+        <>
+          <input
+            type="search"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={total ? `Search ${total.toLocaleString()} books by title or author…` : 'Search books…'}
+            autoFocus
+            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-slate-100 placeholder-slate-500 outline-none focus:border-slate-500"
+          />
 
-      {data && data.configured === false && <NotConfigured />}
-      {data && data.configured && data.count === 0 && (
-        <p className="text-sm text-slate-400">Nothing here yet — drop some ebooks in the folder.</p>
-      )}
+          {indexing && (
+            <p className="text-xs text-amber-400">
+              Indexing your library… {status.processed.toLocaleString()} of{' '}
+              {status.total.toLocaleString()} scanned. Search works now; results fill in as it runs.
+            </p>
+          )}
 
-      {data && data.count > 0 && (
-        <ul className="divide-y divide-slate-800 overflow-hidden rounded-xl border border-slate-800 bg-slate-900/40">
-          {data.items.map((it) => (
-            <li key={it.id}>
-              <button
-                onClick={() => navigate(readerHref('books', it))}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-slate-800"
-              >
-                <span className="text-xl">📖</span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-slate-100">{it.name}</span>
-                  <span className="block text-xs text-slate-500">
-                    {it.label}
-                    {it.size != null && ` · ${formatSize(it.size)}`}
-                  </span>
-                </span>
-                <span className="shrink-0 text-slate-600">›</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+          {error && <p className="text-sm text-rose-400">search failed — {error}</p>}
+          {loading && !results && <p className="text-sm text-slate-500">loading…</p>}
+
+          {results && items.length === 0 && (
+            <p className="text-sm text-slate-400">
+              {input.trim() ? `No books match “${input.trim()}”.` : 'No books indexed yet.'}
+            </p>
+          )}
+
+          {items.length > 0 && (
+            <ul className="divide-y divide-slate-800 overflow-hidden rounded-xl border border-slate-800 bg-slate-900/40">
+              {items.map((it) => (
+                <li key={it.id}>
+                  <button
+                    onClick={() => navigate(readerHref('books', it))}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-slate-800"
+                  >
+                    <span className="text-xl">📖</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-slate-100">{it.title}</span>
+                      <span className="block truncate text-xs text-slate-500">{bookSubtitle(it)}</span>
+                    </span>
+                    <span className="shrink-0 text-slate-600">›</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
     </div>
   )
