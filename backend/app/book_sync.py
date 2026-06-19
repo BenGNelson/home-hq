@@ -26,6 +26,9 @@ from app.config import settings
 log = logging.getLogger("home-hq.book-index")
 
 _FLUSH_EVERY = 200  # books per write transaction
+# Bump when the parsing/cleaning logic changes so already-cached books get
+# re-parsed once (otherwise they'd be skipped by the unchanged-mtime check).
+_INDEX_VERSION = "2"
 
 
 class BookIndexer:
@@ -83,6 +86,9 @@ class BookIndexer:
             return 0
         items = library.list_items(section, settings)
         known = db.book_mtimes()
+        # When the parsing logic version changes, re-parse every file once
+        # (ignore the unchanged-mtime skip) so existing rows get the new logic.
+        force = db.get_meta("book_index_version") != _INDEX_VERSION
         present: set[str] = set()
         batch: list[tuple] = []
         self._running = True
@@ -102,7 +108,7 @@ class BookIndexer:
                 except OSError:
                     continue
                 prev = known.get(item_id)
-                if prev is not None and abs(prev - mtime) < 1:
+                if not force and prev is not None and abs(prev - mtime) < 1:
                     continue  # unchanged — already indexed
                 title, author = bookmeta.extract_meta(path, os.path.splitext(item_id)[1])
                 if not title:
@@ -118,6 +124,10 @@ class BookIndexer:
             removed = set(known) - present
             if removed:
                 db.delete_book_meta_many(removed)
+            # Record the logic version once a pass actually completes (not if it
+            # was interrupted), so a forced re-parse only happens once.
+            if not self._stop.is_set():
+                db.set_meta("book_index_version", _INDEX_VERSION)
             self._last_scanned = time.time()
             log.info(
                 "book-index: pass done — %d parsed, %d total, %d pruned",

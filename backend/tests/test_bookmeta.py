@@ -119,6 +119,33 @@ def test_parse_mobi_meta_bad_file_is_none(tmp_path):
 
 # --- dispatcher -----------------------------------------------------------
 
+def test_decode_text_falls_back_without_tofu():
+    # cp1252 bytes mis-declared as utf-8: strict utf-8 fails → cp1252 recovers
+    # the real text instead of inserting U+FFFD replacement chars ("tofu").
+    out = bookmeta._decode_text(b"Caf\xe9", "utf-8")
+    assert out == "Café"
+    assert "�" not in out
+
+
+def test_clean_strips_tofu_and_control_chars():
+    # Replacement chars + control/zero-width chars (the 'tofu' box culprits) are
+    # removed; whitespace collapses; an all-garbage value becomes None.
+    assert bookmeta._clean("A�B​\x00 C") == "AB C"
+    assert bookmeta._clean("�\x00") is None
+    assert bookmeta._clean("   ") is None
+
+
+def test_parse_exth_recovers_misdeclared_encoding():
+    # Author bytes are cp1252 but the header declares utf-8.
+    author = "Café".encode("cp1252")
+    exth = b"EXTH" + struct.pack(">II", 12 + 8 + len(author), 1) + struct.pack(
+        ">II", 100, 8 + len(author)
+    ) + author
+    rec0 = bytes(16) + bytes(40) + exth
+    out = bookmeta.parse_exth(rec0, 40, "utf-8")
+    assert out[100] == "Café"
+
+
 def test_extract_meta_dispatch(tmp_path):
     epub = tmp_path / "x.epub"
     _make_epub(epub, "T", "A")
