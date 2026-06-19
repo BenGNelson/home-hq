@@ -108,9 +108,12 @@ function ContinueCard({ entry, onResume, onRemove }) {
         )}
       </button>
       <button
-        onClick={onRemove}
+        onClick={(e) => {
+          e.stopPropagation()
+          onRemove()
+        }}
         aria-label="Remove from Jump back in"
-        className="absolute right-1 top-1 rounded-full bg-black/60 px-1.5 text-xs text-slate-200 active:bg-black/80"
+        className="absolute right-1 top-1 flex h-9 w-9 items-center justify-center rounded-full bg-black/70 text-base leading-none text-slate-100 shadow active:bg-black/90"
       >
         ✕
       </button>
