@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApi, API_BASE } from '../../lib/useApi.js'
 import { readerHref, bookSubtitle } from '../../lib/library.js'
@@ -13,7 +13,19 @@ export default function BooksList() {
   const [results, setResults] = useState(null) // {items,total,query} | null
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  const searchRef = useRef(null)
   const navigate = useNavigate()
+
+  // Focus the search box on open (desktop; iOS opens the keyboard on tap).
+  useEffect(() => {
+    searchRef.current?.focus()
+  }, [])
+
+  const clearSearch = () => {
+    if (searchRef.current) searchRef.current.textContent = ''
+    setInput('')
+    searchRef.current?.focus()
+  }
 
   // Indexer status — gives the library size + the "not configured"/"indexing…" UI.
   const status = useApi('/library/books/index-status', 5000).data
@@ -70,16 +82,40 @@ export default function BooksList() {
         <NotConfigured />
       ) : (
         <>
-          <input
-            type="search"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={
-              total ? `Search ${total.toLocaleString()} books by title or author…` : 'Search books…'
-            }
-            autoFocus
-            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-slate-100 placeholder-slate-500 outline-none focus:border-slate-500"
-          />
+          {/* A contenteditable (not <input>) so iOS Safari doesn't show the
+              keyboard's prev/next/Done accessory bar over the search field. */}
+          <div className="relative">
+            <div
+              ref={searchRef}
+              role="searchbox"
+              aria-label="Search books"
+              contentEditable="plaintext-only"
+              inputMode="search"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-placeholder={
+                total
+                  ? `Search ${total.toLocaleString()} books by title or author…`
+                  : 'Search books…'
+              }
+              onInput={(e) => setInput(e.currentTarget.textContent || '')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.preventDefault()
+              }}
+              className="search-box w-full rounded-xl border border-slate-700 bg-slate-900 py-3 pl-4 pr-10 text-slate-100 outline-none focus:border-slate-500"
+            />
+            {input.trim() && (
+              <button
+                type="button"
+                onClick={clearSearch}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 active:bg-slate-700"
+              >
+                ✕
+              </button>
+            )}
+          </div>
 
           {indexing && (
             <p className="text-xs text-amber-400">
