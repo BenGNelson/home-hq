@@ -3,6 +3,45 @@ import { fileUrl, formatTime, audiobookCoverUrl } from '../../lib/library.js'
 import { API_BASE } from '../../lib/useApi.js'
 import AudiobookCover from './AudiobookCover.jsx'
 
+// --- transport icons (crisp SVGs that inherit currentColor) ----------------
+const Svg = ({ children, className = 'h-6 w-6' }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+    {children}
+  </svg>
+)
+const PlayIcon = (p) => (
+  <Svg {...p}>
+    <path d="M8 5.14v13.72a1 1 0 0 0 1.54.84l10.78-6.86a1 1 0 0 0 0-1.68L9.54 4.3A1 1 0 0 0 8 5.14z" />
+  </Svg>
+)
+const PauseIcon = (p) => (
+  <Svg {...p}>
+    <path d="M7 4.5h3.5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1zm6.5 0H17a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-3.5a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z" />
+  </Svg>
+)
+const PrevIcon = (p) => (
+  <Svg {...p}>
+    <path d="M7 6a1 1 0 0 1 2 0v4.7l8.5-5.36A1 1 0 0 1 19 6.2v11.6a1 1 0 0 1-1.5.86L9 13.3V18a1 1 0 0 1-2 0V6z" />
+  </Svg>
+)
+const NextIcon = (p) => (
+  <Svg {...p}>
+    <path d="M17 6a1 1 0 0 0-2 0v4.7L6.5 5.34A1 1 0 0 0 5 6.2v11.6a1 1 0 0 0 1.5.86L15 13.3V18a1 1 0 0 0 2 0V6z" />
+  </Svg>
+)
+// A circular "replay" arrow with the seconds centered inside. `mirror` flips it
+// for the forward direction.
+const SkipCircle = ({ seconds, mirror }) => (
+  <span className="relative inline-flex h-6 w-6 items-center justify-center">
+    <Svg className="h-6 w-6">
+      <g style={mirror ? { transform: 'scaleX(-1)', transformOrigin: 'center' } : undefined}>
+        <path d="M12 5V2.2c0-.4-.5-.6-.8-.3L7.6 5.5a.5.5 0 0 0 0 .8l3.6 3.6c.3.3.8.1.8-.3V7a5 5 0 1 1-5 5 1 1 0 1 0-2 0 7 7 0 1 0 7-7z" />
+      </g>
+    </Svg>
+    <span className="absolute text-[9px] font-bold leading-none">{seconds}</span>
+  </span>
+)
+
 // Plays an audiobook = a folder of ordered chapter files. Streams each chapter
 // from the range-capable /library/file via a plain <audio> element (so it keeps
 // playing when the screen locks), auto-advances chapters, and resumes its saved
@@ -177,43 +216,43 @@ export default function AudiobookPlayer({ bookPath, bookName, chapters }) {
           <span>{formatTime(duration)}</span>
         </div>
 
-        <div className="mt-3 flex items-center justify-center gap-4">
+        <div className="mt-4 flex items-center justify-center gap-2">
           <button
             onClick={() => goChapter(idx - 1, playing)}
             disabled={idx <= 0}
-            className="rounded-lg bg-slate-800 px-3 py-2 text-sm text-slate-100 active:bg-slate-700 disabled:opacity-40"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-slate-300 active:bg-slate-800 disabled:opacity-30"
             aria-label="Previous chapter"
           >
-            ⏮
+            <PrevIcon className="h-6 w-6" />
           </button>
           <button
             onClick={() => skip(-15)}
-            className="rounded-lg bg-slate-800 px-3 py-2 text-sm text-slate-100 active:bg-slate-700"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-slate-300 active:bg-slate-800"
             aria-label="Back 15 seconds"
           >
-            ⏪15
+            <SkipCircle seconds={15} />
           </button>
           <button
             onClick={togglePlay}
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-2xl text-white active:bg-emerald-500"
+            className="mx-1 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg shadow-emerald-900/40 active:bg-emerald-500"
             aria-label={playing ? 'Pause' : 'Play'}
           >
-            {playing ? '⏸' : '▶'}
+            {playing ? <PauseIcon className="h-7 w-7" /> : <PlayIcon className="ml-0.5 h-7 w-7" />}
           </button>
           <button
             onClick={() => skip(30)}
-            className="rounded-lg bg-slate-800 px-3 py-2 text-sm text-slate-100 active:bg-slate-700"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-slate-300 active:bg-slate-800"
             aria-label="Forward 30 seconds"
           >
-            30⏩
+            <SkipCircle seconds={30} mirror />
           </button>
           <button
             onClick={() => goChapter(idx + 1, playing)}
             disabled={idx >= chapters.length - 1}
-            className="rounded-lg bg-slate-800 px-3 py-2 text-sm text-slate-100 active:bg-slate-700 disabled:opacity-40"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-slate-300 active:bg-slate-800 disabled:opacity-30"
             aria-label="Next chapter"
           >
-            ⏭
+            <NextIcon className="h-6 w-6" />
           </button>
         </div>
       </div>
@@ -231,7 +270,12 @@ export default function AudiobookPlayer({ bookPath, bookName, chapters }) {
               >
                 <span className="w-6 shrink-0 text-xs tabular-nums text-slate-500">{i + 1}</span>
                 <span className="min-w-0 flex-1 truncate">{c.name}</span>
-                {i === idx && <span className="shrink-0 text-xs">{playing ? '▶' : '⏸'}</span>}
+                {i === idx &&
+                  (playing ? (
+                    <PauseIcon className="h-4 w-4 shrink-0 text-emerald-400" />
+                  ) : (
+                    <PlayIcon className="h-4 w-4 shrink-0 text-emerald-400" />
+                  ))}
               </button>
             </li>
           ))}
