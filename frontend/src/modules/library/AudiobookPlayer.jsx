@@ -29,16 +29,25 @@ const NextIcon = (p) => (
     <path d="M17 6a1 1 0 0 0-2 0v4.7L6.5 5.34A1 1 0 0 0 5 6.2v11.6a1 1 0 0 0 1.5.86L15 13.3V18a1 1 0 0 0 2 0V6z" />
   </Svg>
 )
-// A circular "replay" arrow with the seconds centered inside. `mirror` flips it
-// for the forward direction.
+// A circular "replay" arrow (thin stroked ring, so the center stays clear for
+// the seconds label). `mirror` flips it for the forward direction.
 const SkipCircle = ({ seconds, mirror }) => (
-  <span className="relative inline-flex h-6 w-6 items-center justify-center">
-    <Svg className="h-6 w-6">
-      <g style={mirror ? { transform: 'scaleX(-1)', transformOrigin: 'center' } : undefined}>
-        <path d="M12 5V2.2c0-.4-.5-.6-.8-.3L7.6 5.5a.5.5 0 0 0 0 .8l3.6 3.6c.3.3.8.1.8-.3V7a5 5 0 1 1-5 5 1 1 0 1 0-2 0 7 7 0 1 0 7-7z" />
-      </g>
-    </Svg>
-    <span className="absolute text-[9px] font-bold leading-none">{seconds}</span>
+  <span className="relative inline-flex h-9 w-9 items-center justify-center">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-9 w-9"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={mirror ? { transform: 'scaleX(-1)' } : undefined}
+      aria-hidden="true"
+    >
+      <path d="M12 4.5a7.5 7.5 0 1 1-7.1 5.2" />
+      <path d="M12 1.6 8.7 4.5 12 7.4" />
+    </svg>
+    <span className="absolute text-[10px] font-bold leading-none">{seconds}</span>
   </span>
 )
 
@@ -216,32 +225,32 @@ export default function AudiobookPlayer({ bookPath, bookName, chapters }) {
           <span>{formatTime(duration)}</span>
         </div>
 
-        <div className="mt-4 flex items-center justify-center gap-2">
+        <div className="mt-4 flex items-center justify-center gap-3">
           <button
             onClick={() => goChapter(idx - 1, playing)}
             disabled={idx <= 0}
-            className="flex h-11 w-11 items-center justify-center rounded-full text-slate-300 active:bg-slate-800 disabled:opacity-30"
+            className="flex h-12 w-12 items-center justify-center rounded-full text-slate-300 active:bg-slate-800 disabled:opacity-30"
             aria-label="Previous chapter"
           >
-            <PrevIcon className="h-6 w-6" />
+            <PrevIcon className="h-7 w-7" />
           </button>
           <button
             onClick={() => skip(-15)}
-            className="flex h-11 w-11 items-center justify-center rounded-full text-slate-300 active:bg-slate-800"
+            className="flex h-12 w-12 items-center justify-center rounded-full text-slate-300 active:bg-slate-800"
             aria-label="Back 15 seconds"
           >
             <SkipCircle seconds={15} />
           </button>
           <button
             onClick={togglePlay}
-            className="mx-1 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg shadow-emerald-900/40 active:bg-emerald-500"
+            className="mx-1 flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg shadow-emerald-900/40 active:bg-emerald-500"
             aria-label={playing ? 'Pause' : 'Play'}
           >
-            {playing ? <PauseIcon className="h-7 w-7" /> : <PlayIcon className="ml-0.5 h-7 w-7" />}
+            {playing ? <PauseIcon className="h-9 w-9" /> : <PlayIcon className="ml-0.5 h-9 w-9" />}
           </button>
           <button
             onClick={() => skip(30)}
-            className="flex h-11 w-11 items-center justify-center rounded-full text-slate-300 active:bg-slate-800"
+            className="flex h-12 w-12 items-center justify-center rounded-full text-slate-300 active:bg-slate-800"
             aria-label="Forward 30 seconds"
           >
             <SkipCircle seconds={30} mirror />
@@ -249,10 +258,10 @@ export default function AudiobookPlayer({ bookPath, bookName, chapters }) {
           <button
             onClick={() => goChapter(idx + 1, playing)}
             disabled={idx >= chapters.length - 1}
-            className="flex h-11 w-11 items-center justify-center rounded-full text-slate-300 active:bg-slate-800 disabled:opacity-30"
+            className="flex h-12 w-12 items-center justify-center rounded-full text-slate-300 active:bg-slate-800 disabled:opacity-30"
             aria-label="Next chapter"
           >
-            <NextIcon className="h-6 w-6" />
+            <NextIcon className="h-7 w-7" />
           </button>
         </div>
       </div>
