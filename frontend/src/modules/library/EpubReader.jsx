@@ -5,27 +5,32 @@ import { API_BASE } from '../../lib/useApi.js'
 
 // Reading theme injected into the book document via foliate's renderer.setStyles
 // (which foliate re-applies on every section load, so it sticks across pages).
-// A book often hard-codes black text, which is invisible on a dark page — so we
-// FORCE a comfortable dark theme regardless of the book's own (or the app's)
-// styling: a neutral dark-GRAY page with light gray text (deliberately not the
-// app's blue-tinted slate — a calmer, modern reading surface), descendants
-// inherit the text color (overriding hard-coded colors) with transparent
-// backgrounds (no stray white boxes), and links stay distinguishable.
-// Images/SVG keep their own pixels. !important is required to beat the book CSS.
-const READER_CSS = `
+// Colors FOLLOW THE ACTIVE APP THEME so the reading surface matches whatever
+// theme is selected (e.g. pick a gray theme to read on gray). The book renders
+// in a separate (blob:) iframe that can't see the parent's CSS variables, so we
+// resolve them to literal colors here and inject them: themed background, light
+// text, links in the theme accent. Descendants inherit the text color (so a
+// book's hard-coded colors don't win) with transparent backgrounds (no stray
+// white boxes); images keep their own pixels. !important beats the book's CSS.
+function readerColors() {
+  const cs = getComputedStyle(document.documentElement)
+  const v = (name, fallback) => cs.getPropertyValue(name).trim() || fallback
+  return {
+    bg: v('--color-slate-950', '#0f172a'),
+    text: v('--color-slate-100', '#e5e5e5'),
+    link: v('--color-emerald-400', '#9cafcf'),
+  }
+}
+
+function readerCss({ bg, text, link }) {
+  return `
   @namespace epub "http://www.idpf.org/2007/ops";
-  html, body {
-    color: #e5e5e5 !important;
-    background-color: #1c1c1c !important;
-  }
-  body * {
-    color: inherit !important;
-    background-color: transparent !important;
-    border-color: currentColor;
-  }
-  a:link, a:visited, a:link *, a:visited * { color: #9cafcf !important; }
+  html, body { color: ${text} !important; background-color: ${bg} !important; }
+  body * { color: inherit !important; background-color: transparent !important; border-color: currentColor; }
+  a:link, a:visited, a:link *, a:visited * { color: ${link} !important; }
   img, svg, video, picture { background-color: transparent !important; }
-`
+  `
+}
 
 // In-app reader for EPUB / MOBI / AZW3 (the Books section). foliate-js renders
 // every one of these client-side — its makeBook() sniffs the format by magic
@@ -108,7 +113,7 @@ export default function EpubReader() {
         if (cancelled) return
         viewRef.current = view
         view.renderer?.setAttribute('flow', 'paginated')
-        view.renderer?.setStyles?.(READER_CSS) // force a readable dark theme
+        view.renderer?.setStyles?.(readerCss(readerColors())) // match the app theme
         // Show the book's real (embedded) title in the header, not the filename.
         setTitle(bookTitle(view.book) || filename)
 
@@ -170,30 +175,30 @@ export default function EpubReader() {
 
   const filename = decodeURIComponent(id.split('/').pop() || '')
 
-  // Fixed neutral-gray chrome (not the app's blue-tinted theme) to match the
-  // dark-gray reading surface above.
+  // Chrome uses the themed slate ramp so it matches the reading surface and the
+  // rest of the app (pick a gray theme → gray reader).
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-neutral-950">
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950">
       <div
-        className="flex items-center gap-3 bg-neutral-900 px-3 py-2"
+        className="flex items-center gap-3 bg-slate-900 px-3 py-2"
         style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
       >
         <button
           onClick={() => navigate(back)}
-          className="shrink-0 whitespace-nowrap rounded bg-neutral-800 px-3 py-1.5 text-sm font-medium text-neutral-100 active:bg-neutral-700"
+          className="shrink-0 whitespace-nowrap rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 active:bg-slate-700"
         >
           ✕ Close
         </button>
-        <span className="min-w-0 flex-1 truncate text-center text-sm text-neutral-300">
+        <span className="min-w-0 flex-1 truncate text-center text-sm text-slate-300">
           {title || filename}
         </span>
-        <span className="shrink-0 text-sm tabular-nums text-neutral-400">
+        <span className="shrink-0 text-sm tabular-nums text-slate-400">
           {percent != null ? `${percent}%` : '…'}
         </span>
       </div>
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        {status === 'loading' && <p className="p-4 text-sm text-neutral-500">loading…</p>}
+        {status === 'loading' && <p className="p-4 text-sm text-slate-500">loading…</p>}
         {status === 'error' && (
           <p className="p-4 text-sm text-rose-400">
             Couldn’t open this book. DRM-protected files can’t be read in the browser.
@@ -203,19 +208,19 @@ export default function EpubReader() {
       </div>
 
       <div
-        className="flex items-center justify-between gap-3 bg-neutral-900 px-3 py-2"
+        className="flex items-center justify-between gap-3 bg-slate-900 px-3 py-2"
         style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
       >
         <button
           onClick={() => go(-1)}
-          className="rounded bg-neutral-800 px-4 py-1.5 text-sm text-neutral-100 active:bg-neutral-700"
+          className="rounded bg-slate-800 px-4 py-1.5 text-sm text-slate-100 active:bg-slate-700"
         >
           ‹ Prev
         </button>
-        <span className="text-xs text-neutral-500">swipe or use the buttons</span>
+        <span className="text-xs text-slate-500">swipe or use the buttons</span>
         <button
           onClick={() => go(1)}
-          className="rounded bg-neutral-800 px-4 py-1.5 text-sm text-neutral-100 active:bg-neutral-700"
+          className="rounded bg-slate-800 px-4 py-1.5 text-sm text-slate-100 active:bg-slate-700"
         >
           Next ›
         </button>

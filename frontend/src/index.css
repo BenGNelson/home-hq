@@ -10,6 +10,21 @@ html {
 }
 
 /*
+  Search box rendered as a contenteditable (not <input>) so iOS Safari doesn't
+  draw the keyboard's prev/next/Done accessory bar over it. It needs a manual
+  placeholder (shown only while empty) and single-line behavior.
+*/
+.search-box {
+  white-space: nowrap;
+  overflow-x: auto;
+}
+.search-box:empty::before {
+  content: attr(data-placeholder);
+  color: var(--color-slate-500);
+  pointer-events: none;
+}
+
+/*
   In-app README viewer. The rendered markdown is styled by hand (rather than via
   the typography plugin) so it tracks the active theme through the same
   --color-slate-* / --color-emerald-* variables the rest of the app uses.
@@ -173,4 +188,49 @@ html {
   --color-emerald-400: #818cf8;
   --color-emerald-500: #6366f1;
   --color-emerald-600: #4f46e5;
+}
+
+/* Graphite — neutral dark gray (true grayscale), emerald accent kept. */
+:root[data-theme="graphite"] {
+  --color-slate-950: #1a1a1a;
+  --color-slate-900: #242424;
+  --color-slate-800: #2f2f2f;
+  --color-slate-700: #3d3d3d;
+  --color-slate-600: #525252;
+  --color-slate-500: #707070;
+  --color-slate-400: #9a9a9a;
+  --color-slate-300: #c0c0c0;
+  --color-slate-200: #d6d6d6;
+  --color-slate-100: #ebebeb;
+  --color-slate-50:  #f7f7f7;
+}
+
+/* Slate Gray — cool, muted neutral (less blue than the default Slate). */
+:root[data-theme="slategray"] {
+  --color-slate-950: #17191c;
+  --color-slate-900: #202327;
+  --color-slate-800: #2c3036;
+  --color-slate-700: #3c424a;
+  --color-slate-600: #4f565f;
+  --color-slate-500: #6d747e;
+  --color-slate-400: #99a0aa;
+  --color-slate-300: #c0c6cd;
+  --color-slate-200: #d5dadf;
+  --color-slate-100: #eaedf0;
+  --color-slate-50:  #f6f7f9;
+}
+
+/* Stone — warm gray neutrals. */
+:root[data-theme="stone"] {
+  --color-slate-950: #1c1a17;
+  --color-slate-900: #24211e;
+  --color-slate-800: #312d29;
+  --color-slate-700: #423d38;
+  --color-slate-600: #56504a;
+  --color-slate-500: #79726a;
+  --color-slate-400: #a39b91;
+  --color-slate-300: #c7bfb5;
+  --color-slate-200: #dbd4cb;
+  --color-slate-100: #ede8e1;
+  --color-slate-50:  #f8f5f0;
 }
