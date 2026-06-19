@@ -88,7 +88,7 @@ One dashboard, cycling through all five palettes — Slate · Carbon · Olive ·
   </tr>
   <tr>
     <td width="50%"><b>Encrypted config backups</b><br/><img src="docs/img/backups.png" alt="Backups module"/></td>
-    <td width="50%"></td>
+    <td width="50%"><b>Theme picker</b><br/><img src="docs/img/theme-picker.png" alt="Theme picker — live preview tiles"/></td>
   </tr>
 </table>
 
