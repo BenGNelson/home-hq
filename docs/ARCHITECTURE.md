@@ -880,3 +880,11 @@ Short record of *why* things are the way they are, so future changes have contex
   open-source default (no GPU) shows nothing. We surface
   `encoder.stats.sessionCount` (active NVENC sessions) rather than a flaky
   encoder-% — on a Plex box "2 encode sessions" is the meaningful number.
+- **Library section nav lives in the Library area, not the global sidebar.**
+  Library is a deep sub-app (Games/Books/Comics/Audiobooks/Papers behind one
+  nav item), and those sections are data-driven (`/api/library` reflects what's
+  configured), so promoting them to the sidebar would mean a dynamic, data-aware
+  global nav. Instead a `LibraryNav` pill bar (fed by `libraryNavSections()`)
+  renders on each sub-list page — an "All" pill back to the hub plus the
+  configured, non-empty sections — so you hop between them directly without
+  bouncing through the hub, while the sidebar stays a static registry.
