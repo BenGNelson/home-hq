@@ -102,7 +102,7 @@ export default function Shell({ modules, children }) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 transform flex-col border-r border-slate-800 bg-slate-900 p-4 transition-transform md:static md:translate-x-0 md:bg-slate-900/50 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 transform flex-col border-r border-slate-800 bg-slate-900 px-4 pb-4 transition-transform md:static md:translate-x-0 md:bg-slate-900/50 [padding-top:calc(env(safe-area-inset-top)+1rem)] ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
