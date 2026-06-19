@@ -855,3 +855,14 @@ Short record of *why* things are the way they are, so future changes have contex
   (`useDelayedFlag`), so a fast load never flashes a placeholder. It's opt-in —
   widgets without a `skeleton` keep the plain text — so the pattern can spread
   one widget at a time instead of all at once.
+- **Page title lives in the shell, not each page.** The persistent top bar shows
+  the current section's name, resolved from the route by `activeModule()` in
+  `lib/nav.js` (longest matching path prefix, so a deep route like
+  `/plex/movie/123` still titles as "Plex"). Module pages no longer render their
+  own top-level `<h2>` — it duplicated the nav label and left the top bar empty
+  on desktop. Pages keep only *contextual* headings (a movie title, a library
+  name, a Library sub-section). One title, one place, no empty bar.
+- **One BackLink for every "go back" affordance.** Detail, list, and reader
+  pages all return via a shared `components/BackLink.jsx` ("← Label", muted,
+  `to` for a route or `onClick` for history-back) instead of each hand-rolling a
+  styled `<Link>`. Keeps back navigation visually identical everywhere.

@@ -42,7 +42,6 @@ export default function Network() {
 
   return (
     <div>
-      <h2 className="mb-1 text-xl font-semibold">Network</h2>
       <p className="mb-4 text-xs text-slate-400">
         Live host throughput per interface · 2s samples, ~2 min window
       </p>

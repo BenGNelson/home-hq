@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { groupModules, FOOTER_GROUP } from './nav.js'
+import { groupModules, activeModule, FOOTER_GROUP } from './nav.js'
 
 describe('groupModules', () => {
   it('folds a flat registry into one section per group', () => {
@@ -48,5 +48,37 @@ describe('groupModules', () => {
 
   it('names the footer group', () => {
     expect(FOOTER_GROUP).toBe('Docs')
+  })
+})
+
+describe('activeModule', () => {
+  const mods = [
+    { id: 'dashboard', path: '/dashboard', label: 'Dashboard' },
+    { id: 'plex', path: '/plex', label: 'Plex' },
+    { id: 'plex-insights', path: '/plex/insights', label: 'Plex Insights' },
+    { id: 'library', path: '/library', label: 'Library' },
+    { id: 'api', path: '/api/docs', label: 'API', external: true },
+  ]
+
+  it('matches an exact route', () => {
+    expect(activeModule(mods, '/dashboard').id).toBe('dashboard')
+  })
+
+  it('resolves a deep route to its section by prefix', () => {
+    expect(activeModule(mods, '/plex/movie/123').id).toBe('plex')
+    expect(activeModule(mods, '/library/books').id).toBe('library')
+  })
+
+  it('prefers the longest matching prefix (specific over parent)', () => {
+    expect(activeModule(mods, '/plex/insights').id).toBe('plex-insights')
+  })
+
+  it('never matches an external link or an unknown route', () => {
+    expect(activeModule(mods, '/api/docs')).toBeNull()
+    expect(activeModule(mods, '/nope')).toBeNull()
+  })
+
+  it('does not treat a sibling prefix as a match (/plexier ≠ /plex)', () => {
+    expect(activeModule(mods, '/plexier')).toBeNull()
   })
 })

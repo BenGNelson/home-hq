@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import BackLink from '../../components/BackLink.jsx'
 import { useApi } from '../../lib/useApi.js'
 import { groupByLabel } from '../../lib/library.js'
 import { getRecent } from '../../lib/recentGames.js'
@@ -15,9 +16,7 @@ export default function GamesList() {
 
   return (
     <div className="space-y-5">
-      <Link to="/library" className="text-sm text-slate-400 hover:text-slate-200">
-        ← Library
-      </Link>
+      <BackLink to="/library">Library</BackLink>
       <h2 className="text-xl font-semibold">Games</h2>
 
       {loading && !data && <p className="text-sm text-slate-500">loading…</p>}

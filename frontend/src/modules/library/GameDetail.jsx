@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import BackLink from '../../components/BackLink.jsx'
 import { useApi } from '../../lib/useApi.js'
 import { formatSize, formatAgo } from '../../lib/format.js'
 import { saveStatesUrl, saveStateShotUrl } from '../../lib/library.js'
@@ -25,9 +26,7 @@ export default function GameDetail() {
     return (
       <div className="space-y-3">
         <p className="text-slate-300">That game isn’t in the library.</p>
-        <Link to="/library/games" className="text-sm text-sky-400 hover:underline">
-          ← Back to Games
-        </Link>
+        <BackLink to="/library/games">Back to Games</BackLink>
       </div>
     )
   }
@@ -50,9 +49,7 @@ export default function GameDetail() {
 
   return (
     <div className="space-y-5">
-      <Link to="/library/games" className="text-sm text-slate-400 hover:text-slate-200">
-        ← Games
-      </Link>
+      <BackLink to="/library/games">Games</BackLink>
 
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
         <GameCover game={game} className="w-40 shrink-0 self-center sm:self-start" />

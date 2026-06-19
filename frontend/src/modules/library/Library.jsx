@@ -19,7 +19,6 @@ export default function Library() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Library</h2>
 
       {loading && !data && <p className="text-sm text-slate-500">loading…</p>}
       {error && <p className="text-sm text-rose-400">unavailable — {error}</p>}

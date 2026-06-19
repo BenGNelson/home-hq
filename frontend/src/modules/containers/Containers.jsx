@@ -212,7 +212,6 @@ export default function Containers() {
 
   return (
     <div>
-      <h2 className="mb-4 text-xl font-semibold">Containers</h2>
       {error ? (
         <p className="text-sm text-rose-400">unavailable — {error}</p>
       ) : (

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import BackLink from '../../components/BackLink.jsx'
 import { useApi, API_BASE } from '../../lib/useApi.js'
 import {
   readerHref,
@@ -67,9 +68,7 @@ export default function ComicsList() {
 
   return (
     <div className="space-y-4">
-      <Link to="/library" className="text-sm text-slate-400 hover:text-slate-200">
-        ← Library
-      </Link>
+      <BackLink to="/library">Library</BackLink>
       <h2 className="text-xl font-semibold">Comics</h2>
 
       {loading && !data && <p className="text-sm text-slate-500">loading…</p>}

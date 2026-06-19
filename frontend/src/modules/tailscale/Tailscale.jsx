@@ -10,7 +10,6 @@ export default function Tailscale() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Tailscale</h2>
 
       {loading && !data && <p className="text-sm text-slate-500">loading…</p>}
       {error && <p className="text-sm text-rose-400">unavailable — {error}</p>}

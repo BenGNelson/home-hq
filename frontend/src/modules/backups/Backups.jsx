@@ -7,7 +7,6 @@ export default function Backups() {
 
   return (
     <div>
-      <h2 className="mb-1 text-xl font-semibold">Backups</h2>
       <p className="mb-4 text-xs text-slate-400">
         Encrypted config snapshots — what's needed to rebuild this server.
       </p>
