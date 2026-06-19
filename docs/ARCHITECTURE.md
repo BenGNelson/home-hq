@@ -187,6 +187,7 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/library/listen-progress?book=` | an audiobook's saved position | `{chapter_id, position_s}` — the player resumes from it |
 | `PUT /api/library/listen-progress` | save listening position (upsert) | body `{book_id,chapter_id,position_s}`; chapter is traversal-validated |
 | `DELETE /api/library/listen-progress?book=` | drop an audiobook from the shelf | clears its position |
+| `GET /api/library/audiobooks/cover?path=` | a book's cover (cached) | a folder image, else the first chapter's embedded art (mutagen), downscaled to WebP (404 → 🎧 placeholder) |
 | `DELETE /api/library/games/last-played?id=` | remove a game from the shelf | clears the marker; keeps the save files |
 
 **Graceful degradation:** every endpoint that touches an external system
@@ -350,8 +351,11 @@ stay `octet-stream`, read as bytes by their engines). It auto-advances chapters,
 and the **Media Session API** wires the iOS lock-screen / Control-Center transport
 + background playback. Position resumes from a dedicated `listen_progress` table
 (`book_id` → `chapter_id` + `position_s`), saved debounced as you listen — so it
-roams across devices and joins the Jump-back-in shelf as a `listen` entry. (Audible
-`.aa/.aax` are DRM and not recognized; folder cover art is a fast-follow.)
+roams across devices and joins the Jump-back-in shelf as a `listen` entry. **Cover
+art** comes from a folder image or the first chapter's embedded art (ID3 APIC /
+MP4 `covr` / FLAC pictures via **mutagen**), downscaled + cached like the other
+covers and also fed to the Media Session lock-screen artwork. (Audible `.aa/.aax`
+are DRM and not recognized.)
 Still planned: per-item **offline download** for airplane-mode reading. DRM-free
 content only.
 

@@ -265,6 +265,20 @@ def safe_path(section, settings, item_id):
     return target
 
 
+def safe_dir(section, settings, path):
+    """Resolve a folder path within a section to an absolute dir, with the same
+    traversal guard as safe_path (but for a directory, not a file). Returns None
+    on any escape attempt or if it isn't an existing directory."""
+    rom_dir = section_dir(section, settings)
+    if not rom_dir or not path:
+        return None
+    root = os.path.realpath(rom_dir)
+    target = os.path.realpath(os.path.join(root, path))
+    if target != root and not target.startswith(root + os.sep):
+        return None
+    return target if os.path.isdir(target) else None
+
+
 # --- save states (server-side, roam across devices) ------------------------
 # Each game's states live in a dir keyed by a hash of the game id (so the raw
 # ROM filename — with spaces/parens — never becomes a path), and each slot is a

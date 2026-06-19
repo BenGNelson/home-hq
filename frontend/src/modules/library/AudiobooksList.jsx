@@ -2,6 +2,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useApi } from '../../lib/useApi.js'
 import { browseFolder, folderCrumbs, naturalCompare } from '../../lib/library.js'
 import AudiobookPlayer from './AudiobookPlayer.jsx'
+import AudiobookCover from './AudiobookCover.jsx'
 
 // The Audiobooks section. A book is a FOLDER of ordered chapter files, nested
 // under author/collection folders — so this is a folder browser (mirrors disk at
@@ -64,7 +65,7 @@ export default function AudiobooksList() {
                     onClick={() => navigate(`/library/audiobooks?path=${encodeURIComponent(f.path)}`)}
                     className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-slate-800"
                   >
-                    <span className="text-xl">🎧</span>
+                    <AudiobookCover path={f.path} alt={f.name} className="w-12 rounded" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-slate-100">{f.name}</span>
                       <span className="block text-xs text-slate-500">

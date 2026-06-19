@@ -32,3 +32,7 @@ Pillow>=10.3
 # libarchive handles all of them through one binding (needs the system
 # libarchive13 lib, installed in the Dockerfile). See app/comics.py.
 libarchive-c>=5.1
+
+# Audio metadata — pulls an audiobook's embedded cover art (ID3 APIC / MP4 covr /
+# FLAC pictures) out of its first chapter. Pure Python, no system libs.
+mutagen>=1.47

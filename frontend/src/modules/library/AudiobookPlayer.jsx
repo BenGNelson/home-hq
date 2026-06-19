@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { fileUrl, formatTime } from '../../lib/library.js'
+import { fileUrl, formatTime, audiobookCoverUrl } from '../../lib/library.js'
 import { API_BASE } from '../../lib/useApi.js'
+import AudiobookCover from './AudiobookCover.jsx'
 
 // Plays an audiobook = a folder of ordered chapter files. Streams each chapter
 // from the range-capable /library/file via a plain <audio> element (so it keeps
@@ -94,6 +95,7 @@ export default function AudiobookPlayer({ bookPath, bookName, chapters }) {
         title: current?.name || bookName,
         artist: bookName,
         album: 'Audiobook',
+        artwork: [{ src: audiobookCoverUrl(bookPath), sizes: '400x400', type: 'image/webp' }],
       })
       const h = navigator.mediaSession.setActionHandler.bind(navigator.mediaSession)
       h('play', () => audioRef.current?.play())
@@ -146,6 +148,7 @@ export default function AudiobookPlayer({ bookPath, bookName, chapters }) {
 
       {/* Now playing + transport */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+        <AudiobookCover path={bookPath} alt={bookName} className="mx-auto mb-3 w-40 rounded-lg" />
         <div className="truncate text-sm text-slate-400">{bookName}</div>
         <div className="mt-0.5 truncate font-medium text-slate-100">
           {current?.name || '—'}

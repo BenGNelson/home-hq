@@ -844,3 +844,37 @@ def test_audio_served_with_audio_mime(client, audiobooks_dir):
     )
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("audio/mpeg")
+
+
+@pytest.fixture
+def audiobook_covers_dir(tmp_path, monkeypatch):
+    d = tmp_path / "ab-covers"
+    monkeypatch.setattr(settings, "audiobook_covers_dir", str(d))
+    return d
+
+
+def test_audiobook_cover_from_folder_image(client, audiobooks_dir, audiobook_covers_dir):
+    import io
+    from PIL import Image
+
+    book = audiobooks_dir / "George Orwell - Animal Farm"
+    buf = io.BytesIO()
+    Image.new("RGB", (500, 500), (30, 60, 90)).save(buf, format="JPEG")
+    (book / "cover.jpg").write_bytes(buf.getvalue())
+
+    r = client.get("/api/library/audiobooks/cover", params={"path": "George Orwell - Animal Farm"})
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/webp"
+    assert list(audiobook_covers_dir.glob("*.webp"))
+
+
+def test_audiobook_cover_missing_is_404_and_remembered(client, audiobooks_dir, audiobook_covers_dir):
+    # The fixture book has only mp3 stubs (no real art) → miss.
+    assert client.get(
+        "/api/library/audiobooks/cover", params={"path": "George Orwell - Animal Farm"}
+    ).status_code == 404
+    assert list(audiobook_covers_dir.glob("*.miss"))
+    # Traversal / unknown folder → 404.
+    assert client.get(
+        "/api/library/audiobooks/cover", params={"path": "../etc"}
+    ).status_code == 404

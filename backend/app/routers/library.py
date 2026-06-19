@@ -21,7 +21,7 @@ from fastapi import APIRouter, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from app import book_sync, bookmeta, comics, db, images, library
+from app import audiobooks, book_sync, bookmeta, comics, db, images, library
 from app.config import settings
 
 router = APIRouter()
@@ -528,6 +528,37 @@ def listen_progress_delete(book: str = Query(description="The book folder path")
     """Drop an audiobook from Jump Back In (clears its saved position)."""
     removed = db.delete_listen_progress(book)
     return Response(status_code=204 if removed else 404)
+
+
+@router.get("/library/audiobooks/cover")
+def audiobook_cover(path: str = Query(description="The book folder path")):
+    """A book's cover, from a folder image or the first chapter's embedded art,
+    downscaled + cached as a WebP (same on-demand shape as the other covers). A
+    book with no art (or a collection folder) is remembered as a miss → 404, and
+    the frontend shows a 🎧 placeholder."""
+    section = library.get_section("audiobooks")
+    book_dir = library.safe_dir(section, settings, path) if section else None
+    if not book_dir:
+        return Response(status_code=404)
+    cache_dir = settings.audiobook_covers_dir
+    key = hashlib.sha1(path.encode()).hexdigest()
+    webp = os.path.join(cache_dir, key + ".webp")
+    miss = os.path.join(cache_dir, key + ".miss")
+
+    if os.path.isfile(webp):
+        return FileResponse(webp, media_type="image/webp", headers=_EXTRACTED_ART_HEADERS)
+    if os.path.isfile(miss):
+        return Response(status_code=404)
+
+    raw = audiobooks.find_cover(book_dir)
+    thumb = images.to_thumbnail(raw) if raw else None
+    os.makedirs(cache_dir, exist_ok=True)
+    if thumb:
+        with open(webp, "wb") as fh:
+            fh.write(thumb)
+        return FileResponse(webp, media_type="image/webp", headers=_EXTRACTED_ART_HEADERS)
+    open(miss, "w").close()
+    return Response(status_code=404)
 
 
 # --- Books search (backed by the metadata cache) --------------------------
