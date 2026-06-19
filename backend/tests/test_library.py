@@ -663,3 +663,79 @@ def test_book_cover_rejects_unknown_and_traversal(client, books_dir, book_covers
     assert client.get(
         "/api/library/books/cover", params={"id": "../etc/passwd"}
     ).status_code == 404
+
+
+# --- comics (CBZ/CBR/CB7 page reader) -------------------------------------
+
+COMICS = library.get_section("comics")
+
+
+def _make_cbz_with_pages(path, n=3):
+    """A CBZ holding n real (tiny) PNG pages, so the page proxy can downscale."""
+    import io
+    import zipfile
+
+    from PIL import Image
+
+    with zipfile.ZipFile(path, "w") as z:
+        for i in range(n):
+            buf = io.BytesIO()
+            Image.new("RGB", (800, 1200), (10 * i, 20, 30)).save(buf, format="PNG")
+            z.writestr(f"{i + 1:03d}.png", buf.getvalue())
+
+
+@pytest.fixture
+def comics_dir(tmp_path, monkeypatch):
+    d = tmp_path / "comics"
+    d.mkdir()
+    _make_cbz_with_pages(d / "Star Wars 01.cbz", n=3)
+    (d / "notacomic.txt").write_bytes(b"ignored")
+    monkeypatch.setattr(settings, "comics_dir", str(d))
+    monkeypatch.setattr(settings, "comic_pages_dir", str(tmp_path / "comic-pages"))
+    return d
+
+
+def test_comics_section_lists_with_reader_hint(comics_dir):
+    items = library.list_items(COMICS, settings)
+    assert len(items) == 1
+    assert items[0]["name"] == "Star Wars 01"
+    assert items[0]["reader"] == "comic"
+    assert items[0]["label"] == "Comic"
+
+
+def test_comic_info_returns_page_count(client, comics_dir):
+    r = client.get("/api/library/comics/info", params={"id": "Star Wars 01.cbz"})
+    assert r.status_code == 200
+    assert r.json() == {"pages": 3}
+
+
+def test_comic_page_extracts_caches_and_serves(client, comics_dir):
+    r = client.get("/api/library/comics/page", params={"id": "Star Wars 01.cbz", "n": 1})
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/webp"
+    # Second request serves the cached page (the p1.webp file now exists).
+    assert (settings.comic_pages_dir is not None)
+    assert client.get(
+        "/api/library/comics/page", params={"id": "Star Wars 01.cbz", "n": 1}
+    ).status_code == 200
+
+
+def test_comic_cover_is_first_page(client, comics_dir):
+    r = client.get("/api/library/comics/cover", params={"id": "Star Wars 01.cbz"})
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/webp"
+
+
+def test_comic_page_out_of_range_404(client, comics_dir):
+    assert client.get(
+        "/api/library/comics/page", params={"id": "Star Wars 01.cbz", "n": 99}
+    ).status_code == 404
+
+
+def test_comic_endpoints_reject_traversal_and_unknown(client, comics_dir):
+    assert client.get(
+        "/api/library/comics/info", params={"id": "../etc/passwd"}
+    ).status_code == 404
+    assert client.get(
+        "/api/library/comics/page", params={"id": "nope.cbz", "n": 0}
+    ).status_code == 404

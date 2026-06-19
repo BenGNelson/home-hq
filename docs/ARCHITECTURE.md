@@ -167,6 +167,9 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/library/books/search?q=&limit=` | search Books by title/author | queries the `book_meta` cache (empty `q` = first results alphabetically) |
 | `GET /api/library/books/index-status` | book-indexer progress | from the indexer + cache count (drives the "indexing…" UI) |
 | `GET /api/library/books/cover?id=` | a book's cover art (cached) | extracts the embedded cover from the EPUB/MOBI on first view, downscales to a small WebP, serves locally thereafter (404 → titled placeholder) |
+| `GET /api/library/comics/info?id=` | a comic's page count | reads the CBZ/CBR/CB7 archive's image entries (via libarchive) |
+| `GET /api/library/comics/cover?id=` | a comic's cover = page 0 (cached) | extracts the first page, downscales small for the browse grid |
+| `GET /api/library/comics/page?id=&n=` | one comic page (cached) | extracts page `n` from the archive, downscales to a reading-size WebP, serves locally thereafter |
 | `GET /api/library/file?section=&id=` | stream one item's bytes (range-capable) | `FileResponse` from the section dir, traversal-guarded |
 | `GET /api/library/games/cover?id=` | a game's box art (cached) | matches the No-Intro name to libretro-thumbnails, fetches once, downscales to a small WebP in the covers cache, serves locally (404 → placeholder) |
 | `POST /api/library/games/save-states` | upload a save state (blob + screenshot) | multipart; backend-assigned ms slot id; size-capped; stored under `/data/saves` |
@@ -263,22 +266,23 @@ detail + posters are on-demand** from Plex (viewed occasionally, not searched �
 no reason to store long summaries or binary art). Posters are **proxied** through
 `/api/plex/art/{key}` so the Plex token never reaches the browser.
 
-## Library (owned content: games, papers, books; comics later)
+## Library (owned content: games, papers, books, comics)
 
 Where Plex streams *video*, the **Library** is the hub for content you **own and
-consume directly** — ROMs you play, ebooks (EPUB/MOBI/AZW3), and the PDFs from
-newspaper/magazine subscriptions — read/played **in-app**, mobile-first (comics
-slot in next).
+consume directly** — ROMs you play, ebooks (EPUB/MOBI/AZW3), comics (CBZ/CBR/CB7),
+and the PDFs from newspaper/magazine subscriptions — read/played **in-app**,
+mobile-first.
 
 **Section framework.** `app/library.py` (pure, unit-tested) defines an ordered
 list of **sections**, each with a content dir (a `.env` path under `RAID_MOUNT`,
 so the existing read-only RAID mount serves it — no extra mount), recognized file
 extensions, and per-item metadata. Sections so far: **games**
 (`.gb`/`.gbc` → the `gb` core, `.gba` → `gba`), **papers** (Magazines &
-Papers — `.pdf`, read in-browser via PDF.js), and **books** (EPUB/MOBI/AZW3 read
-via foliate-js, plus `.pdf` falling back to PDF.js). A section also carries a
+Papers — `.pdf`, read in-browser via PDF.js), **books** (EPUB/MOBI/AZW3 read
+via foliate-js, plus `.pdf` falling back to PDF.js), and **comics**
+(CBZ/CBR/CB7 read page-by-page). A section also carries a
 `title_style` (ROM filenames get the No-Intro cleanup; document names are kept
-verbatim) and a `reader` hint per format (`pdf` | `epub`) so the frontend knows
+verbatim) and a `reader` hint per format (`pdf` | `epub` | `comic`) so the frontend knows
 which engine to open. Adding a content type is a new SECTION entry + a dir
 setting, no router changes. `routers/library.py` is the thin HTTP layer: `/library` (hub summary),
 `/library/{section}` (browse list), and `/library/file` (stream). Sections
@@ -307,8 +311,21 @@ reader from the item's `reader` hint. foliate renders each book into a `blob:`
 iframe that (a WebKit quirk) must run with `allow-scripts`, so a
 **Content-Security-Policy** on the app shell (`frontend/nginx.conf`) is the real
 boundary there — it allows our inline theme script and the reader's `blob:`
-iframe/styles/fonts, same-origin everything else. Still planned: CBZ comics and
-per-item **offline download** for airplane-mode reading. DRM-free content only.
+iframe/styles/fonts, same-origin everything else.
+
+**Comics are the one server-assisted reader.** A comic is a CBZ/CBR/CB7 archive
+of page images (zip/rar/7z). Browsers can't read RAR/7z, and the scanned pages
+are often huge, so — unlike the client-side game/PDF/ebook engines — the backend
+does the work: `app/comics.py` uses **libarchive** (one binding for all three
+formats) to list a comic's pages in natural filename order and extract one page's
+bytes, and the router downscales each page to a reading-size WebP and caches it
+(keyed by a hash of the id + page index), exactly like the cover proxies. The
+`comic` reader is then a dumb `<img>` pager that fetches `/comics/page?n=`,
+prefetches the next page, and bookmarks by `page` like a PDF. Page extraction is
+lazy + cached, so only comics you open take cache space, and a big per-series
+library is browsed by folder (series → issues) rather than as one flat list.
+Still planned: per-item **offline download** for airplane-mode reading. DRM-free
+content only.
 
 **"Jump back in" — one resume shelf across content types.** Reading position is
 server-side in a `reading_progress` table keyed by `(section, item_id)`: PDFs

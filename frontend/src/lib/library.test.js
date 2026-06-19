@@ -9,6 +9,9 @@ import {
   resumeHref,
   readerHref,
   groupByLabel,
+  groupBySeries,
+  comicPageUrl,
+  comicCoverUrl,
   libraryHeadline,
   bookSubtitle,
 } from './library.js'
@@ -116,6 +119,34 @@ describe('groupByLabel', () => {
   })
   it('handles empty/undefined', () => {
     expect(groupByLabel(undefined)).toEqual([])
+  })
+})
+
+describe('groupBySeries', () => {
+  it('splits items into series folders and singles', () => {
+    const items = [
+      { id: 'Star Wars/Issue 2.cbr' },
+      { id: 'One-Punch Man.cbz' }, // no folder → single
+      { id: 'Star Wars/Issue 1.cbr' },
+      { id: 'Batman/Year One.cbr' },
+    ]
+    const { series, singles } = groupBySeries(items)
+    expect(series.map(([name]) => name)).toEqual(['Batman', 'Star Wars']) // alphabetical
+    expect(series.find(([n]) => n === 'Star Wars')[1].map((i) => i.id)).toEqual([
+      'Star Wars/Issue 2.cbr',
+      'Star Wars/Issue 1.cbr',
+    ])
+    expect(singles.map((i) => i.id)).toEqual(['One-Punch Man.cbz'])
+  })
+  it('handles empty/undefined', () => {
+    expect(groupBySeries(undefined)).toEqual({ series: [], singles: [] })
+  })
+})
+
+describe('comic urls', () => {
+  it('encode the id and page index', () => {
+    expect(comicCoverUrl('Star Wars/X.cbr')).toContain('id=Star%20Wars%2FX.cbr')
+    expect(comicPageUrl('a b.cbz', 4)).toContain('id=a%20b.cbz&n=4')
   })
 })
 

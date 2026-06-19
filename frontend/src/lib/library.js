@@ -25,6 +25,36 @@ export function bookCoverUrl(id) {
   return `${API_BASE}/library/books/cover?id=${encodeURIComponent(id)}`
 }
 
+// Comics: page count, one downscaled page, and the cover (page 0, smaller). Each
+// page is extracted from the CBZ/CBR/CB7 archive + cached as a WebP server-side.
+export function comicInfoUrl(id) {
+  return `${API_BASE}/library/comics/info?id=${encodeURIComponent(id)}`
+}
+export function comicPageUrl(id, n) {
+  return `${API_BASE}/library/comics/page?id=${encodeURIComponent(id)}&n=${n}`
+}
+export function comicCoverUrl(id) {
+  return `${API_BASE}/library/comics/cover?id=${encodeURIComponent(id)}`
+}
+
+// Group comic items into series (by their top-level folder) + loose "singles".
+// A big comic library lives in per-series folders, so the browse view lists
+// series first (cheap) and only loads issue covers once you open one.
+// → { series: [[name, items], …] (alphabetical), singles: items[] }
+export function groupBySeries(items) {
+  const series = {}
+  const singles = []
+  for (const it of items ?? []) {
+    const slash = it.id.indexOf('/')
+    if (slash === -1) singles.push(it)
+    else (series[it.id.slice(0, slash)] ??= []).push(it)
+  }
+  return {
+    series: Object.entries(series).sort(([a], [b]) => a.localeCompare(b)),
+    singles,
+  }
+}
+
 // Server-side save states for a game (roam across devices).
 export function saveStatesUrl(id) {
   return `${API_BASE}/library/games/save-states?id=${encodeURIComponent(id)}`

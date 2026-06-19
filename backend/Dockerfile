@@ -3,6 +3,12 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# System library for reading comic archives (CBZ/CBR/CB7 = zip/rar/7z) via the
+# libarchive-c binding — one lib covers every format (see app/comics.py).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libarchive13 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install deps first (in their own layer) so Docker caches them and only
 # reinstalls when requirements.txt changes — not on every code edit.
 COPY requirements.txt .

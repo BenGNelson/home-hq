@@ -21,7 +21,7 @@ from fastapi import APIRouter, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from app import book_sync, bookmeta, db, images, library
+from app import book_sync, bookmeta, comics, db, images, library
 from app.config import settings
 
 router = APIRouter()
@@ -434,11 +434,11 @@ def books_search(
     return {"items": items, "total": db.count_books_meta(), "query": q}
 
 
-# Book covers are extracted from the book file and keyed by item id (a path),
-# which could in principle be replaced — so cache them for a good while but not
-# `immutable` (clear the cache dir to force a re-extract). Mirrors the Plex art
-# proxy's choice for the same reason.
-_BOOK_COVER_HEADERS = {"Cache-Control": "public, max-age=2592000"}
+# Art extracted from a content file (book covers, comic pages) is keyed by item
+# id (a path), which could in principle be replaced — so cache it for a good
+# while but not `immutable` (clear the cache dir to force a re-extract). Mirrors
+# the Plex art proxy's choice for the same reason.
+_EXTRACTED_ART_HEADERS = {"Cache-Control": "public, max-age=2592000"}
 
 
 @router.get("/library/books/cover")
@@ -461,7 +461,7 @@ def get_book_cover(id: str = Query(description="Book item id from the search/lis
     miss = os.path.join(cache_dir, key + ".miss")
 
     if os.path.isfile(webp):
-        return FileResponse(webp, media_type="image/webp", headers=_BOOK_COVER_HEADERS)
+        return FileResponse(webp, media_type="image/webp", headers=_EXTRACTED_ART_HEADERS)
     if os.path.isfile(miss):
         return Response(status_code=404)
 
@@ -471,9 +471,82 @@ def get_book_cover(id: str = Query(description="Book item id from the search/lis
     if thumb:
         with open(webp, "wb") as fh:
             fh.write(thumb)
-        return FileResponse(webp, media_type="image/webp", headers=_BOOK_COVER_HEADERS)
+        return FileResponse(webp, media_type="image/webp", headers=_EXTRACTED_ART_HEADERS)
     open(miss, "w").close()  # no cover (or unreadable) — remember it
     return Response(status_code=404)
+
+
+# --- Comics (CBZ/CBR/CB7 page reader) -------------------------------------
+# A comic is an archive of page images; the reader pages through them one at a
+# time. The backend extracts a page from the archive on first view, downscales
+# it to a WebP, and caches it — so paging is fast and only opened comics take
+# cache space (same on-demand cache shape as covers). The cover is page 0 at a
+# smaller width; reading pages are larger.
+_COMIC_COVER_WIDTH = 400
+_COMIC_PAGE_WIDTH = 1400
+
+
+def _comic_cache_dir(id: str) -> str:
+    """A comic's page-cache dir, keyed by a hash of its id so the raw filename
+    (spaces/slashes) never becomes a path component."""
+    return os.path.join(settings.comic_pages_dir, hashlib.sha1(id.encode()).hexdigest())
+
+
+def _serve_comic_page(id: str, path: str, index: int, width: int, cache_name: str):
+    """Extract page `index` from the comic, downscale to a cached WebP, serve it.
+    Returns a FileResponse (200) or a 404 Response. The cached file name lets the
+    cover (page 0, small) and the reading pages (large) coexist without clashing."""
+    cache_dir = _comic_cache_dir(id)
+    webp = os.path.join(cache_dir, cache_name)
+    if os.path.isfile(webp):
+        return FileResponse(webp, media_type="image/webp", headers=_EXTRACTED_ART_HEADERS)
+    raw = comics.read_page_by_index(path, index)
+    thumb = images.to_thumbnail(raw, max_width=width) if raw else None
+    if not thumb:
+        return Response(status_code=404)
+    os.makedirs(cache_dir, exist_ok=True)
+    with open(webp, "wb") as fh:
+        fh.write(thumb)
+    return FileResponse(webp, media_type="image/webp", headers=_EXTRACTED_ART_HEADERS)
+
+
+class ComicInfoModel(BaseModel):
+    pages: int = Field(description="Number of page images in the comic (0 if unreadable)")
+
+
+@router.get("/library/comics/info", response_model=ComicInfoModel)
+def comic_info(id: str = Query(description="Comic item id from the section listing")):
+    """The comic's page count — the reader fetches this on open to size its pager."""
+    section = library.get_section("comics")
+    path = library.safe_path(section, settings, id) if section else None
+    if not path:
+        return Response(status_code=404)
+    return {"pages": comics.page_count(path)}
+
+
+@router.get("/library/comics/cover")
+def comic_cover(id: str = Query(description="Comic item id")):
+    """The comic's cover = its first page, downscaled small for the browse grid
+    (cached). 404 → the frontend shows a titled placeholder."""
+    section = library.get_section("comics")
+    path = library.safe_path(section, settings, id) if section else None
+    if not path:
+        return Response(status_code=404)
+    return _serve_comic_page(id, path, 0, _COMIC_COVER_WIDTH, "cover.webp")
+
+
+@router.get("/library/comics/page")
+def comic_page(
+    id: str = Query(description="Comic item id"),
+    n: int = Query(0, ge=0, description="0-based page index"),
+):
+    """One comic page, extracted from the archive + downscaled to a WebP for
+    reading (cached). 404 when the page index is out of range / unreadable."""
+    section = library.get_section("comics")
+    path = library.safe_path(section, settings, id) if section else None
+    if not path:
+        return Response(status_code=404)
+    return _serve_comic_page(id, path, n, _COMIC_PAGE_WIDTH, f"p{n}.webp")
 
 
 class BookIndexStatusModel(BaseModel):

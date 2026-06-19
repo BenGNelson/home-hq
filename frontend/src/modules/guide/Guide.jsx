@@ -52,7 +52,7 @@ const ENDPOINTS = [
     '/api/plex · …',
     'Status (streams/transcodes), now-playing sessions, recently added, libraries, background sync, cached library items & show episodes, on-demand item detail, and a poster proxy.',
   ],
-  ['/api/library · /{section} · /file · /games/cover · /books/cover · /games/save-states · /reading-progress · /continue', 'The owned-content hub: sections + counts (games, books, magazines & papers), a section’s items, a range-capable traversal-guarded file stream (used by the emulator and the PDF + ebook readers), proxied/cached game box art and book covers (each extracted from the file on first view, downscaled to a cached WebP), server-side save states + reading position (both roam across devices), and the unified "Jump back in" shelf that resumes books/documents (to your spot) and games (into the last save state).'],
+  ['/api/library · /{section} · /file · /games/cover · /books/cover · /comics/info · /comics/page · /games/save-states · /reading-progress · /continue', 'The owned-content hub: sections + counts (games, books, comics, magazines & papers), a section’s items, a range-capable traversal-guarded file stream (used by the emulator and the PDF + ebook readers), proxied/cached game box art and book covers, comic page count + per-page extraction (each comic page pulled from its CBZ/CBR/CB7 archive on the server, downscaled to a cached WebP), server-side save states + reading position (both roam across devices), and the unified "Jump back in" shelf that resumes books/comics/documents (to your spot) and games (into the last save state).'],
 ]
 
 // Plain-language one-liners for the tools named on this page, so the guide
@@ -82,6 +82,7 @@ const GLOSSARY = [
   ['MQTT', 'A lightweight publish/subscribe messaging protocol for devices. The 3D printer publishes its state to a local broker and the backend subscribes — the one push-based data source (everything else is pulled on request).'],
   ['EmulatorJS', 'A browser game-emulator engine (WebAssembly). It runs retro consoles entirely client-side, so the Library can play your ROMs on the device while the server just streams the file. Self-hosted at a pinned version and run in an isolated iframe.'],
   ['foliate-js', 'A browser ebook-rendering engine. It reads EPUB, MOBI, and AZW3 entirely client-side (parsing the Kindle formats itself — no server-side conversion), so the Library can show your books on the device while the server just streams the file.'],
+  ['libarchive', 'A C library that reads many archive formats through one interface. The Library uses it to open comics — CBZ/CBR/CB7 are just zip/rar/7z archives of page images — so the server can list a comic’s pages and extract them one at a time.'],
   ['HTTP range request', 'A way to ask a server for just part of a file (a byte range) instead of the whole thing — so a reader or emulator fetches only what it needs, which keeps big PDFs snappy on a phone.'],
 ]
 
@@ -276,13 +277,17 @@ export default function Guide() {
           save (SRAM) still lives in the browser for now.
         </p>
         <p>
-          <strong>Reading</strong> works the same way, client-side: PDFs (magazines
+          <strong>Reading</strong> is mostly client-side: PDFs (magazines
           &amp; papers, or a PDF book) render with <strong>PDF.js</strong>, and
           ebooks render with <strong>foliate-js</strong>, which reads EPUB, MOBI,
           and AZW3 right in the browser — <strong>no server-side conversion</strong>.
+          <strong>Comics</strong> (CBZ/CBR/CB7) are the exception: a comic is an
+          archive of page images that browsers can't open (RAR/7z), so the server
+          extracts and shrinks each page on demand and the reader is a simple
+          page-by-page viewer — big libraries are browsed by series.
           Your <strong>reading position roams across devices</strong> (saved on the
-          server: PDFs by page, ebooks by an exact location), and a unified{' '}
-          <strong>Jump back in</strong> shelf resumes books, documents, and games
+          server: PDFs and comics by page, ebooks by an exact location), and a unified{' '}
+          <strong>Jump back in</strong> shelf resumes books, comics, documents, and games
           from one place. (foliate renders a book in a sandboxed frame, so a{' '}
           <strong>Content-Security-Policy</strong> on the app is the guardrail there.)
           DRM-free files only.

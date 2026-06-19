@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # foliate-js (the MOBI/AZW3 parser is built in — no server-side conversion).
     papers_dir: str = ""
     books_dir: str = ""
+    # Comics = CBZ/CBR/CB7 archives of page images, read page-by-page in the
+    # browser (the backend extracts + downscales each page; see app/comics.py).
+    comics_dir: str = ""
     # Books search index: a background worker parses each ebook's embedded
     # title/author into a small text-only SQLite cache so Books is searchable by
     # title or author. Set false to disable; interval is how often it re-scans
@@ -64,6 +67,11 @@ class Settings(BaseSettings):
     # first view, downscaled, and served locally thereafter — no covers for books
     # you never open (keeps the cache small even for a huge library).
     book_covers_dir: str = "/data/book-covers"
+    # Where extracted comic pages are cached (downscaled WebP, keyed by a hash of
+    # the comic id + page index). Same writable volume; a page is pulled from the
+    # archive on first view and served locally thereafter, so paging is fast and
+    # only comics you open take cache space.
+    comic_pages_dir: str = "/data/comic-pages"
 
     # --- Backend ---
     api_port: int = 8000

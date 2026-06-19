@@ -75,6 +75,24 @@ SECTIONS = [
             ".pdf": {"label": "PDF", "reader": "pdf"},
         },
     },
+    {
+        "key": "comics",
+        "label": "Comics",
+        "icon": "🦸",
+        "kind": "read",
+        "dir_setting": "comics_dir",
+        # Real titles, kept verbatim. CBZ/CBR/CB7 are zip/rar/7z archives of page
+        # images, read page-by-page by the `comic` reader (the backend extracts +
+        # downscales each page — see app/comics.py); a bare .rar is treated the
+        # same (comic dumps often use it).
+        "title_style": "plain",
+        "formats": {
+            ".cbz": {"label": "Comic", "reader": "comic"},
+            ".cbr": {"label": "Comic", "reader": "comic"},
+            ".cb7": {"label": "Comic", "reader": "comic"},
+            ".rar": {"label": "Comic", "reader": "comic"},
+        },
+    },
 ]
 
 _SECTIONS_BY_KEY = {s["key"]: s for s in SECTIONS}
