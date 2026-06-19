@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import BackLink from '../../components/BackLink.jsx'
+import LibraryNav from './LibraryNav.jsx'
 import { useApi } from '../../lib/useApi.js'
 import { formatSize } from '../../lib/format.js'
 import { readerHref } from '../../lib/library.js'
@@ -12,7 +12,7 @@ export default function PapersList() {
 
   return (
     <div className="space-y-5">
-      <BackLink to="/library">Library</BackLink>
+      <LibraryNav />
       <h2 className="text-xl font-semibold">Magazines &amp; Papers</h2>
 
       {loading && !data && <p className="text-sm text-slate-500">loading…</p>}

@@ -150,6 +150,12 @@ export function naturalCompare(a, b) {
   return (a || '').localeCompare(b || '', undefined, { numeric: true, sensitivity: 'base' })
 }
 
+// The Library sub-sections worth showing in the in-area section nav: configured
+// and non-empty (an unconfigured or empty section has no list page to land on).
+export function libraryNavSections(data) {
+  return (data?.sections ?? []).filter((s) => s.configured && s.count > 0)
+}
+
 // Seconds → h:mm:ss / m:ss for the audio player.
 export function formatTime(s) {
   if (!Number.isFinite(s) || s < 0) return '0:00'

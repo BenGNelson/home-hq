@@ -19,6 +19,7 @@ import {
   comicCoverUrl,
   libraryHeadline,
   bookSubtitle,
+  libraryNavSections,
 } from './library.js'
 
 describe('bookSubtitle', () => {
@@ -238,5 +239,23 @@ describe('libraryHeadline', () => {
   })
   it('messages when nothing is configured', () => {
     expect(libraryHeadline({ sections: [{ configured: false }] })).toMatch(/no content/i)
+  })
+})
+
+describe('libraryNavSections', () => {
+  const sections = [
+    { key: 'games', configured: true, count: 7 },
+    { key: 'books', configured: true, count: 0 }, // empty -> excluded
+    { key: 'comics', configured: false, count: 0 }, // not set up -> excluded
+    { key: 'papers', configured: true, count: 3 },
+  ]
+
+  it('keeps only configured, non-empty sections', () => {
+    expect(libraryNavSections({ sections }).map((s) => s.key)).toEqual(['games', 'papers'])
+  })
+
+  it('is empty for missing or sectionless data', () => {
+    expect(libraryNavSections(null)).toEqual([])
+    expect(libraryNavSections({})).toEqual([])
   })
 })
