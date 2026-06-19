@@ -37,6 +37,12 @@ export function comicCoverUrl(id) {
   return `${API_BASE}/library/comics/cover?id=${encodeURIComponent(id)}`
 }
 
+// An audiobook's cover (a folder image or the first chapter's embedded art),
+// cached as WebP. 404 → caller shows a 🎧 placeholder.
+export function audiobookCoverUrl(path) {
+  return `${API_BASE}/library/audiobooks/cover?path=${encodeURIComponent(path)}`
+}
+
 // Browse a comic library as a folder tree (it mirrors the filesystem, at any
 // nesting depth). Given all items (ids are POSIX-style paths) and the current
 // folder `path` ('' = root), return the immediate child folders (with a count of

@@ -71,6 +71,10 @@ class Settings(BaseSettings):
     # first view, downscaled, and served locally thereafter — no covers for books
     # you never open (keeps the cache small even for a huge library).
     book_covers_dir: str = "/data/book-covers"
+    # Where audiobook cover thumbnails are cached (WebP, keyed by a hash of the
+    # book folder path). The cover comes from a folder image or the first
+    # chapter's embedded art, extracted on first view.
+    audiobook_covers_dir: str = "/data/audiobook-covers"
     # Where extracted comic pages are cached (downscaled WebP, keyed by a hash of
     # the comic id + page index). Same writable volume; a page is pulled from the
     # archive on first view and served locally thereafter, so paging is fast and

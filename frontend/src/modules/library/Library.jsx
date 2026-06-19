@@ -7,6 +7,7 @@ import { formatAgo } from '../../lib/format.js'
 import GameCover from './GameCover.jsx'
 import BookCover from './BookCover.jsx'
 import ComicCover from './ComicCover.jsx'
+import AudiobookCover from './AudiobookCover.jsx'
 
 // The Library hub: your owned content (games + magazines/papers now, more
 // later), played/read in-app. Mobile-first — big tap-target section cards that
@@ -106,9 +107,7 @@ function ContinueCard({ entry, onResume, onRemove }) {
         ) : isComic ? (
           <ComicCover comic={entry} className="w-full rounded-lg" />
         ) : isListen ? (
-          <div className="flex aspect-[3/4] items-center justify-center rounded-lg bg-slate-800 text-3xl">
-            🎧
-          </div>
+          <AudiobookCover path={entry.id} alt={entry.name} className="w-full rounded-lg" />
         ) : (
           <div className="flex aspect-[3/4] items-center justify-center rounded-lg bg-slate-800 p-2 text-center">
             <span className="line-clamp-5 text-xs font-medium text-slate-300">{entry.name}</span>
