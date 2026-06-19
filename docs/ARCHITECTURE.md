@@ -181,6 +181,9 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/library/reading-progress/item?section=&id=` | one item's saved position (page/total or locator/fraction) | the reader fetches this on open to resume |
 | `PUT /api/library/reading-progress` | save reading position (upsert) | body `{section,id,page,total}` (PDF) or `{section,id,locator,fraction}` (ebook); validated against a real item |
 | `DELETE /api/library/reading-progress?section=&id=` | remove a document from the shelf | clears its bookmark |
+| `GET /api/library/pins?section=` | pinned (starred) folders | from `pinned_folders`; the UI deep-links to each |
+| `POST /api/library/pins` | pin a folder | body `{section,path}`; 404 unless the path is a real folder (has items under it) |
+| `DELETE /api/library/pins?section=&path=` | unpin a folder | — |
 | `DELETE /api/library/games/last-played?id=` | remove a game from the shelf | clears the marker; keeps the save files |
 
 **Graceful degradation:** every endpoint that touches an external system
@@ -328,8 +331,11 @@ tree client-side from the flat item paths via `browseFolder` — no backend
 change): you drill in folder-by-folder (e.g. a per-series tree) instead of
 rendering thousands of covers at once, the issue grid **paginates** (60 at a
 time) so even a flat mega-folder stays responsive, and a client-side **search**
-filters every comic by name. The same `reading_progress` table gives the
-roaming bookmark.
+filters every comic by name. You can **pin (star) any folder** — a `(section,
+path)` row in `pinned_folders` (server-side, so it roams) surfaces on a "Pinned"
+shelf at the top of the section, so a deep, frequently-revisited folder (the next
+issue in a series) is one tap away instead of a re-drill. The same
+`reading_progress` table gives the roaming bookmark.
 Still planned: per-item **offline download** for airplane-mode reading. DRM-free
 content only.
 

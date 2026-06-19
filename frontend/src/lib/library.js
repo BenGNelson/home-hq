@@ -81,6 +81,18 @@ export function folderCrumbs(path) {
   return parts.map((name, i) => ({ name, path: parts.slice(0, i + 1).join('/') }))
 }
 
+// Display a pinned folder path → { name (the folder), parent (the trail above
+// it) } so a deep pin like "Star Wars/04. Rebellion era" reads with context.
+export function pinLabel(path) {
+  const parts = (path || '').split('/')
+  return { name: parts[parts.length - 1] || path, parent: parts.slice(0, -1).join(' / ') }
+}
+
+// Endpoint for a section's pinned folders (GET). POST/DELETE hit /library/pins.
+export function pinsUrl(section) {
+  return `${API_BASE}/library/pins?section=${encodeURIComponent(section)}`
+}
+
 // Server-side save states for a game (roam across devices).
 export function saveStatesUrl(id) {
   return `${API_BASE}/library/games/save-states?id=${encodeURIComponent(id)}`

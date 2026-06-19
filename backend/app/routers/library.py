@@ -394,6 +394,61 @@ def reading_progress_delete(
     return Response(status_code=204 if removed else 404)
 
 
+# --- pinned Library folders -----------------------------------------------
+# Star a folder so a deep, frequently-revisited spot (e.g. a comic series a few
+# levels down) is one tap away. Just (section, path); the UI deep-links to it.
+
+
+class PinModel(BaseModel):
+    section: str
+    path: str
+    created_ms: int
+
+
+class PinsModel(BaseModel):
+    pins: list[PinModel]
+
+
+class PinCreate(BaseModel):
+    section: str
+    path: str = Field(description="Folder path within the section (e.g. 'Star Wars/04. Rebellion era')")
+
+
+def _folder_exists(section: str, path: str) -> bool:
+    """True if `path` is a real folder in the section — i.e. some item lives
+    under it. Guards against pinning a stale/typo path."""
+    section_def = library.get_section(section)
+    if not section_def or not path:
+        return False
+    prefix = path + "/"
+    return any(it["id"].startswith(prefix) for it in library.list_items(section_def, settings))
+
+
+@router.get("/library/pins", response_model=PinsModel)
+def list_pins(section: str = Query(None, description="Filter to one section (optional)")):
+    """Pinned folders (newest first), optionally for one section."""
+    return {"pins": db.list_pins(section)}
+
+
+@router.post("/library/pins")
+def add_pin(body: PinCreate):
+    """Pin a folder. 404 if it isn't a real folder in the section."""
+    if not _folder_exists(body.section, body.path):
+        return Response(status_code=404)
+    db.add_pin(body.section, body.path)
+    return {"ok": True}
+
+
+@router.delete("/library/pins")
+def remove_pin(
+    section: str = Query(description="Section key"),
+    path: str = Query(description="Folder path"),
+):
+    """Unpin a folder."""
+    removed = db.remove_pin(section, path)
+    return Response(status_code=204 if removed else 404)
+
+
 # --- Books search (backed by the metadata cache) --------------------------
 # 11k+ books are unbrowseable as a flat list, so the Books section is search-
 # first: this queries the indexed title/author cache instead of returning the

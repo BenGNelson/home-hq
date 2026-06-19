@@ -168,6 +168,16 @@ CREATE TABLE IF NOT EXISTS game_progress (
     updated_ms INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_game_progress_updated ON game_progress (updated_ms);
+
+-- Pinned (starred) Library folders, so a frequently-revisited deep folder (e.g.
+-- a comic series buried a few levels down) is one tap away. Just (section, path)
+-- of the folder; the UI deep-links to it. Roams across devices like the rest.
+CREATE TABLE IF NOT EXISTS pinned_folders (
+    section    TEXT NOT NULL,
+    path       TEXT NOT NULL,
+    created_ms INTEGER NOT NULL,
+    PRIMARY KEY (section, path)
+);
 """
 
 # Tables the in-app samplers append to. Each is bounded two ways: a time-based
@@ -586,6 +596,45 @@ def delete_game_progress(game_id):
             "DELETE FROM game_progress WHERE game_id = ?", (game_id,)
         )
         return cur.rowcount > 0
+
+
+# --- pinned Library folders ------------------------------------------------
+
+def add_pin(section, path, now_ms=None):
+    """Pin a folder (idempotent — re-pinning the same folder is a no-op)."""
+    now_ms = now_ms if now_ms is not None else int(time.time() * 1000)
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO pinned_folders (section, path, created_ms) VALUES (?, ?, ?)"
+            " ON CONFLICT(section, path) DO NOTHING",
+            (section, path, now_ms),
+        )
+
+
+def remove_pin(section, path):
+    """Unpin a folder. Returns whether a row was removed."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM pinned_folders WHERE section = ? AND path = ?", (section, path)
+        )
+        return cur.rowcount > 0
+
+
+def list_pins(section=None):
+    """Pinned folders, newest first. Filter by section when given."""
+    with get_conn() as conn:
+        if section is None:
+            rows = conn.execute(
+                "SELECT section, path, created_ms FROM pinned_folders"
+                " ORDER BY created_ms DESC"
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT section, path, created_ms FROM pinned_folders"
+                " WHERE section = ? ORDER BY created_ms DESC",
+                (section,),
+            ).fetchall()
+        return [dict(r) for r in rows]
 
 
 # --- book metadata cache (the Books search index) --------------------------
