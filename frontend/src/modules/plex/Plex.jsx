@@ -144,6 +144,25 @@ export default function Plex() {
         </button>
         {exportError && <p className="mt-2 text-sm text-rose-400">{exportError}</p>}
       </section>
+
+      {/* Insights — a one-line bar linking to the activity-trends page (moved
+          here out of the sidebar so it lives with the rest of Plex). */}
+      <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-sm font-medium text-slate-300">Insights</h3>
+            <p className="text-xs text-slate-400">
+              Streams, transcodes &amp; bandwidth trends over time.
+            </p>
+          </div>
+          <Link
+            to="/plex/insights"
+            className="shrink-0 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-500"
+          >
+            View insights →
+          </Link>
+        </div>
+      </section>
     </div>
   )
 }

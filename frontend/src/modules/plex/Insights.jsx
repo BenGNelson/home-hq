@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useApi } from '../../lib/useApi.js'
+import BackLink from '../../components/BackLink.jsx'
 import { Graph } from '../../components/Graph.jsx'
 import { formatHour, formatShare, formatMbps } from '../../lib/plexInsights.js'
 
@@ -18,7 +19,9 @@ export default function Insights() {
 
   return (
     <div className="space-y-4">
+      <BackLink to="/plex">Plex</BackLink>
       <div className="flex items-center gap-3">
+        <h2 className="text-xl font-semibold">Plex Insights</h2>
         <div className="ml-auto flex gap-1">
           {WINDOWS.map((w) => (
             <button

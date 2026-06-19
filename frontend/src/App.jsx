@@ -38,7 +38,6 @@ import { hostNavLinks } from './lib/hostLocal.js'
 const builtinModules = [
   { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: '🏠', group: 'Overview' },
   { id: 'plex', label: 'Plex', path: '/plex', icon: '🎬', group: 'Media' },
-  { id: 'plex-insights', label: 'Plex Insights', path: '/plex/insights', icon: '📈', group: 'Media' },
   { id: 'library', label: 'Library', path: '/library', icon: '📚', group: 'Media' },
   { id: 'containers', label: 'Containers', path: '/containers', icon: '📦', group: 'System' },
   { id: 'storage', label: 'Storage', path: '/storage', icon: '💾', group: 'System' },
