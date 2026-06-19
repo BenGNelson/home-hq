@@ -10,7 +10,19 @@ import {
   readerHref,
   groupByLabel,
   libraryHeadline,
+  bookSubtitle,
 } from './library.js'
+
+describe('bookSubtitle', () => {
+  it('shows the author when present', () => {
+    expect(bookSubtitle({ author: 'Stephen King' })).toBe('Stephen King')
+  })
+  it('falls back when there is no author', () => {
+    expect(bookSubtitle({ author: null })).toBe('Unknown author')
+    expect(bookSubtitle({})).toBe('Unknown author')
+    expect(bookSubtitle(undefined)).toBe('Unknown author')
+  })
+})
 
 describe('resumeHref', () => {
   it('routes a reading entry to the reader', () => {

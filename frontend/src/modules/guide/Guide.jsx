@@ -287,6 +287,13 @@ export default function Guide() {
           <strong>Content-Security-Policy</strong> on the app is the guardrail there.)
           DRM-free files only.
         </p>
+        <p>
+          A large ebook library is <strong>search-first</strong>: a background
+          indexer reads each book's embedded <strong>title and author</strong> into
+          a small text-only cache (EPUB, MOBI, and AZW3), so you can find a book by
+          title or author instead of scrolling thousands of files. Names are
+          normalized for display only — your files on disk are never touched.
+        </p>
       </Section>
 
       <Section title="Network module">

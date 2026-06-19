@@ -21,7 +21,7 @@ from fastapi import APIRouter, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from app import db, images, library
+from app import book_sync, db, images, library
 from app.config import settings
 
 router = APIRouter()
@@ -294,12 +294,17 @@ def library_continue():
         section_def = library.get_section(row["section"])
         if not section_def or not library.safe_path(section_def, settings, row["item_id"]):
             continue
+        name = library.display_name(section_def, row["item_id"])
+        if row["section"] == "books":  # prefer the indexed title for consistency
+            bm = db.get_book_meta(row["item_id"])
+            if bm and bm["title"]:
+                name = bm["title"]
         entries.append(
             {
                 "kind": "read",
                 "section": row["section"],
                 "id": row["item_id"],
-                "name": library.display_name(section_def, row["item_id"]),
+                "name": name,
                 "reader": library.item_reader(section_def, row["item_id"]),
                 "page": row["page"],
                 "total": row["total"],
@@ -387,6 +392,77 @@ def reading_progress_delete(
     """Remove an item from Continue Reading (clear its bookmark)."""
     removed = db.delete_reading_progress(section, id)
     return Response(status_code=204 if removed else 404)
+
+
+# --- Books search (backed by the metadata cache) --------------------------
+# 11k+ books are unbrowseable as a flat list, so the Books section is search-
+# first: this queries the indexed title/author cache instead of returning the
+# whole library. Declared BEFORE the /library/{section} catch-all.
+
+
+class BookHit(BaseModel):
+    id: str = Field(description="Item id (opaque handle for /library/read and /library/file)")
+    title: str
+    author: str | None = None
+    reader: str | None = Field(default=None, description="Reader engine ('epub' | 'pdf')")
+
+
+class BookSearchModel(BaseModel):
+    items: list[BookHit]
+    total: int = Field(description="Total books indexed (the whole searchable set)")
+    query: str
+
+
+@router.get("/library/books/search", response_model=BookSearchModel)
+def books_search(
+    q: str = Query("", description="Title/author substring; empty = first results alphabetically"),
+    limit: int = Query(100, ge=1, le=500),
+):
+    """Search the Books metadata cache by title or author. Returns matches with
+    their reader engine so the frontend can open each in the right reader."""
+    books = library.get_section("books")
+    rows = db.search_books(q, limit)
+    items = [
+        {
+            "id": r["item_id"],
+            "title": r["title"],
+            "author": r["author"],
+            "reader": library.item_reader(books, r["item_id"]) if books else None,
+        }
+        for r in rows
+    ]
+    return {"items": items, "total": db.count_books_meta(), "query": q}
+
+
+class BookIndexStatusModel(BaseModel):
+    configured: bool = Field(description="False when BOOKS_DIR is unset/missing")
+    enabled: bool
+    running: bool = Field(description="True while an indexing pass is in progress")
+    indexed: int = Field(description="Books currently in the search cache")
+    processed: int = Field(description="Files parsed so far in the current/last pass")
+    total: int = Field(description="Files seen in the current/last pass")
+    last_scanned: float | None = None
+
+
+@router.get("/library/books/index-status", response_model=BookIndexStatusModel)
+def books_index_status():
+    """Indexer progress, so the UI can show 'indexing your library…' on first run."""
+    books = library.get_section("books")
+    configured = bool(books) and library.is_configured(books, settings)
+    indexer = book_sync.get_indexer()
+    base = (
+        indexer.status()
+        if indexer
+        else {
+            "enabled": False,
+            "running": False,
+            "indexed": db.count_books_meta(),
+            "processed": 0,
+            "total": 0,
+            "last_scanned": None,
+        }
+    )
+    return {"configured": configured, **base}
 
 
 @router.get("/library/{section}", response_model=SectionModel)

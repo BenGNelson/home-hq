@@ -75,6 +75,12 @@ export function groupByLabel(items) {
   return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b))
 }
 
+// Subtitle line for a Books search result — the author, or a clear fallback
+// when a book had no embedded author (so the row never looks blank/broken).
+export function bookSubtitle(item) {
+  return item?.author ? item.author : 'Unknown author'
+}
+
 // One-line summary for the hub header.
 export function libraryHeadline(data) {
   const ready = (data?.sections ?? []).filter((s) => s.configured)
