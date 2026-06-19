@@ -878,3 +878,52 @@ def test_audiobook_cover_missing_is_404_and_remembered(client, audiobooks_dir, a
     assert client.get(
         "/api/library/audiobooks/cover", params={"path": "../etc"}
     ).status_code == 404
+
+
+# --- game cover override + libretro pointer --------------------------------
+
+def test_sidecar_cover_beside_rom(rom_dir):
+    from app.routers import library as libr
+
+    assert libr._sidecar_cover(str(rom_dir / "Tetris.gb")) is None  # none yet
+    (rom_dir / "Tetris.png").write_bytes(b"img")
+    assert libr._sidecar_cover(str(rom_dir / "Tetris.gb")) == str(rom_dir / "Tetris.png")
+
+
+def test_game_cover_uses_sidecar_override(client, rom_dir, monkeypatch):
+    import io
+    from PIL import Image
+    from app.routers import library as libr
+
+    monkeypatch.setattr(settings, "covers_dir", str(rom_dir / "_covers"))
+    buf = io.BytesIO()
+    Image.new("RGB", (300, 400), (90, 20, 20)).save(buf, format="PNG")
+    (rom_dir / "Zelda.png").write_bytes(buf.getvalue())  # custom cover beside the ROM
+
+    # Even though Zelda.gbc would match libretro, the sidecar wins — and no network.
+    def _boom(*a, **k):
+        raise AssertionError("should not hit the network when a sidecar exists")
+
+    monkeypatch.setattr(libr.requests, "get", _boom)
+    r = client.get("/api/library/games/cover", params={"id": "Zelda.gbc"})
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/webp"
+
+
+def test_follow_libretro_pointer(monkeypatch):
+    from app.routers import library as libr
+
+    class Resp:
+        def __init__(self, content, status=200):
+            self.content = content
+            self.status_code = status
+
+    real_png = b"\x89PNG\r\n\x1a\n" + b"x" * 500
+    # A pointer response (short text naming the canonical png) → follows it.
+    monkeypatch.setattr(libr.requests, "get", lambda *a, **k: Resp(real_png))
+    ptr = Resp(b"Pokemon - Crystal Version (USA).png")
+    out = libr._follow_libretro_pointer(ptr, "https://host/dir/Pokemon (Rev 1).png")
+    assert out.content == real_png
+    # A real image response is returned unchanged (not treated as a pointer).
+    img = Resp(real_png)
+    assert libr._follow_libretro_pointer(img, "https://host/dir/x.png") is img

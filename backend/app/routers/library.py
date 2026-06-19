@@ -15,6 +15,7 @@ reports configured=False instead of erroring, so the hub renders a hint.
 import hashlib
 import os
 import time
+import urllib.parse
 
 import requests
 from fastapi import APIRouter, File, Form, Query, UploadFile
@@ -113,18 +114,76 @@ def _media_type(item_id: str) -> str:
 _ART_CACHE_HEADERS = {"Cache-Control": "public, max-age=2592000, immutable"}
 
 
+_SIDECAR_EXTS = (".png", ".jpg", ".jpeg", ".webp")
+
+
+def _sidecar_cover(rom_path):
+    """A custom cover image dropped beside the ROM (same basename), or None — the
+    manual override for ROM hacks / libretro misses."""
+    stem = os.path.splitext(rom_path)[0]
+    for ext in _SIDECAR_EXTS:
+        if os.path.isfile(stem + ext):
+            return stem + ext
+    return None
+
+
+def _follow_libretro_pointer(resp, url):
+    """libretro-thumbnails stores some boxarts as a tiny TEXT file naming the
+    canonical .png (a pseudo-symlink for alternate ROM names). If `resp` is one of
+    those, fetch the file it points to (same dir) and return that response."""
+    if len(resp.content) >= 256:
+        return resp
+    try:
+        target = resp.content.decode("utf-8").strip()
+    except UnicodeDecodeError:
+        return resp
+    if "/" in target or "\n" in target or not target.lower().endswith((".png", ".jpg", ".jpeg")):
+        return resp
+    base = url.rsplit("/", 1)[0]
+    try:
+        follow = requests.get(f"{base}/{urllib.parse.quote(target)}", timeout=10)
+    except requests.RequestException:
+        return resp
+    return follow if follow.status_code == 200 and follow.content else resp
+
+
 @router.get("/library/games/cover")
 def get_game_cover(id: str = Query(description="Game id from the section listing")):
-    """Box art for a game, proxied + cached as a small WebP. Matches the ROM's
-    No-Intro name to libretro-thumbnails, fetches the image once, downscales it
-    to a fast-loading WebP thumbnail in the covers cache, and serves that locally
-    thereafter — so browsing makes no repeat external calls and a no-match (e.g.
-    a ROM hack) is remembered as a miss rather than refetched. 404 → the frontend
-    shows a placeholder."""
+    """Box art for a game, proxied + cached as a small WebP. Precedence: a custom
+    cover dropped beside the ROM (override) → libretro-thumbnails matched by the
+    ROM's No-Intro name (following libretro's text-pointer pseudo-symlinks) →
+    placeholder. Fetched once and downscaled to a cached WebP, so browsing makes
+    no repeat external calls and a no-match is remembered as a miss. 404 → the
+    frontend shows a placeholder."""
+    cache_dir = settings.covers_dir
+    # 1. Manual override — an image beside the ROM wins over libretro (this is how
+    #    a ROM hack or a name-mismatch gets a cover). Cached, keyed by file mtime
+    #    so replacing the image refreshes it.
+    games = library.get_section("games")
+    rom_path = library.safe_path(games, settings, id) if games else None
+    side = _sidecar_cover(rom_path) if rom_path else None
+    if side:
+        try:
+            okey = hashlib.sha1(f"o:{id}:{int(os.path.getmtime(side))}".encode()).hexdigest()
+        except OSError:
+            okey = None
+        owebp = os.path.join(cache_dir, okey + ".webp") if okey else None
+        if owebp and os.path.isfile(owebp):
+            return FileResponse(owebp, media_type="image/webp", headers=_ART_CACHE_HEADERS)
+        try:
+            with open(side, "rb") as fh:
+                thumb = images.to_thumbnail(fh.read())
+        except OSError:
+            thumb = None
+        if thumb and owebp:
+            os.makedirs(cache_dir, exist_ok=True)
+            with open(owebp, "wb") as fh:
+                fh.write(thumb)
+            return FileResponse(owebp, media_type="image/webp", headers=_ART_CACHE_HEADERS)
+
     url = library.thumbnail_url(id)
     if not url:
         return Response(status_code=404)
-    cache_dir = settings.covers_dir
     key = hashlib.sha1(url.encode()).hexdigest()
     webp = os.path.join(cache_dir, key + ".webp")
     png = os.path.join(cache_dir, key + ".png")  # legacy / manually-injected
@@ -152,6 +211,8 @@ def get_game_cover(id: str = Query(description="Game id from the section listing
         resp = requests.get(url, timeout=10)
     except requests.RequestException:
         return Response(status_code=404)  # transient — don't cache as a miss
+    if resp.status_code == 200:
+        resp = _follow_libretro_pointer(resp, url)  # text pointer → the real art
     os.makedirs(cache_dir, exist_ok=True)
     if resp.status_code == 200 and resp.content:
         thumb = images.to_thumbnail(resp.content)
