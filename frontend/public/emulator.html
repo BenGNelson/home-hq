@@ -16,7 +16,12 @@
       :root {
         --ejs-gamepad-lift: 70px; /* how far to raise the whole pad */
         --ejs-dpad-size: 165px;   /* dpad footprint (default engine value: 125px) */
-        --ejs-btn-scale: 1.3;     /* A/B + Start/Select size multiplier */
+        --ejs-btn-scale: 1.3;     /* round A/B face-button size multiplier */
+        --ejs-block-scale: 1.1;   /* Start/Select pill multiplier (smaller than
+                                     the round buttons so the two center pills,
+                                     which sit edge-to-edge at 1.3, keep a gap) */
+        --ejs-ff-right: 14px;     /* fast-forward toggle inset from the right */
+        --ejs-ff-gap: 14px;       /* gap between the FF toggle and the cluster */
       }
       /* Lift the pad off the bottom edge so buttons are in thumb reach and clear
          the iOS home indicator. The dpad / face-button / Start-Select zones are
@@ -32,18 +37,38 @@
         width: var(--ejs-dpad-size) !important;
         height: var(--ejs-dpad-size) !important;
       }
+      /* Match the face-button zone's HEIGHT to the dpad zone so the L/R shoulders
+         line up. Both zones share bottom:50px and the engine anchors the
+         shoulders at top:-90 from each zone's top, so a taller left zone (the
+         enlarged dpad) used to push L above R. Height only — leaving the width
+         (and right:10px anchor) alone keeps the A/B horizontal layout intact. */
+      .ejs_virtualGamepad_right {
+        height: var(--ejs-dpad-size) !important;
+      }
       /* Bigger face + Start/Select buttons. transform:scale grows them in place
          (around their own centre) so the engine's fixed per-system positions
          don't need re-tuning; a button press is a plain tap, so scaling doesn't
          skew it the way it would the dpad. */
       .ejs_virtualGamepad_button { transform: scale(var(--ejs-btn-scale)); }
+      /* The center pills (Start/Select) overlap at the round-button scale, so
+         scale them less. Comes AFTER the rule above (equal specificity) so it
+         wins for these two ids. */
+      .b_start, .b_select { transform: scale(var(--ejs-block-scale)); }
       /* Drop the Fast / Slow / Rewind hold-buttons — replaced by the one-tap
          fast-forward toggle below (added in JS on game start). */
       .b_speed_fast, .b_speed_slow, .b_speed_rewind { display: none !important; }
-      /* The on-screen fast-forward toggle. */
+      /* The on-screen fast-forward toggle. Sits just ABOVE the face-button
+         cluster on the right, out of the play area (it used to be top-center,
+         over the game). Anchored to the controller band via the same vars that
+         lift/size the pad, so it tracks them: the right zone's top edge is
+         (parent bottom 50px + lift) + the zone's own bottom 50px + its height,
+         and the gap var nudges the toggle above that. */
       .ff-toggle {
-        position: absolute; top: calc(8px + env(safe-area-inset-top, 0px));
-        left: 50%; transform: translateX(-50%); z-index: 999;
+        position: absolute; right: var(--ejs-ff-right); z-index: 999;
+        bottom: calc(
+          100px + var(--ejs-gamepad-lift) + var(--ejs-dpad-size)
+          + var(--ejs-ff-gap) + env(safe-area-inset-bottom, 0px)
+        );
         min-width: 54px; height: 36px; line-height: 34px; padding: 0 10px;
         text-align: center; font: 600 16px system-ui, sans-serif; color: #e2e8f0;
         border: 1px solid #ccc; border-radius: 8px;
