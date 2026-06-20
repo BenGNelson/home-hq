@@ -101,9 +101,15 @@ def _check_watchdog(ctx):
     w = ctx.get("watchdog") or {}
     if not w.get("available"):
         return None, ""
-    # stale = the watchdog process is down; that's a separate concern, not a
-    # drive fault, so we don't alarm on it here.
-    if not w.get("healthy") and not w.get("stale"):
+    # Fire on the drive's last-reported health — even when the report is stale.
+    # During a hard wedge the watchdog backs off for minutes between probes, so
+    # its state file goes "stale" (older than the stale window) while it's still
+    # actively managing a known-bad drive. Treating stale as "clear" made the
+    # alert flap unhealthy -> resolved -> unhealthy every few minutes. Staleness
+    # is still surfaced in the API/UI; it just no longer clears an active
+    # drive-unhealthy alert. A stale-but-healthy report still doesn't alarm (the
+    # last report has to actually say unhealthy).
+    if not w.get("healthy"):
         return "unhealthy", f"Drive {w.get('label') or 'external'} is unhealthy ({w.get('note')})"
     return None, ""
 
