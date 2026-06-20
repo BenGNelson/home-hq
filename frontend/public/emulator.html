@@ -11,6 +11,16 @@
       #msg code { background: #1e293b; padding: 0 0.3em; border-radius: 0.25em; }
       /* The engine styles its save/load notifications red; tone it down. */
       .ejs_message { color: #e2e8f0 !important; text-shadow: 0 1px 2px #000 !important; }
+      /* Lift the on-screen touch controller off the very bottom edge so the
+         buttons sit within comfortable thumb reach and clear the iOS home
+         indicator. The dpad / face-button / Start-Select zones are all
+         children of this parent, so raising the parent moves the whole pad
+         uniformly — no need to override per-system button layouts. Tune the
+         amount with --ejs-gamepad-lift. */
+      :root { --ejs-gamepad-lift: 70px; }
+      .ejs_virtualGamepad_parent {
+        bottom: calc(50px + var(--ejs-gamepad-lift) + env(safe-area-inset-bottom, 0px)) !important;
+      }
     </style>
   </head>
   <body>
