@@ -892,6 +892,11 @@ Short record of *why* things are the way they are, so future changes have contex
   nav item), and those sections are data-driven (`/api/library` reflects what's
   configured), so promoting them to the sidebar would mean a dynamic, data-aware
   global nav. Instead a `LibraryNav` pill bar (fed by `libraryNavSections()`)
-  renders on each sub-list page — an "All" pill back to the hub plus the
-  configured, non-empty sections — so you hop between them directly without
-  bouncing through the hub, while the sidebar stays a static registry.
+  shows an "All" pill back to the hub plus the configured, non-empty sections —
+  so you hop between them directly without bouncing through the hub, while the
+  sidebar stays a static registry. The pill bar renders **once** in a persistent
+  `LibraryLayout` (a parent route with an `<Outlet/>`) that wraps the five
+  section list routes, so switching sections swaps only the content below — the
+  bar stays mounted instead of unmounting/remounting (which made it flicker and
+  refetch `/api/library` on every hop). The hub and the detail/player/reader
+  routes sit outside the layout (they never showed the switcher).

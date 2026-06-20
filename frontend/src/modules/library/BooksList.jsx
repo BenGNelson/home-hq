@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import LibraryNav from './LibraryNav.jsx'
 import { useApi, API_BASE } from '../../lib/useApi.js'
 import { readerHref, bookSubtitle } from '../../lib/library.js'
 import BookCover from './BookCover.jsx'
@@ -63,7 +62,6 @@ export default function BooksList() {
 
   return (
     <div className="space-y-4">
-      <LibraryNav />
       <h2 className="text-xl font-semibold">Books</h2>
 
       {notConfigured ? (

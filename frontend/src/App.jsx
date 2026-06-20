@@ -7,6 +7,7 @@ import ShowBrowser from './modules/plex/ShowBrowser.jsx'
 import MovieDetail from './modules/plex/MovieDetail.jsx'
 import PlexInsights from './modules/plex/Insights.jsx'
 import Library from './modules/library/Library.jsx'
+import LibraryLayout from './modules/library/LibraryLayout.jsx'
 import GamesList from './modules/library/GamesList.jsx'
 import GameDetail from './modules/library/GameDetail.jsx'
 import Player from './modules/library/Player.jsx'
@@ -77,13 +78,19 @@ export default function App() {
         <Route path="/plex/show/:key" element={<ShowBrowser />} />
         <Route path="/plex/movie/:key" element={<MovieDetail />} />
         <Route path="/library" element={<Library />} />
-        <Route path="/library/games" element={<GamesList />} />
+        {/* The section list pages share a persistent layout so the section
+            switcher (LibraryNav) stays mounted as you hop between them — no
+            unmount/remount flicker. Detail/player/reader routes stay outside
+            it (they never showed the switcher). */}
+        <Route element={<LibraryLayout />}>
+          <Route path="/library/games" element={<GamesList />} />
+          <Route path="/library/papers" element={<PapersList />} />
+          <Route path="/library/books" element={<BooksList />} />
+          <Route path="/library/comics" element={<ComicsList />} />
+          <Route path="/library/audiobooks" element={<AudiobooksList />} />
+        </Route>
         <Route path="/library/games/detail" element={<GameDetail />} />
         <Route path="/library/play" element={<Player />} />
-        <Route path="/library/papers" element={<PapersList />} />
-        <Route path="/library/books" element={<BooksList />} />
-        <Route path="/library/comics" element={<ComicsList />} />
-        <Route path="/library/audiobooks" element={<AudiobooksList />} />
         <Route path="/library/read" element={<Reader />} />
         <Route path="/containers" element={<Containers />} />
         <Route path="/printer" element={<Printer />} />

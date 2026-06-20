@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import LibraryNav from './LibraryNav.jsx'
 import { useApi, API_BASE } from '../../lib/useApi.js'
 import {
   readerHref,
@@ -68,7 +67,6 @@ export default function ComicsList() {
 
   return (
     <div className="space-y-4">
-      <LibraryNav />
       <h2 className="text-xl font-semibold">Comics</h2>
 
       {loading && !data && <p className="text-sm text-slate-500">loading…</p>}
