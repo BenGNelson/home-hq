@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildUrl, buildNavLinks } from './hostLocal.js'
+import { buildUrl, buildNavLinks, haDeepLink } from './hostLocal.js'
 
 describe('buildUrl', () => {
   it('returns null when there is no spec', () => {
@@ -78,5 +78,38 @@ describe('buildNavLinks', () => {
       { id: 'missing' },
     ]
     expect(buildNavLinks(links, 'h').map((l) => l.id)).toEqual(['good'])
+  })
+})
+
+describe('haDeepLink', () => {
+  const links = [{ id: 'home-assistant', url: { port: 8123 } }]
+
+  it('builds a per-entity deep link from the home-assistant nav entry', () => {
+    expect(haDeepLink(links, '192.168.0.10', '/history?entity_id=sensor.x')).toBe(
+      'http://192.168.0.10:8123/history?entity_id=sensor.x',
+    )
+  })
+
+  it('resolves against the given hostname (LAN or Tailscale)', () => {
+    expect(haDeepLink(links, 'box.tailnet.ts.net', '/lovelace')).toBe(
+      'http://box.tailnet.ts.net:8123/lovelace',
+    )
+  })
+
+  it('returns null when HA is not configured', () => {
+    expect(haDeepLink(undefined, 'h', '/x')).toBeNull()
+    expect(haDeepLink([], 'h', '/x')).toBeNull()
+    expect(haDeepLink([{ id: 'other', url: { port: 1 } }], 'h', '/x')).toBeNull()
+    expect(haDeepLink([{ id: 'home-assistant' }], 'h', '/x')).toBeNull()
+  })
+
+  it('passes an absolute-URL string spec through, appending the path', () => {
+    const abs = [{ id: 'home-assistant', url: 'https://ha.example.com' }]
+    expect(haDeepLink(abs, 'ignored', '/history')).toBe('https://ha.example.com/history')
+  })
+
+  it('preserves a configured base path before the suffix', () => {
+    const based = [{ id: 'home-assistant', url: { port: 8123, path: '/base' } }]
+    expect(haDeepLink(based, 'h', '/history')).toBe('http://h:8123/base/history')
   })
 })

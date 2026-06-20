@@ -28,6 +28,7 @@ from app.routers import (
     disk,
     diskio,
     gpu,
+    ha,
     library,
     network,
     plex,
@@ -185,3 +186,4 @@ app.include_router(storage.router, prefix="/api", tags=["Storage"])
 app.include_router(watchdog.router, prefix="/api", tags=["Storage"])
 app.include_router(alerts.router, prefix="/api", tags=["Alerts"])
 app.include_router(uptime.router, prefix="/api", tags=["Monitoring"])
+app.include_router(ha.router, prefix="/api", tags=["Devices"])

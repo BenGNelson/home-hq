@@ -53,3 +53,24 @@ export function hostNavLinks() {
     typeof window !== 'undefined' ? window.location.hostname : 'localhost'
   return buildNavLinks(host.navLinks, hostname)
 }
+
+// Deep-link into Home Assistant for a given path (e.g. an entity's history),
+// reusing the SAME `home-assistant` navLink url spec the sidebar uses — so the
+// host/port stays only in the gitignored host.local.jsx and resolves correctly
+// over LAN or Tailscale. Returns null when no HA link is configured, so the
+// caller can render plain text instead of a dead link. Pure aside from reading
+// the current hostname; the spec/path assembly is handled by the tested buildUrl.
+// Pure core (takes the raw navLinks + hostname) so it's unit-testable; returns
+// null when there's no usable home-assistant link.
+export function haDeepLink(navLinks, hostname, pathSuffix = '') {
+  const ha = (navLinks ?? []).find((l) => l.id === 'home-assistant')
+  if (!ha || !ha.url) return null
+  if (typeof ha.url === 'string') return ha.url + pathSuffix
+  return buildUrl({ ...ha.url, path: (ha.url.path ?? '') + pathSuffix }, hostname)
+}
+
+export function homeAssistantUrl(pathSuffix = '') {
+  const hostname =
+    typeof window !== 'undefined' ? window.location.hostname : 'localhost'
+  return haDeepLink(host.navLinks, hostname, pathSuffix)
+}

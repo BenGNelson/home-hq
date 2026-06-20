@@ -1,0 +1,16 @@
+# Home HQ — refresh the curated Home Assistant snapshot periodically.
+# Install: copy to /etc/systemd/system/home-hq-ha.timer, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now home-hq-ha.timer
+# NOTE: systemd does not support trailing inline comments on a directive line —
+# keep comments on their own lines, or the value parse fails.
+[Unit]
+Description=Home HQ — periodic Home Assistant entity refresh
+
+[Timer]
+# Every 5 minutes (wall clock) — keeps the at-a-glance values reasonably fresh.
+OnCalendar=*:0/5
+# Catch up on the next boot if the machine was off at the scheduled time.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -34,6 +34,7 @@ the surface area grows without the core getting messier.
 | **Backups** | Lists the host's `age`-encrypted config backups (the encrypt step is a privileged host script; the app only reads the output). |
 | **Alerts** | A background rule engine that watches the same data the dashboard shows and pushes a phone notification (via **ntfy**) when something crosses into a bad state — RAID degraded, a SMART warning, a container down, a print finished/failed, a VPN leak, and more. Edge-triggered (no spam), with a deep-link straight to the relevant page on tap, a per-rule **mute** toggle to silence a known-noisy condition, and a dead-man's-switch heartbeat. |
 | **Uptime** | Per-service availability monitoring — current up/down, uptime % (24h/7d), latency, and a recent history sparkline for each configured service. A host-side prober checks each target so it can reach even firewall-restricted services. |
+| **Home** | A thin, read-only glance at a curated handful of **Home Assistant** entities (laundry state, battery levels, humidity, presence, …), each row deep-linking into HA for control. HQ is the infra cockpit; HA stays the smart-home brain — this is a glance + handoff, not a second smart-home UI. A host timer pulls the allowlist from HA's API with a Long-Lived token; the widget hides itself until that's set up. |
 | **Under the Hood** | An in-app living guide explaining each module, endpoint, and the technologies behind them. |
 | **Server Guide** | Renders your own server's markdown operations doc in-app (set `SERVER_GUIDE_FILE`); ships with an example template. |
 
@@ -179,6 +180,7 @@ every value with placeholders only. Nothing secret is ever committed.
 | `AGE_RECIPIENT` / `BACKUP_DIR` / `BACKUP_RETENTION` | Config-backup settings (optional) |
 | `PRINTER_HOST` / `PRINTER_SERIAL` / `PRINTER_ACCESS_CODE` | 3D-printer connection over local MQTT (optional; module hides if unset) |
 | `ALERTS_ENABLED` / `NTFY_URL` / `NTFY_TOPIC` | Push alerts via ntfy (optional) |
+| `HA_URL` / `HA_TOKEN` / `HA_ENTITIES` | Home Assistant glance: base URL, a Long-Lived Access Token, and the comma-separated entity allowlist to surface (optional; widget hides if unset). The token stays in `.env` only. |
 | `VITE_API_BASE` | Base path the frontend uses to call the API |
 
 `.env.example` documents the full set (printer camera, alert thresholds, VPN

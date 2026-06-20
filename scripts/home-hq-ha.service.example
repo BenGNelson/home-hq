@@ -1,0 +1,20 @@
+# Home HQ — Home Assistant curated-entity collector (oneshot, run by the timer).
+# Install: copy to /etc/systemd/system/home-hq-ha.service and replace
+# /path/to/home-hq with the real checkout path. Calls HA's REST /api/states with
+# a Long-Lived Access Token and writes a trimmed snapshot the backend reads.
+[Unit]
+Description=Home HQ — collect curated Home Assistant entity states
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Pull HA_URL / HA_TOKEN / HA_ENTITIES from the repo .env. The token is the one
+# secret this collector needs, so loading .env here is intentional. The '-'
+# makes the file optional (the script then writes 'not_configured').
+EnvironmentFile=-/path/to/home-hq/.env
+ExecStart=/path/to/home-hq/scripts/ha-state.py
+# Inline alternative / overrides (one per line):
+# Environment=HA_URL=http://localhost:8123
+# Environment=HA_ENTITIES=sensor.dryer_machine_state,sensor.dryer_time_remaining
+# Environment=HA_JSON=/var/lib/home-hq/ha.json
