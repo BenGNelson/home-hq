@@ -7,6 +7,13 @@ describe('entityIcon', () => {
     expect(entityIcon({ device_class: 'humidity', domain: 'sensor' })).toBe('💧')
   })
 
+  it('maps the Tesla-style device classes (charging, distance)', () => {
+    // binary_sensor.*_charging would otherwise fall through to the bell icon.
+    expect(entityIcon({ device_class: 'battery_charging', domain: 'binary_sensor' })).toBe('⚡')
+    // sensor.*_range would otherwise fall through to the dot.
+    expect(entityIcon({ device_class: 'distance', domain: 'sensor' })).toBe('🛣️')
+  })
+
   it('falls back to domain, then id keywords, then a dot', () => {
     expect(entityIcon({ domain: 'lock' })).toBe('🔒')
     expect(entityIcon({ domain: 'sensor', entity_id: 'sensor.dryer_time_remaining' })).toBe('🧺')

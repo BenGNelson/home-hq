@@ -16,7 +16,10 @@ the repo .env):
 
   HA_URL        base URL of Home Assistant, e.g. http://localhost:8123  (required)
   HA_TOKEN      a Long-Lived Access Token (HA profile page)             (required)
-  HA_ENTITIES   comma-separated entity ids to surface, in display order (required)
+  HA_ENTITIES   comma-separated entity ids to surface, in display order (required).
+                Each item may be 'entity_id' or 'entity_id|Custom label';
+                the label overrides HA's friendly name in the glance (handy
+                when an integration's friendly names are long/verbose).
   HA_JSON       output path  (default: /var/lib/home-hq/ha.json)
   HA_TIMEOUT    HTTP timeout in seconds (default: 15)
 
@@ -44,15 +47,22 @@ except ValueError:
 
 
 def _allowlist():
-    """Parse HA_ENTITIES into an ordered, de-duplicated list of entity ids."""
+    """Parse HA_ENTITIES into ordered, de-duplicated (entity_id, label) pairs.
+    Each item is 'entity_id' or 'entity_id|Custom label'; label is None when not
+    given (the collector then falls back to HA's friendly name)."""
     seen = set()
-    ids = []
+    items = []
     for raw in HA_ENTITIES.split(","):
-        eid = raw.strip()
+        part = raw.strip()
+        if not part:
+            continue
+        eid, _, label = part.partition("|")
+        eid = eid.strip()
+        label = label.strip()
         if eid and eid not in seen:
             seen.add(eid)
-            ids.append(eid)
-    return ids
+            items.append((eid, label or None))
+    return items
 
 
 def fetch_states():
@@ -68,12 +78,13 @@ def fetch_states():
         return None
 
 
-def _shape(state):
-    """Trim a raw HA state object to the non-sensitive subset we display."""
+def _shape(state, label=None):
+    """Trim a raw HA state object to the non-sensitive subset we display. An
+    optional label (from the allowlist) overrides HA's friendly name."""
     attrs = state.get("attributes") or {}
     return {
         "entity_id": state.get("entity_id"),
-        "name": attrs.get("friendly_name") or state.get("entity_id"),
+        "name": label or attrs.get("friendly_name") or state.get("entity_id"),
         "state": state.get("state"),
         "unit": attrs.get("unit_of_measurement"),
         "device_class": attrs.get("device_class"),
@@ -93,7 +104,7 @@ def main():
         else:
             by_id = {s.get("entity_id"): s for s in raw if isinstance(s, dict)}
             # Keep allowlist order; skip ids HA doesn't know about.
-            entities = [_shape(by_id[eid]) for eid in allow if eid in by_id]
+            entities = [_shape(by_id[eid], label) for (eid, label) in allow if eid in by_id]
             data = {"updated": int(time.time()), "available": True, "entities": entities}
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
