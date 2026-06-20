@@ -48,6 +48,13 @@ describe('entityValue', () => {
     expect(entityValue({ state: 42, unit: 'min' })).toBe('42 min')
     expect(entityValue(undefined)).toBe('—')
   })
+
+  it('rounds raw floats for display and keeps whole numbers whole', () => {
+    expect(entityValue({ state: '63.1833333333333', unit: 'min' })).toBe('63.2 min')
+    expect(entityValue({ state: '20.0', unit: 'min' })).toBe('20 min')
+    expect(entityValue({ state: '47.5', unit: '%' })).toBe('47.5%')
+    expect(entityValue({ state: '12.0' })).toBe('12') // numeric, no unit
+  })
 })
 
 describe('lowBattery', () => {
