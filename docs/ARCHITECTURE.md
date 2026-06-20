@@ -573,6 +573,9 @@ Access Token**, keeps only the `HA_ENTITIES` allowlist (in display order), trims
 each to `{entity_id, name, state, unit, device_class}`, and writes `ha.json`. The
 backend reads it via the same `/smart` mount; **`/api/ha`** shapes it (domain
 split, entity normalization, stale check) in a pure, unit-tested `summarize()`.
+Each `HA_ENTITIES` item may be `entity_id` or `entity_id|Custom label` (same
+`Name|value` shape as `UPTIME_TARGETS`) — the label overrides HA's friendly name
+in the glance, so a verbose integration name reads cleanly without touching HA.
 The dashboard's **Home** widget renders the rows — an icon + label + value, with
 low batteries tinted — each linking into HA's history view for that entity. It
 **self-hides** when HA isn't wired up (`not_configured` / no file), and shows
