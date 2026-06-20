@@ -593,14 +593,21 @@ SMART, 🗄️ capacity, 🔌 external drive, 📦 containers, 🖨️ printer (
 ⏸ paused (catches filament runout — the stage reads "Changing filament"), ⚠️
 printer HMS faults, 🛰️ printer-offline-mid-print.
 
-Two of those deserve a note. **Printer-offline** fires *only* when the printer
+A few of those deserve a note. **Printer-offline** fires *only* when the printer
 vanishes mid-print (last state RUNNING/PAUSE) — a dead telemetry pipe, a crash,
 or the upstream router's WAN IP drifting (which silently breaks the printer
-host); a normal power-down while idle stays quiet. And a **dead-man's switch**:
-each cycle the engine pings `HEALTHCHECK_PING_URL` (point it at an external check
-like Healthchecks.io). If the loop — or the whole box — dies, the pings stop and
-that external service alerts you. It's the one failure the app can't self-report,
-so it's deliberately watched from outside.
+host); a normal power-down while idle stays quiet. The **external-drive** rule
+fires on the drive's *last-reported* health even when the watchdog's state file
+is **stale**: during a hard wedge the watchdog backs off for minutes between
+probes, so its report ages past the stale window while it's still managing a
+known-bad drive — and treating stale as "clear" used to flap the alert
+unhealthy→resolved→unhealthy every few minutes. Staleness is still surfaced in
+the UI; it just no longer *clears* an active drive-unhealthy alert (a
+stale-but-healthy report stays quiet). And a **dead-man's switch**: each cycle
+the engine pings `HEALTHCHECK_PING_URL` (point it at an external check like
+Healthchecks.io). If the loop — or the whole box — dies, the pings stop and that
+external service alerts you. It's the one failure the app can't self-report, so
+it's deliberately watched from outside.
 
 Any single rule can be **muted** from the Alerts page (`POST /api/alerts/{rule_id}/mute`,
 persisted in the `alert_mutes` table — a row's presence means muted). A muted rule

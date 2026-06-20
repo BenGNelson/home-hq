@@ -70,11 +70,19 @@ def test_disk_full_vs_ok():
     assert _check_disk({"disk": {"available": True, "mount": "/m", "percent": 80.0}}) == (None, "")
 
 
-def test_watchdog_unhealthy_but_not_stale():
+def test_watchdog_unhealthy_fires_even_when_stale():
     bad = {"watchdog": {"available": True, "healthy": False, "stale": False, "label": "4tex", "note": "recovery-failed"}}
     assert _check_watchdog(bad)[0] == "unhealthy"
-    stale = {"watchdog": {"available": True, "healthy": False, "stale": True, "label": "4tex"}}
-    assert _check_watchdog(stale) == (None, "")
+    # A stale report must NOT clear an active unhealthy alert (this was the flapping
+    # bug): during a hard wedge the watchdog backs off for minutes, so its state goes
+    # stale while the drive is still known-bad. Stale + unhealthy keeps firing.
+    stale_bad = {"watchdog": {"available": True, "healthy": False, "stale": True, "label": "4tex"}}
+    assert _check_watchdog(stale_bad)[0] == "unhealthy"
+    # Stale but last-known healthy still doesn't alarm.
+    stale_ok = {"watchdog": {"available": True, "healthy": True, "stale": True, "label": "4tex"}}
+    assert _check_watchdog(stale_ok) == (None, "")
+    # Not configured -> quiet.
+    assert _check_watchdog({"watchdog": {"available": False}}) == (None, "")
 
 
 def test_container_down():
