@@ -344,6 +344,14 @@ shelf at the top of the section, so a deep, frequently-revisited folder (the nex
 issue in a series) is one tap away instead of a re-drill. The same
 `reading_progress` table gives the roaming bookmark.
 
+**Magazines & Papers reuse the same folder browser** (without the cover grid or
+pins — PDFs have no cheap cover render, so papers are plain tap rows): drop a
+series' PDFs in a subfolder under `PAPERS_DIR` and it collapses to one series row
+you drill into for its issues, built from the same `browseFolder` + a client-side
+`searchItems` across every paper. A flat folder still just lists its PDFs, so it's
+backward-compatible and entirely user-controlled (organize on disk = organize in
+the UI). `searchComics` was renamed `searchItems` now that two sections share it.
+
 **Audiobooks reuse the folder browser; a book is a folder of chapter files.** The
 `audiobooks` section reads a tree where a leaf folder of ordered audio files *is*
 a book and the files are its chapters (natural-sorted client-side). The player is

@@ -70,9 +70,10 @@ export function browseFolder(items, path = '') {
   return { folders, issues }
 }
 
-// Filter comics by a free-text query over their title/path (client-side — the
-// item list is just names, so no backend index is needed). Empty query → [].
-export function searchComics(items, query) {
+// Filter a section's items by a free-text query over their title/path (client-
+// side — the item list is just names, so no backend index is needed). Used by
+// the folder-browser sections (comics, papers). Empty query → [].
+export function searchItems(items, query) {
   const q = (query || '').trim().toLowerCase()
   if (!q) return []
   return (items ?? []).filter(
