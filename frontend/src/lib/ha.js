@@ -56,16 +56,26 @@ export function entityValue(e) {
   if (raw === '') return '—'
   const lower = raw.toLowerCase()
   if (lower in STATE_LABELS) return STATE_LABELS[lower]
-  const unit = e?.unit
-  if (unit && isNumeric(raw)) {
+  if (isNumeric(raw)) {
+    // HA reports some numbers raw (e.g. "63.1833333333333" minutes); round for
+    // display so the glance stays tidy.
+    const v = roundForDisplay(raw)
+    const unit = e?.unit
+    if (!unit) return v
     // No space before a percent sign, a thin gap before word units.
-    return unit === '%' ? `${raw}%` : `${raw} ${unit}`
+    return unit === '%' ? `${v}%` : `${v} ${unit}`
   }
   return raw
 }
 
 function isNumeric(s) {
   return s !== '' && !Number.isNaN(Number(s))
+}
+
+// Round a numeric string to at most one decimal place, dropping a trailing
+// ".0" so whole numbers stay whole ("20.0" -> "20", "63.18…" -> "63.2").
+function roundForDisplay(s) {
+  return String(Math.round(Number(s) * 10) / 10)
 }
 
 // True when a battery entity has dropped to/below the threshold — the widget
