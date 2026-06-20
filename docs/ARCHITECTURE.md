@@ -488,11 +488,30 @@ Some USB-to-SATA/NVMe bridges periodically **wedge** — a region of I/O starts
 erroring while the device stays "connected", blocking reads and writes — and the
 only fix is to power-cycle the bridge. `scripts/drive-watchdog.sh` is an optional
 host daemon (a systemd service with `Restart=always`, not a timer) that probes
-the mount on an interval and, on a confirmed wedge, runs the manual recovery
-automatically: lazy-unmount → software USB reset (`usbreset`, falling back to a
-sysfs authorized-toggle / driver re-bind) → filesystem repair → remount → verify.
-It's the same privileged-host / unprivileged-app split as backups and SMART: the
-script (root, on the host) does the unmount/reset/fsck; the container never does.
+the mount on an interval and recovers automatically. It's the same
+privileged-host / unprivileged-app split as backups and SMART: the script (root,
+on the host) does the unmount/reset/fsck; the container never does.
+
+It distinguishes **two failure modes**, because they need opposite handling
+(decision log below):
+
+- **Soft wedge** — the partition node is still on the block layer but I/O hangs.
+  A software USB reset here *is* the right tool (it's a protocol-level "replug" of
+  a still-attached bridge): lazy-unmount → `usbreset` (falling back to a sysfs
+  authorized-toggle / driver re-bind) → filesystem repair → remount → verify.
+- **Hard wedge** — the bridge firmware hangs hard and the node **drops off the
+  block layer entirely** (gone from `lsblk`, `by-uuid` symlink missing) even
+  though the enclosure still shows in `lsusb`. A software reset **cannot** recover
+  this — none of those resets cut power, so they can't reboot hung firmware, and
+  the deauthorize fallback can leave the device detached (escalating the wedge, or
+  knocking a drive you *just* replugged back offline). So the watchdog does **not**
+  reset here: it detaches the stale mountpoint, flags `needs-manual-replug` (an
+  honest, actionable state the **Drives** widget shows as a red *replug* badge and
+  the alert engine fires on), and polls cheaply until the node returns — then a
+  plain remount (or repair-then-remount, if the unclean drop left the FS dirty)
+  brings it back with no reset at all. A power-switchable hub + `uhubctl` could
+  later automate the power-cycle, but for a disposable drive a manual replug is the
+  pragmatic choice.
 
 It's fully generic — drive identity (mount, UUID, optional USB `vendor:product`,
 fstype, tuning) comes from `.env` under `WATCHDOG_*`, the repair tool is chosen by

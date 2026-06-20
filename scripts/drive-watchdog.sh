@@ -162,6 +162,14 @@ reset_usb() {
   echo "$dev" > /sys/bus/usb/drivers/usb/bind 2>/dev/null
 }
 
+# True while the partition node is on the block layer (by-uuid symlink present).
+# When a USB bridge "hard-wedges", the firmware hangs and the node vanishes from
+# the block layer entirely (gone from lsblk) even though the enclosure may still
+# show in lsusb — this is what tells a hard drop apart from a soft I/O wedge.
+device_present() {
+  [[ -e "$BYUUID" ]]
+}
+
 # Wait for the partition to re-appear after a reset.
 wait_for_device() {
   local i
@@ -223,28 +231,69 @@ log "drive-watchdog starting for $LABEL ($MOUNT, ${FSTYPE:-unknown fs}); probe e
 
 fails=0
 recover_fails=0
+replug_pending=0      # 1 while we're waiting out a hard drop (device off the bus)
 while true; do
   if probe_healthy; then
     fails=0
     recover_fails=0
+    replug_pending=0
     write_state true "ok"
     sleep "$CHECK_INTERVAL"
     continue
   fi
 
-  # Cheap case: simply not mounted (e.g. a clean unmount) — just remount it.
-  if ! mountpoint -q "$MOUNT"; then
-    log "$MOUNT not mounted — attempting plain remount"
-    if [[ -e "$BYUUID" ]] && mount "$MOUNT" 2>>"$LOG_FILE" && probe_healthy; then
+  # Device present but not mounted: a clean unmount, OR a drive that has just come
+  # back after a hard drop (manual replug / power-cycle). Remount it — and if an
+  # unclean drop left the filesystem dirty, repair then remount. We deliberately do
+  # NOT reset the bridge here: the device is already on the bus, and a reset at this
+  # moment is exactly what could knock a just-replugged drive back offline.
+  if ! mountpoint -q "$MOUNT" && device_present; then
+    log "$MOUNT not mounted, device present — attempting remount"
+    if mount "$MOUNT" 2>>"$LOG_FILE" && probe_healthy; then
       log "Remounted cleanly"
-      fails=0; recover_fails=0
+      fails=0; recover_fails=0; replug_pending=0
       write_state true "remounted"
-      log_event "remounted" "clean remount (drive was unmounted)"
+      log_event "remounted" "clean remount (device present, was unmounted)"
       sleep "$COOLDOWN"
       continue
     fi
+    log "Plain remount failed — repairing filesystem (${FSTYPE:-unknown}) then remounting"
+    repair_fs
+    if mount "$MOUNT" 2>>"$LOG_FILE" && probe_healthy; then
+      RECOVERY_COUNT=$((RECOVERY_COUNT + 1))
+      LAST_RECOVERY="$(date +%s)"
+      log "Recovery SUCCESS via repair+remount — $MOUNT healthy (total recoveries: $RECOVERY_COUNT)"
+      fails=0; recover_fails=0; replug_pending=0
+      write_state true "recovered"
+      log_event "recovered" "repair+remount after the device returned (total: $RECOVERY_COUNT)"
+      sleep "$COOLDOWN"
+      continue
+    fi
+    log "Repair+remount did not restore health — falling through"
   fi
 
+  # Hard drop: the partition node is GONE from the block layer. The bridge firmware
+  # has hung hard, and a software reset CANNOT recover this — usbreset/unbind only
+  # send protocol-level resets (no power cut, so they can't reboot hung firmware),
+  # and the deauthorize fallback can leave the device detached, escalating a soft
+  # wedge into a full drop or fighting a manual replug. So we don't reset: detach
+  # the stale mountpoint, flag "needs manual replug", and poll cheaply — the
+  # device-present branch above auto-remounts the instant the node returns.
+  if ! device_present; then
+    if [[ "$replug_pending" != "1" ]]; then
+      log "$LABEL dropped off the block layer ($BYUUID gone) — bridge hard-wedged; a software reset can't recover this, manual replug/power-cycle required"
+      timeout 10 umount "$MOUNT" 2>/dev/null || umount -l "$MOUNT" 2>/dev/null
+      log_event "needs-manual-replug" "device dropped off the bus; software reset cannot recover — physical replug or power-cycle required"
+      replug_pending=1
+    fi
+    write_state false "needs-manual-replug"   # written every poll so state stays fresh (not "stale")
+    fails=0
+    sleep "$CHECK_INTERVAL"
+    continue
+  fi
+
+  # Soft wedge: device present AND still mounted, but I/O hangs. This is the only
+  # case a USB reset (== a replug of a still-attached bridge) is the right tool for.
   fails=$((fails + 1))
   log "Health probe failed ($fails/$FAIL_THRESHOLD)"
   write_state false "probe-failed"
