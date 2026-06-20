@@ -20,8 +20,19 @@
         --ejs-block-scale: 1.1;   /* Start/Select pill multiplier (smaller than
                                      the round buttons so the two center pills,
                                      which sit edge-to-edge at 1.3, keep a gap) */
-        --ejs-ff-right: 14px;     /* fast-forward toggle inset from the right */
-        --ejs-ff-gap: 14px;       /* gap between the FF toggle and the cluster */
+        --ejs-side-inset: 20px;   /* dpad + face-button zone inset from the
+                                     screen edges (engine default 10px) — pulls
+                                     both clusters in off the edge, evenly */
+        --ejs-block-drop: 16px;   /* how far to lower Start/Select below the
+                                     engine default (drops them under the dpad) */
+        --ejs-ff-right: 18px;     /* fast-forward toggle inset from the right */
+        --ejs-ff-drop: 8px;       /* how far to drop the FF toggle below the
+                                     right-zone top — pushes it away from R so
+                                     it isn't tapped by accident */
+        --ejs-ff-width: calc(52px * var(--ejs-btn-scale)); /* match R's width:
+                                     R is a 50px button + 1px borders, scaled by
+                                     --ejs-btn-scale; FF is border-box so its
+                                     width includes its own border */
       }
       /* Lift the pad off the bottom edge so buttons are in thumb reach and clear
          the iOS home indicator. The dpad / face-button / Start-Select zones are
@@ -36,14 +47,22 @@
       .ejs_virtualGamepad_left {
         width: var(--ejs-dpad-size) !important;
         height: var(--ejs-dpad-size) !important;
+        left: var(--ejs-side-inset) !important;
       }
       /* Match the face-button zone's HEIGHT to the dpad zone so the L/R shoulders
          line up. Both zones share bottom:50px and the engine anchors the
          shoulders at top:-90 from each zone's top, so a taller left zone (the
          enlarged dpad) used to push L above R. Height only — leaving the width
-         (and right:10px anchor) alone keeps the A/B horizontal layout intact. */
+         alone keeps the A/B horizontal layout intact. The matching side-inset
+         pulls the A/B cluster in off the right edge, evenly with the dpad. */
       .ejs_virtualGamepad_right {
         height: var(--ejs-dpad-size) !important;
+        right: var(--ejs-side-inset) !important;
+      }
+      /* Lower the Start/Select pills so they sit below the dpad's bottom button.
+         They live in the center zone (engine default bottom:10px); drop it. */
+      .ejs_virtualGamepad_bottom {
+        bottom: calc(10px - var(--ejs-block-drop)) !important;
       }
       /* Bigger face + Start/Select buttons. transform:scale grows them in place
          (around their own centre) so the engine's fixed per-system positions
@@ -57,19 +76,21 @@
       /* Drop the Fast / Slow / Rewind hold-buttons — replaced by the one-tap
          fast-forward toggle below (added in JS on game start). */
       .b_speed_fast, .b_speed_slow, .b_speed_rewind { display: none !important; }
-      /* The on-screen fast-forward toggle. Sits just ABOVE the face-button
-         cluster on the right, out of the play area (it used to be top-center,
-         over the game). Anchored to the controller band via the same vars that
-         lift/size the pad, so it tracks them: the right zone's top edge is
-         (parent bottom 50px + lift) + the zone's own bottom 50px + its height,
-         and the gap var nudges the toggle above that. */
+      /* The on-screen fast-forward toggle. Sits below the R shoulder on the
+         right, out of the play area (it used to be top-center, over the game).
+         Anchored to the controller band via the same vars that lift/size the
+         pad, so it tracks them: the right zone's top edge is (parent bottom 50px
+         + lift) + the zone's own bottom 50px + its height; --ejs-ff-drop pushes
+         the toggle DOWN from there, away from R (which juts above the zone top),
+         so it isn't tapped by accident. Width matches R via --ejs-ff-width. */
       .ff-toggle {
         position: absolute; right: var(--ejs-ff-right); z-index: 999;
         bottom: calc(
           100px + var(--ejs-gamepad-lift) + var(--ejs-dpad-size)
-          + var(--ejs-ff-gap) + env(safe-area-inset-bottom, 0px)
+          - var(--ejs-ff-drop) + env(safe-area-inset-bottom, 0px)
         );
-        min-width: 54px; height: 36px; line-height: 34px; padding: 0 10px;
+        box-sizing: border-box;
+        width: var(--ejs-ff-width); height: 36px; line-height: 34px;
         text-align: center; font: 600 16px system-ui, sans-serif; color: #e2e8f0;
         border: 1px solid #ccc; border-radius: 8px;
         background: rgba(255, 255, 255, 0.15);
