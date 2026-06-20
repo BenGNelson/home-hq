@@ -23,4 +23,10 @@ describe('watchdogBadge', () => {
     expect(b.label).toBe('recovering')
     expect(b.cls).toContain('amber')
   })
+
+  it('shows replug when the bridge hard-wedged and a manual replug is needed', () => {
+    const b = watchdogBadge({ stale: false, healthy: false, note: 'needs-manual-replug' })
+    expect(b.label).toBe('replug')
+    expect(b.cls).toContain('rose')
+  })
 })
