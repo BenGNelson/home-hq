@@ -10,7 +10,7 @@ import {
   readerHref,
   groupByLabel,
   browseFolder,
-  searchComics,
+  searchItems,
   folderCrumbs,
   pinLabel,
   naturalCompare,
@@ -185,17 +185,17 @@ describe('browseFolder', () => {
   })
 })
 
-describe('searchComics', () => {
+describe('searchItems', () => {
   const items = [
     { id: 'Star Wars/Darth Vader/01.cbr', name: 'Darth Vader 01' },
     { id: 'Batman/Year One.cbr', name: 'Year One' },
   ]
   it('matches name or path, case-insensitive', () => {
-    expect(searchComics(items, 'vader').map((i) => i.name)).toEqual(['Darth Vader 01'])
-    expect(searchComics(items, 'batman').map((i) => i.name)).toEqual(['Year One']) // path match
+    expect(searchItems(items, 'vader').map((i) => i.name)).toEqual(['Darth Vader 01'])
+    expect(searchItems(items, 'batman').map((i) => i.name)).toEqual(['Year One']) // path match
   })
   it('empty query → no results', () => {
-    expect(searchComics(items, '   ')).toEqual([])
+    expect(searchItems(items, '   ')).toEqual([])
   })
 })
 

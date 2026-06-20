@@ -4,7 +4,7 @@ import { useApi, API_BASE } from '../../lib/useApi.js'
 import {
   readerHref,
   browseFolder,
-  searchComics,
+  searchItems,
   folderCrumbs,
   pinLabel,
   pinsUrl,
@@ -210,7 +210,7 @@ function FolderView({ items, path, crumbs, pinnedSet, onTogglePin }) {
 }
 
 function SearchResults({ items, query }) {
-  const results = searchComics(items, query)
+  const results = searchItems(items, query)
   if (results.length === 0) {
     return <p className="text-sm text-slate-400">No comics match “{query.trim()}”.</p>
   }
