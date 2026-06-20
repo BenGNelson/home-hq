@@ -124,6 +124,14 @@ class Settings(BaseSettings):
     # simply hides its GPU rows (host-agnostic: most installs have no GPU).
     gpu_json_path: str = "/smart/gpu.json"
 
+    # Home Assistant curated-entity snapshot written by a host timer
+    # (scripts/ha-state.py), read via the same /smart mount. The backend holds no
+    # HA URL or token — the host script calls HA's REST /api/states with a
+    # Long-Lived Access Token, trims to the allowlist, and writes ha.json. The
+    # bridge is read-only (a glance + deep-link into HA), per the brain/cockpit
+    # split. Absent file -> the Home widget simply hides itself.
+    ha_json_path: str = "/smart/ha.json"
+
     # --- Alerting (push notifications via ntfy) ---
     # Push lands on the phone over normal internet (no tailnet needed). The topic
     # name is a shared secret — use an unguessable one. Empty topic disables push.

@@ -54,6 +54,7 @@ backend/app/
     vpn.py           # /api/vpn      (VPN egress leak check, from a host timer's JSON)
     tailscale.py     # /api/tailscale (tailnet device list, from a host timer's JSON)
     uptime.py        # /api/uptime   (service availability, from a host prober's JSON)
+    ha.py            # /api/ha       (curated Home Assistant entities, from a host timer's JSON)
     diskio.py        # /api/diskio   (per-disk I/O counters from /proc/diskstats)
     raid.py          # /api/raid     (software-RAID state from /proc/mdstat)
     smart.py         # /api/smart    (per-drive SMART, from a host timer's JSON)
@@ -130,6 +131,7 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/vpn` | VPN egress leak check (exit IP vs home IP) | reads a host timer's `vpn.json` |
 | `GET /api/tailscale` | tailnet devices (online state, exit node, last seen) | reads a host timer's `tailscale.json` |
 | `GET /api/uptime` | per-service availability — status, uptime % (24h/7d), latency | reads a host prober's `uptime.json` |
+| `GET /api/ha` | curated Home Assistant entities (glance + deep-link), self-hides when unconfigured | reads a host timer's `ha.json` |
 | `GET /api/storage/db` | SQLite file size + per-table row counts (growth visibility) | stats the DB file + `COUNT(*)` per table |
 | `GET /api/diskio` | per-disk cumulative read/write bytes (rates computed client-side) | parses host `/proc/diskstats` |
 | `GET /api/raid` | software-RAID array state (healthy/degraded, rebuild %) | parses host `/proc/mdstat` |
@@ -555,6 +557,32 @@ history for the sparkline, and `hourly` {up, total} buckets the backend turns
 into the uptime %s. The file is self-bounding — samples are capped and buckets
 pruned to the retention window. `GET /api/uptime` reads it and shapes it in a
 pure summarizer.
+
+## Home Assistant glance (host script)
+
+**Guiding principle: HA is the brain, Home HQ is the cockpit.** Home Assistant
+owns every device integration, automation, and the full control surface; HQ just
+surfaces a *curated handful* of HA entities at a glance and **deep-links into HA
+for control**. This is a thin, **read-only** bridge — deliberately NOT a second
+smart-home UI (the same lesson as the backed-out camera wall).
+
+The mechanism is the now-familiar privileged-host / unprivileged-app split. The
+backend container holds no HA URL or token, so a host timer
+(`scripts/ha-state.py`) calls HA's REST `GET /api/states` with a **Long-Lived
+Access Token**, keeps only the `HA_ENTITIES` allowlist (in display order), trims
+each to `{entity_id, name, state, unit, device_class}`, and writes `ha.json`. The
+backend reads it via the same `/smart` mount; **`/api/ha`** shapes it (domain
+split, entity normalization, stale check) in a pure, unit-tested `summarize()`.
+The dashboard's **Home** widget renders the rows — an icon + label + value, with
+low batteries tinted — each linking into HA's history view for that entity. It
+**self-hides** when HA isn't wired up (`not_configured` / no file), and shows
+"unreachable" only when the collector ran but the HTTP call failed.
+
+The HA token is the one secret in this collector, so — unlike the others —
+nothing here is committed with a real value: `HA_TOKEN` lives only in the
+gitignored `.env`, never in the repo or the container. Read-only by design: no
+service calls, no control proxying, and (per the notifications stance) no alert
+rules on HA entities. Control is HA's job — the deep-link hands off to it.
 
 ## Database growth guardrails
 
