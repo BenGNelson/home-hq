@@ -10,13 +10,17 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    // Turns the production build into an installable PWA: generates the web
-    // app manifest + a service worker that precaches the built app shell so it
-    // launches instantly from the home screen. We deliberately do NOT cache
-    // /api (live server data should always hit the network), so the service
-    // worker only handles the static shell. Disabled in dev to avoid stale
-    // caches while iterating.
+    // Turns the production build into an installable PWA. We use the
+    // `injectManifest` strategy with our OWN service worker (src/sw.js) instead
+    // of the auto-generated one, so the caching behavior is exactly what we say
+    // it is — the foundation of the offline feature's audit-grade transparency
+    // (precache the shell + serve explicit downloads cache-first; never cache
+    // anything else implicitly). The plugin injects the precache manifest at
+    // `self.__WB_MANIFEST` in our SW. Disabled in dev to avoid stale caches.
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
@@ -38,14 +42,11 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
-        // Precache the build output only; never let the SW serve API responses,
-        // and never intercept the isolated emulator page (a real file nginx
-        // serves, not a SPA route).
-        navigateFallbackDenylist: [/^\/api/, /^\/emulator\.html/],
-        // The self-hosted EmulatorJS engine/cores (frontend/public/emulatorjs/,
-        // ~300 MB) and the emulator host page load on demand — never precache
-        // them (it would bloat the install and blow workbox's size cap anyway).
+      injectManifest: {
+        // Precache the built shell only. The self-hosted EmulatorJS engine/cores
+        // (frontend/public/emulatorjs/, ~300 MB) and the isolated emulator host
+        // page load on demand — never precache them (would bloat the install and
+        // blow the size cap).
         globIgnores: ['**/emulatorjs/**', 'emulator.html'],
       },
     }),
