@@ -107,30 +107,32 @@ function Downloaded() {
   }, [])
 
   if (!entries || entries.length === 0) return null
-  const items = [...entries].sort((a, b) => (b.date || 0) - (a.date || 0))
+  const sorted = [...entries].sort((a, b) => (b.date || 0) - (a.date || 0))
+  // A grid that grows downward (not a cramped horizontal strip) makes use of the
+  // screen. The hub is a teaser — cap it and let "Manage" show the full set.
+  const CAP = 12
+  const items = sorted.slice(0, CAP)
 
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium uppercase tracking-wide text-slate-500">Downloaded</h3>
         <Link to="/library/downloads" className="text-xs text-slate-400 active:text-slate-200">
-          Manage ›
+          {sorted.length > CAP ? `See all ${sorted.length} ›` : 'Manage ›'}
         </Link>
       </div>
-      <div className="flex gap-3 overflow-x-auto pb-1">
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
         {items.map((e) => (
           <Link
             key={e.key}
             to={readerHref(e.section, { id: e.id, reader: e.reader })}
-            className="block w-28 shrink-0 active:opacity-80"
+            className="block active:opacity-80"
           >
             <div className="flex aspect-[3/4] items-center justify-center rounded-lg bg-slate-800 p-2 text-center">
               <span className="line-clamp-5 text-xs font-medium text-slate-300">{e.name}</span>
             </div>
             <span className="mt-1 block truncate text-xs text-slate-200">{e.name}</span>
-            <span className="block truncate text-[11px] text-slate-500">
-              {formatSize(e.bytes)} · offline
-            </span>
+            <span className="block truncate text-[11px] text-slate-500">{formatSize(e.bytes)}</span>
           </Link>
         ))}
       </div>
