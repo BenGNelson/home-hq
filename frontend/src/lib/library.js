@@ -184,6 +184,7 @@ export function downloadHref(entry) {
   }
   if (entry.section === 'games') {
     const q = new URLSearchParams({ id: entry.id, core: entry.core || '', name: entry.name || '' })
+    if (entry.slot) q.set('slot', entry.slot) // resume the save state cached with the game
     return `/library/play?${q.toString()}`
   }
   return readerHref(entry.section, { id: entry.id, reader: entry.reader })
