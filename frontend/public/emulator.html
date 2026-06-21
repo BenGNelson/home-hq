@@ -132,10 +132,6 @@
         // A stable game id so the engine keys its browser save states off it,
         // not off EJS_gameUrl (which becomes a per-session blob: URL below).
         window.EJS_gameID = gid || name || rom;
-        // Resume into a saved state, if one was requested (same-origin path only).
-        if (loadstate && loadstate.charAt(0) === '/') {
-          window.EJS_loadStateURL = loadstate;
-        }
         // When the user saves a state in the in-game menu, push it (and its
         // screenshot) to the backend so it roams across devices + is backed up.
         // The event's `e.screenshot` is unusable: EmulatorJS v4.2.3 destructures
@@ -206,14 +202,15 @@
         window.addEventListener('pointerdown', function () {
           try { window.focus(); } catch (e) {}
         });
-        // Boot the engine once the ROM is in hand. We fetch the ROM OURSELVES
-        // (the service worker serves it from cache when the game is downloaded
-        // for offline) and hand EmulatorJS a blob: URL — so the engine's own
-        // XMLHttpRequest reads the ROM locally. This sidesteps an iOS Safari
-        // quirk where a service-worker-intercepted XHR for a large binary stalls
-        // (the "Download Game Data" hang), which a plain fetch + blob avoids.
-        function bootEngine(gameUrl) {
+        // Boot the engine once the ROM (and the save state we're resuming, if
+        // any) are in hand. We fetch them OURSELVES (a plain fetch the service
+        // worker serves from cache when the game is downloaded for offline) and
+        // hand EmulatorJS blob: URLs — so the engine reads them locally instead
+        // of via its own XMLHttpRequest, which a service worker stalls on iOS
+        // Safari for a large binary (the "Download Game Data" hang).
+        function bootEngine(gameUrl, stateUrl) {
           window.EJS_gameUrl = gameUrl;
+          if (stateUrl) window.EJS_loadStateURL = stateUrl;
           var s = document.createElement('script');
           s.src = data + 'loader.js';
           s.onerror = function () {
@@ -225,16 +222,18 @@
           };
           document.body.appendChild(s);
         }
-        // Only pre-fetch a same-origin ROM (the /api stream); otherwise boot with
-        // the URL as-is. On fetch failure, fall back to the direct URL too.
-        if (rom.charAt(0) === '/') {
-          fetch(rom)
-            .then(function (r) { if (!r.ok) throw new Error('rom ' + r.status); return r.blob(); })
-            .then(function (blob) { bootEngine(URL.createObjectURL(blob)); })
-            .catch(function () { bootEngine(rom); });
-        } else {
-          bootEngine(rom);
+        // Pre-fetch a same-origin URL as a blob: URL; fall back to the raw URL on
+        // any failure (so online play is unaffected if a fetch hiccups).
+        function asBlobUrl(u) {
+          if (!u || u.charAt(0) !== '/') return Promise.resolve(u || null);
+          return fetch(u)
+            .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
+            .then(function (b) { return URL.createObjectURL(b); })
+            .catch(function () { return u; });
         }
+        Promise.all([asBlobUrl(rom), asBlobUrl(loadstate)]).then(function (r) {
+          bootEngine(r[0] || rom, r[1]);
+        });
       })();
     </script>
   </body>

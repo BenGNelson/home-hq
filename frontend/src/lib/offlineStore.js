@@ -219,6 +219,7 @@ export async function downloadJob(meta, onProgress) {
     // Games carry their emulator core; audiobooks carry their ordered chapter
     // list — both so the player can open the item offline without the live API.
     ...(meta.core ? { core: meta.core } : {}),
+    ...(meta.slot ? { slot: meta.slot } : {}), // newest save state cached with a game → resume into it
     ...(meta.chapters ? { chapters: meta.chapters } : {}),
     ...(meta.engineVersion != null ? { engineVersion: meta.engineVersion } : {}),
   }
@@ -232,7 +233,7 @@ export async function downloadJob(meta, onProgress) {
 // line, like the app shell. A game download ensures this first. Bump
 // ENGINE_VERSION whenever emulator.html or EMULATOR_ENGINE_URLS changes so a
 // device that already cached the engine refreshes it instead of running stale.
-const ENGINE_VERSION = 2
+const ENGINE_VERSION = 3
 export async function ensureEmulatorEngine() {
   const key = downloadKey('emulator', 'engine')
   const existing = await getEntry(key)
