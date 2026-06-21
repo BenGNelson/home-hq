@@ -184,9 +184,11 @@ export default function Shell({ modules, children }) {
 
         {/* Per-route error boundary: a crash in one screen (e.g. a reader engine
             throwing) shows a contained fallback instead of unmounting the whole
-            app to a blank screen. Keyed by route so navigating clears the error. */}
+            app to a blank screen. Keyed by pathname + search so navigating to a
+            different document clears the error even within a shared route like
+            /library/read?id=… (where identity is in the query string). */}
         <main className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
-          <ErrorBoundary key={location.pathname}>{children}</ErrorBoundary>
+          <ErrorBoundary key={location.pathname + location.search}>{children}</ErrorBoundary>
         </main>
       </div>
     </div>

@@ -166,36 +166,46 @@ export async function downloadJob(meta, onProgress) {
   const cache = await caches.open(OFFLINE_CACHE)
   const files = meta.urls.length
   let loaded = 0
-  for (let i = 0; i < files; i++) {
-    const url = meta.urls[i]
-    const res = await fetch(url, { cache: 'no-store' })
-    if (!res.ok) throw new Error(`download failed (${res.status}) for ${url}`)
-    const flen = Number(res.headers.get('content-length')) || 0
-    const reader = res.body?.getReader?.()
-    const chunks = []
-    let fileLoaded = 0
-    const report = () => {
-      const cur = flen ? Math.min(fileLoaded / flen, 1) : 0
-      onProgress?.({ fraction: (i + cur) / files, loaded })
-    }
-    if (reader) {
-      for (;;) {
-        const { done, value } = await reader.read()
-        if (done) break
-        chunks.push(value)
-        fileLoaded += value.length
-        loaded += value.length
+  const cached = [] // URLs put so far, so a mid-download failure can roll back
+  try {
+    for (let i = 0; i < files; i++) {
+      const url = meta.urls[i]
+      const res = await fetch(url, { cache: 'no-store' })
+      if (!res.ok) throw new Error(`download failed (${res.status}) for ${url}`)
+      const flen = Number(res.headers.get('content-length')) || 0
+      const reader = res.body?.getReader?.()
+      const chunks = []
+      let fileLoaded = 0
+      const report = () => {
+        const cur = flen ? Math.min(fileLoaded / flen, 1) : 0
+        onProgress?.({ fraction: (i + cur) / files, loaded })
+      }
+      if (reader) {
+        for (;;) {
+          const { done, value } = await reader.read()
+          if (done) break
+          chunks.push(value)
+          fileLoaded += value.length
+          loaded += value.length
+          report()
+        }
+      } else {
+        const buf = new Uint8Array(await res.arrayBuffer())
+        chunks.push(buf)
+        fileLoaded += buf.length
+        loaded += buf.length
         report()
       }
-    } else {
-      const buf = new Uint8Array(await res.arrayBuffer())
-      chunks.push(buf)
-      fileLoaded += buf.length
-      loaded += buf.length
-      report()
+      await cache.put(url, new Response(new Blob(chunks), { headers: res.headers }))
+      cached.push(url)
+      onProgress?.({ fraction: (i + 1) / files, loaded }) // file complete
     }
-    await cache.put(url, new Response(new Blob(chunks), { headers: res.headers }))
-    onProgress?.({ fraction: (i + 1) / files, loaded }) // file complete
+  } catch (err) {
+    // Roll back the bytes we already cached so a partial download leaves no
+    // orphans — the manifest row is never written, so without this the audit
+    // ("Verify storage") would flag stray, unaccounted-for cache entries.
+    await Promise.all(cached.map((u) => cache.delete(u).catch(() => {})))
+    throw err
   }
   const entry = {
     key: downloadKey(meta.section, meta.id),
@@ -206,8 +216,9 @@ export async function downloadJob(meta, onProgress) {
     urls: meta.urls,
     bytes: loaded,
     date: Date.now(),
-    // Audiobooks carry their ordered chapter list so the player can run offline
-    // without the live folder-browse (other types leave this undefined).
+    // Games carry their emulator core; audiobooks carry their ordered chapter
+    // list — both so the player can open the item offline without the live API.
+    ...(meta.core ? { core: meta.core } : {}),
     ...(meta.chapters ? { chapters: meta.chapters } : {}),
   }
   await putEntry(entry)

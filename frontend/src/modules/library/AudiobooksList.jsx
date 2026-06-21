@@ -1,7 +1,7 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useApi } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
-import { useDownloaded, useDownloadedEntries } from '../../lib/useDownloaded.js'
+import { useDownloadedEntries } from '../../lib/useDownloaded.js'
 import { downloadKey } from '../../lib/offlineStore.js'
 import { browseFolder, folderCrumbs, naturalCompare, fileUrl } from '../../lib/library.js'
 import AudiobookPlayer from './AudiobookPlayer.jsx'
@@ -18,8 +18,10 @@ import DownloadButton from './DownloadButton.jsx'
 export default function AudiobooksList() {
   const { data, error, loading } = useApi('/library/audiobooks', 30000)
   const { online } = useOnline()
-  const downloaded = useDownloaded()
   const entries = useDownloadedEntries()
+  // Downloaded keys for the badges, derived from the entries we already load
+  // (avoids a second IndexedDB read of the same manifest).
+  const downloaded = new Set((entries ?? []).map((e) => e.key))
   const [params] = useSearchParams()
   const path = params.get('path') || ''
   const navigate = useNavigate()
