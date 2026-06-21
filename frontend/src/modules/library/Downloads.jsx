@@ -8,7 +8,7 @@ import {
   auditStorage,
   summarizeStorage,
 } from '../../lib/offlineStore.js'
-import { readerHref } from '../../lib/library.js'
+import { downloadHref } from '../../lib/library.js'
 import { formatSize } from '../../lib/format.js'
 import BackLink from '../../components/BackLink.jsx'
 
@@ -18,7 +18,10 @@ import BackLink from '../../components/BackLink.jsx'
 // fully offline and is the trustworthy answer to "what's taking up space?":
 // every byte is shown as either the app shell or a download you can open/delete,
 // and "Verify storage" scans the real cache to prove nothing is unaccounted-for.
-const ICONS = { pdf: '📄', epub: '📖', comic: '🦸' }
+const ICONS = { pdf: '📄', epub: '📖', comic: '🦸', listen: '🎧' }
+
+// An audiobook entry has no `reader`; key its icon off the section instead.
+const itemIcon = (e) => (e.section === 'audiobooks' ? '🎧' : ICONS[e.reader] || '📄')
 
 export default function Downloads() {
   const [entries, setEntries] = useState(null)
@@ -131,10 +134,10 @@ export default function Downloads() {
             {s.items.map((e) => (
               <li key={e.key} className="flex items-center">
                 <Link
-                  to={readerHref(e.section, { id: e.id, reader: e.reader })}
+                  to={downloadHref(e)}
                   className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 active:bg-slate-800"
                 >
-                  <span className="text-xl">{ICONS[e.reader] || '📄'}</span>
+                  <span className="text-xl">{itemIcon(e)}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-slate-100">{e.name}</span>
                     <span className="block text-xs text-slate-500">{formatSize(e.bytes)}</span>

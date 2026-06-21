@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { allEntries } from '../../lib/offlineStore.js'
-import { readerHref } from '../../lib/library.js'
+import { downloadHref } from '../../lib/library.js'
 import { formatSize } from '../../lib/format.js'
 
 // What a Library section shows when the server is unreachable: just the items
@@ -39,7 +39,7 @@ export default function OfflineSection({ section, label, icon = '📄' }) {
           {sorted.map((e) => (
             <li key={e.key}>
               <Link
-                to={readerHref(e.section, { id: e.id, reader: e.reader })}
+                to={downloadHref(e)}
                 className="flex items-center gap-3 px-4 py-3 active:bg-slate-800"
               >
                 <span className="text-xl">{icon}</span>

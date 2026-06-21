@@ -57,13 +57,49 @@ async function shellIndex(cache) {
   )
 }
 
+// Build a 206 Partial Content response from a cached full body. iOS Safari
+// requires 206 range responses to play cached <audio>/<video> (and to seek) —
+// a plain 200 fails — so when a range request hits downloaded content, slice the
+// cached bytes here. Also gives cached PDFs proper range responses (what pdf.js
+// expects). A malformed range falls back to the full response.
+async function rangeResponse(res, rangeHeader) {
+  const m = /bytes=(\d*)-(\d*)/.exec(rangeHeader || '')
+  if (!m) return res
+  const buf = await res.arrayBuffer()
+  const total = buf.byteLength
+  let start = m[1] ? parseInt(m[1], 10) : 0
+  let end = m[2] ? parseInt(m[2], 10) : total - 1
+  if (Number.isNaN(start)) start = 0
+  if (Number.isNaN(end) || end > total - 1) end = total - 1
+  if (start > end || start >= total) {
+    return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${total}` } })
+  }
+  const headers = new Headers(res.headers)
+  headers.set('Content-Range', `bytes ${start}-${end}/${total}`)
+  headers.set('Content-Length', String(end - start + 1))
+  headers.set('Accept-Ranges', 'bytes')
+  return new Response(buf.slice(start, end + 1), {
+    status: 206,
+    statusText: 'Partial Content',
+    headers,
+  })
+}
+
 async function handle(request) {
   // 1) Explicitly-downloaded content → cache-first (works fully offline). The
-  //    reader requested the same /api/library/file or /comics/page URL it would
-  //    online; if it's in the offline cache, serve the local copy.
+  //    reader/player requested the same /api/library/file, /comics/page, etc.
+  //    URL it would online; if it's in the offline cache, serve the local copy
+  //    (honouring a Range header so cached audio plays + seeks on iOS).
   const offline = await caches.open(OFFLINE_CACHE)
   const downloaded = await offline.match(request, { ignoreVary: true })
-  if (downloaded) return downloaded
+  if (downloaded) {
+    // Only MEDIA needs a synthesized 206 (iOS won't play cached <audio>/<video>
+    // from a plain 200). Other types — notably PDFs, where pdf.js is happy with
+    // the full 200 and chokes on our 206 — get the full cached response as-is.
+    const range = request.headers.get('range')
+    const type = downloaded.headers.get('content-type') || ''
+    return range && /^(audio|video)\//.test(type) ? rangeResponse(downloaded, range) : downloaded
+  }
 
   // 2) Navigations → network-first so the app is always fresh online; fall back
   //    to the precached shell so it still boots offline (the SPA takes over).
