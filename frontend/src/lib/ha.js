@@ -3,29 +3,48 @@
 // name, state, unit, device_class}); these just turn one into something to show.
 // Kept pure (no globals) so they're unit-tested. Display only — no control.
 
-// A small emoji for an entity, chosen by device_class first (most specific),
-// then domain, then a keyword in the id. Falls back to a neutral dot.
+import {
+  Battery,
+  Zap,
+  Droplet,
+  Thermometer,
+  Route,
+  Footprints,
+  DoorClosed,
+  WashingMachine,
+  Car,
+  Lock,
+  Lightbulb,
+  Plug,
+  MapPin,
+  Bell,
+} from 'lucide-react'
+
+// A Lucide icon component for an entity, chosen by device_class first (most
+// specific), then domain, then a keyword in the id. Returns null when nothing
+// matches (the widget shows a neutral dot). Monochrome — inherits the text
+// color, so it themes/dims cleanly (the old emoji were fixed full-color).
 export function entityIcon(e) {
   const dc = e?.device_class || ''
   const domain = e?.domain || ''
   const id = e?.entity_id || ''
-  if (dc === 'battery') return '🔋'
-  if (dc === 'battery_charging') return '⚡'
-  if (dc === 'humidity') return '💧'
-  if (dc === 'temperature') return '🌡️'
-  if (dc === 'distance') return '🛣️'
-  if (dc === 'motion' || dc === 'occupancy' || dc === 'presence') return '🚶'
-  if (dc === 'door' || dc === 'garage_door' || dc === 'opening') return '🚪'
-  if (/washer|dryer|laundry/.test(id)) return '🧺'
-  if (/dehumidif|humidif/.test(id)) return '💧'
-  if (/tesla|car|vehicle/.test(id)) return '🚗'
-  if (domain === 'lock') return '🔒'
-  if (domain === 'light') return '💡'
-  if (domain === 'switch') return '🔌'
-  if (domain === 'climate') return '🌡️'
-  if (domain === 'device_tracker' || domain === 'person') return '📍'
-  if (domain === 'binary_sensor') return '🔔'
-  return '•'
+  if (dc === 'battery') return Battery
+  if (dc === 'battery_charging') return Zap
+  if (dc === 'humidity') return Droplet
+  if (dc === 'temperature') return Thermometer
+  if (dc === 'distance') return Route
+  if (dc === 'motion' || dc === 'occupancy' || dc === 'presence') return Footprints
+  if (dc === 'door' || dc === 'garage_door' || dc === 'opening') return DoorClosed
+  if (/washer|dryer|laundry/.test(id)) return WashingMachine
+  if (/dehumidif|humidif/.test(id)) return Droplet
+  if (/tesla|car|vehicle/.test(id)) return Car
+  if (domain === 'lock') return Lock
+  if (domain === 'light') return Lightbulb
+  if (domain === 'switch') return Plug
+  if (domain === 'climate') return Thermometer
+  if (domain === 'device_tracker' || domain === 'person') return MapPin
+  if (domain === 'binary_sensor') return Bell
+  return null
 }
 
 // A human label for a row: the friendly name when present, else a prettified id.

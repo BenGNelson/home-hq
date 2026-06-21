@@ -1165,3 +1165,15 @@ Short record of *why* things are the way they are, so future changes have contex
   sidebar would eat the width the content just reclaimed, and a hamburger is a
   fine touch affordance. Rotating to landscape (≈1133px, well past `md`) brings
   the sidebar back.
+- **Lucide SVG icons, not emoji.** UI icons (nav registry, the offline download
+  button, the HA glance widget's per-device icons, the Library section cards) are
+  `lucide-react` components, not emoji. Emoji are fixed full-color (they clash
+  with the themed monochrome UI and can't dim) and render differently per
+  platform; Lucide icons inherit `currentColor` so they theme/dim cleanly and are
+  consistent everywhere, while staying tree-shakeable (only imported glyphs
+  ship). The icon for a module/section/entity is a component reference resolved
+  by a small mapping (`lib/ha.js` `entityIcon`, `lib/library.js` `sectionIcon`,
+  the `App.jsx` registry); a `NavIcon` helper still accepts a plain string so a
+  host-local nav link can supply its own glyph. (A few low-traffic surfaces —
+  the offline section headers, the Alerts page, Tailscale OS glyphs — still use
+  emoji; a later pass finishes them.)

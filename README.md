@@ -145,7 +145,7 @@ split, PWA, and a decision log explaining *why* each choice was made — is in
 
 ### Tech stack
 
-`React` · `Vite` · `Tailwind CSS` · `react-router` · `vite-plugin-pwa` —
+`React` · `Vite` · `Tailwind CSS` · `react-router` · `lucide-react` · `vite-plugin-pwa` —
 `FastAPI` · `pydantic-settings` · `psutil` · `Docker SDK` · `PlexAPI` ·
 `paho-mqtt` · `Pillow` · `libarchive` · `SQLite` — `nginx` · `Docker Compose` · `ntfy` · `pytest` · `Vitest`.
 
@@ -215,10 +215,12 @@ backend** and an **entry in the frontend registry** — nothing else changes.
 `frontend/src/App.jsx`:
 
 ```jsx
+import { Home, Sparkles } from 'lucide-react' // icons are Lucide components
+
 const modules = [
-  { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: '🏠', group: 'Overview' },
+  { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: Home, group: 'Overview' },
   // ...
-  { id: 'foo', label: 'Foo', path: '/foo', icon: '✨', group: 'System' },   // ← new module
+  { id: 'foo', label: 'Foo', path: '/foo', icon: Sparkles, group: 'System' },   // ← new module
 ]
 ```
 

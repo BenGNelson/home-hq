@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
+import { Download, Check, TriangleAlert } from 'lucide-react'
 import { downloadKey, getEntry, downloadJob, removeDownload } from '../../lib/offlineStore.js'
 import { formatSize } from '../../lib/format.js'
 
 // Compact "save this for offline" control for a reader's top bar. States:
 //   checking    — looking up the manifest (renders a fixed-width gap, no flash)
-//   idle        — ⬇ tap to download
+//   idle        — download icon, tap to download
 //   downloading — live percentage (streamed; big magazines take a moment)
-//   done        — ✓ green; tap to remove (confirmed)
-//   error       — ⚠ tap to retry
+//   done        — check, green; tap to remove (confirmed)
+//   error       — warning, tap to retry
 // `item` = { section, id, name, type, urls } — the download job. The only writer
 // of offline content is downloadJob(), so a tap here is the sole way bytes land
 // on the device (the audit-grade single-writer rule).
@@ -83,7 +84,7 @@ export default function DownloadButton({ item, onBefore }) {
         title={`Saved offline (${formatSize(bytes)}) — tap to remove`}
         className={`${base} bg-emerald-900/40 text-emerald-300 active:bg-emerald-900/70`}
       >
-        ✓
+        <Check className="h-[18px] w-[18px]" aria-hidden="true" />
       </button>
     )
 
@@ -95,7 +96,7 @@ export default function DownloadButton({ item, onBefore }) {
         title="Download failed — tap to retry"
         className={`${base} bg-rose-900/40 text-rose-300`}
       >
-        ⚠
+        <TriangleAlert className="h-[18px] w-[18px]" aria-hidden="true" />
       </button>
     )
 
@@ -106,7 +107,7 @@ export default function DownloadButton({ item, onBefore }) {
       title="Save for offline reading"
       className={`${base} bg-slate-800 text-slate-100 active:bg-slate-700`}
     >
-      ⬇
+      <Download className="h-[18px] w-[18px]" aria-hidden="true" />
     </button>
   )
 }

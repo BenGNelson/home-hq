@@ -1,5 +1,20 @@
 // Pure helpers for the Library (owned-content hub). The pages just render.
 import { API_BASE } from './useApi.js'
+import { Gamepad2, BookOpen, BookImage, Newspaper, Headphones, Library as LibraryIcon } from 'lucide-react'
+
+// The Lucide icon component for a library section, keyed by its `key`
+// (monochrome, themeable — replaces the old per-section emoji). Falls back to
+// the generic Library glyph. Used by the hub section cards.
+const SECTION_ICONS = {
+  games: Gamepad2,
+  books: BookOpen,
+  comics: BookImage,
+  papers: Newspaper,
+  audiobooks: Headphones,
+}
+export function sectionIcon(id) {
+  return SECTION_ICONS[id] || LibraryIcon
+}
 
 // Where the EmulatorJS engine + cores load from. Default: self-hosted at
 // /emulatorjs/ (populate with scripts/fetch-emulatorjs.sh — a pinned, gitignored

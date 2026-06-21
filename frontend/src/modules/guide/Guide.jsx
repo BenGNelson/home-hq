@@ -64,6 +64,7 @@ const GLOSSARY = [
   ['Vite', 'A frontend build tool — a fast dev server with instant hot-reload while you code, plus a bundler that packages the app into small, optimized static files for production.'],
   ['Tailwind CSS', 'Utility-first CSS: style by composing tiny classes (flex, p-4, text-sm) right in the markup instead of writing separate stylesheets.'],
   ['React Router', 'Client-side routing: swaps pages by URL without a full page reload — the module registry maps each route to a module.'],
+  ['Lucide', 'A set of clean, monochrome SVG icons as React components — they inherit the text color (so they match the theme) and stay crisp at any size; used for the nav and UI icons instead of emoji.'],
   ['PWA + service worker', 'A Progressive Web App installs to your home screen and launches fullscreen; a background service-worker script precaches the app shell so it loads instantly — but never caches live /api data.'],
   ['FastAPI', 'A Python web framework for building JSON APIs quickly, with automatic request validation and interactive docs.'],
   ['pydantic-settings', 'Reads and validates configuration from environment variables into a typed object — the one place host values enter the backend.'],

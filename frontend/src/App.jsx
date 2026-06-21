@@ -30,6 +30,24 @@ import Guide from './modules/guide/Guide.jsx'
 import Readme from './modules/readme/Readme.jsx'
 import ServerGuide from './modules/server-guide/ServerGuide.jsx'
 import { hostNavLinks } from './lib/hostLocal.js'
+import {
+  Home,
+  Clapperboard,
+  Library as LibraryIcon,
+  Container,
+  HardDrive,
+  Archive,
+  Globe,
+  ShieldCheck,
+  Waypoints,
+  Printer as PrinterIcon,
+  Bell,
+  Activity,
+  Wrench,
+  BookText,
+  Braces,
+  FileText,
+} from 'lucide-react'
 
 // The module registry. Each module declares its nav entry here and a matching
 // <Route> below. Adding a module = one entry + one route, nothing else.
@@ -37,27 +55,29 @@ import { hostNavLinks } from './lib/hostLocal.js'
 // sections in the order groups first appear here). The Docs group is reference
 // material, not functional modules — Shell pins it to the bottom of the sidebar.
 // This is the seam the whole platform grows along.
+// Icons are Lucide components (monochrome line icons that inherit the theme's
+// text color, unlike the old fixed-color emoji). Shell renders them as <Icon/>.
 const builtinModules = [
-  { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: '🏠', group: 'Overview' },
-  { id: 'plex', label: 'Plex', path: '/plex', icon: '🎬', group: 'Media' },
-  { id: 'library', label: 'Library', path: '/library', icon: '📚', group: 'Media' },
-  { id: 'containers', label: 'Containers', path: '/containers', icon: '📦', group: 'System' },
-  { id: 'storage', label: 'Storage', path: '/storage', icon: '💾', group: 'System' },
-  { id: 'backups', label: 'Backups', path: '/backups', icon: '🗜️', group: 'System' },
-  { id: 'network', label: 'Network', path: '/network', icon: '🌐', group: 'Network' },
-  { id: 'vpn', label: 'VPN', path: '/vpn', icon: '🔒', group: 'Network' },
-  { id: 'tailscale', label: 'Tailscale', path: '/tailscale', icon: '🔗', group: 'Network' },
-  { id: 'printer', label: '3D Printer', path: '/printer', icon: '🖨️', group: 'Devices' },
-  { id: 'alerts', label: 'Alerts', path: '/alerts', icon: '🔔', group: 'Monitoring' },
-  { id: 'uptime', label: 'Uptime', path: '/uptime', icon: '📡', group: 'Monitoring' },
-  { id: 'guide', label: 'Under the Hood', path: '/guide', icon: '🔧', group: 'Docs' },
-  { id: 'server-guide', label: 'Your Server Guide', path: '/server-guide', icon: '📖', group: 'Docs' },
+  { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: Home, group: 'Overview' },
+  { id: 'plex', label: 'Plex', path: '/plex', icon: Clapperboard, group: 'Media' },
+  { id: 'library', label: 'Library', path: '/library', icon: LibraryIcon, group: 'Media' },
+  { id: 'containers', label: 'Containers', path: '/containers', icon: Container, group: 'System' },
+  { id: 'storage', label: 'Storage', path: '/storage', icon: HardDrive, group: 'System' },
+  { id: 'backups', label: 'Backups', path: '/backups', icon: Archive, group: 'System' },
+  { id: 'network', label: 'Network', path: '/network', icon: Globe, group: 'Network' },
+  { id: 'vpn', label: 'VPN', path: '/vpn', icon: ShieldCheck, group: 'Network' },
+  { id: 'tailscale', label: 'Tailscale', path: '/tailscale', icon: Waypoints, group: 'Network' },
+  { id: 'printer', label: '3D Printer', path: '/printer', icon: PrinterIcon, group: 'Devices' },
+  { id: 'alerts', label: 'Alerts', path: '/alerts', icon: Bell, group: 'Monitoring' },
+  { id: 'uptime', label: 'Uptime', path: '/uptime', icon: Activity, group: 'Monitoring' },
+  { id: 'guide', label: 'Under the Hood', path: '/guide', icon: Wrench, group: 'Docs' },
+  { id: 'server-guide', label: 'Your Server Guide', path: '/server-guide', icon: BookText, group: 'Docs' },
   // External: the backend's own interactive OpenAPI docs (Swagger UI), served
   // at /api/docs through the same proxy as the API. `external` makes Shell
   // render a plain <a> that opens in a new tab — it's not a React route, so
   // there's no matching <Route> below.
-  { id: 'api', label: 'API', path: '/api/docs', icon: '{ }', group: 'Docs', external: true },
-  { id: 'readme', label: 'README', path: '/readme', icon: '❏', group: 'Docs' },
+  { id: 'api', label: 'API', path: '/api/docs', icon: Braces, group: 'Docs', external: true },
+  { id: 'readme', label: 'README', path: '/readme', icon: FileText, group: 'Docs' },
 ]
 
 // Host-local external deep-links (e.g. Home Assistant) appended to the registry.
