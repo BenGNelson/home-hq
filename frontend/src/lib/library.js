@@ -140,8 +140,10 @@ export function playerSrc(item, data = EMULATORJS_DATA) {
 // reader (which resumes its saved position; `reader` picks PDF vs ebook engine).
 export function resumeHref(entry) {
   if (entry.kind === 'play') {
+    // Open the game and let its in-game save (SRAM) resume via "Continue" — do
+    // NOT auto-load a save state, which would snapshot-restore the whole machine
+    // (incl. an older SRAM) on top of your latest in-game save.
     const q = new URLSearchParams({ id: entry.id, core: entry.core || '', name: entry.name || '' })
-    if (entry.slot) q.set('slot', entry.slot)
     return `/library/play?${q.toString()}`
   }
   if (entry.kind === 'listen') {
@@ -190,8 +192,8 @@ export function downloadHref(entry) {
     return `/library/audiobooks?path=${encodeURIComponent(entry.id)}`
   }
   if (entry.section === 'games') {
+    // Boot + in-game "Continue" (SRAM) resumes — not an auto-loaded save state.
     const q = new URLSearchParams({ id: entry.id, core: entry.core || '', name: entry.name || '' })
-    if (entry.slot) q.set('slot', entry.slot) // resume the save state cached with the game
     return `/library/play?${q.toString()}`
   }
   return readerHref(entry.section, { id: entry.id, reader: entry.reader })

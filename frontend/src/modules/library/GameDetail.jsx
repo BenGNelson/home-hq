@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import BackLink from '../../components/BackLink.jsx'
 import { useApi } from '../../lib/useApi.js'
 import { formatSize, formatAgo } from '../../lib/format.js'
-import { saveStatesUrl, saveStateShotUrl, saveStateUrl, gameOfflineUrls } from '../../lib/library.js'
+import { saveStatesUrl, saveStateShotUrl, gameOfflineUrls } from '../../lib/library.js'
 import { ensureEmulatorEngine, cacheGameSram } from '../../lib/offlineStore.js'
 import { recordPlayed } from '../../lib/recentGames.js'
 import GameCover from './GameCover.jsx'
@@ -65,24 +65,21 @@ export default function GameDetail() {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => launch(slots[0]?.slot)}
+              onClick={() => launch()}
               className="rounded-xl bg-sky-600 px-6 py-3 font-medium text-white transition-colors active:bg-sky-700"
             >
-              {slots.length ? '▶ Resume' : '▶ Play'}
+              ▶ Play
             </button>
             {/* Save the ROM + its core (+ the shared engine, once) so the game
-                plays in airplane mode — plus the newest save state, so opening it
-                offline resumes where you left off rather than booting fresh. */}
+                plays in airplane mode. The in-game (SRAM) save is seeded too, so
+                opening it offline resumes via "Continue". */}
             <DownloadButton
               item={{
                 section: 'games',
                 id: game.id,
                 name: game.name,
                 core: game.core,
-                ...(slots[0] ? { slot: slots[0].slot } : {}),
-                urls: slots[0]
-                  ? [...gameOfflineUrls(game.id, game.core), saveStateUrl(game.id, slots[0].slot)]
-                  : gameOfflineUrls(game.id, game.core),
+                urls: gameOfflineUrls(game.id, game.core),
               }}
               onBefore={async () => {
                 await ensureEmulatorEngine()
