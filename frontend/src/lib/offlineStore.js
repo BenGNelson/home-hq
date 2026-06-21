@@ -13,7 +13,7 @@
 // `downloadJob` here. Nothing else caches content. `auditCache` exists to PROVE
 // that — it cross-checks the real cache against the manifest and flags strays.
 
-import { OFFLINE_CACHE, SHELL_CACHE } from './offlineConfig.js'
+import { OFFLINE_CACHE, SHELL_CACHE, GAME_SAVES_CACHE } from './offlineConfig.js'
 import { EMULATOR_ENGINE_URLS } from './library.js'
 
 const DB_NAME = 'home-hq-offline'
@@ -46,7 +46,7 @@ export function auditCache(entries, cachedUrls) {
 // Shape the storage manager's view: the per-item breakdown (newest first), the
 // shell line, the downloads total, and — when the browser reports a usage
 // figure — how much of it our accounting explains vs. is unaccounted-for.
-export function summarizeStorage(entries, estimate = {}, shellBytes = 0) {
+export function summarizeStorage(entries, estimate = {}, shellBytes = 0, gameSaves = 0) {
   const all = entries ?? []
   // The shared emulator engine is infrastructure, not a content download — show
   // it as its own line (like the app shell), not in the items list.
@@ -57,13 +57,15 @@ export function summarizeStorage(entries, estimate = {}, shellBytes = 0) {
     .filter((e) => e.section !== 'emulator')
     .sort((a, b) => (b.date || 0) - (a.date || 0))
   const downloadsBytes = items.reduce((n, e) => n + (e.bytes || 0), 0)
-  const accounted = downloadsBytes + (shellBytes || 0) + engineBytes
+  const gameSavesBytes = gameSaves || 0
+  const accounted = downloadsBytes + (shellBytes || 0) + engineBytes + gameSavesBytes
   const usage = typeof estimate.usage === 'number' ? estimate.usage : null
   const quota = typeof estimate.quota === 'number' ? estimate.quota : null
   return {
     items,
     shellBytes: shellBytes || 0,
     engineBytes,
+    gameSavesBytes,
     downloadsBytes,
     accounted,
     usage,
@@ -233,7 +235,7 @@ export async function downloadJob(meta, onProgress) {
 // line, like the app shell. A game download ensures this first. Bump
 // ENGINE_VERSION whenever emulator.html or EMULATOR_ENGINE_URLS changes so a
 // device that already cached the engine refreshes it instead of running stale.
-const ENGINE_VERSION = 3
+const ENGINE_VERSION = 4
 export async function ensureEmulatorEngine() {
   const key = downloadKey('emulator', 'engine')
   const existing = await getEntry(key)
@@ -248,8 +250,47 @@ export async function ensureEmulatorEngine() {
   })
 }
 
+// --- captured game saves (the "resume where you left off" snapshot) ---------
+// emulator.html writes one save per game (key /__game-save/<gid>) to its own
+// cache so reopening resumes the latest state, including offline. Surfaced here
+// for the storage manager + cleaned up with the game.
+
+const gameSaveKey = (gid) => '/__game-save/' + encodeURIComponent(gid)
+
+// Total bytes of all captured game saves, for the "Game saves" storage line.
+export async function gameSavesBytes() {
+  if (!('caches' in self)) return 0
+  try {
+    const cache = await caches.open(GAME_SAVES_CACHE)
+    const reqs = await cache.keys()
+    let total = 0
+    for (const req of reqs) {
+      const res = await cache.match(req)
+      if (res) total += (await res.blob()).size
+    }
+    return total
+  } catch {
+    return 0
+  }
+}
+
+async function removeGameSave(gid) {
+  if (!('caches' in self) || !gid) return
+  try {
+    const cache = await caches.open(GAME_SAVES_CACHE)
+    await cache.delete(gameSaveKey(gid))
+  } catch {
+    /* ignore */
+  }
+}
+
+// Drop every captured game save (used by "Remove all" on the Downloads page).
+export async function clearGameSaves() {
+  if ('caches' in self) await caches.delete(GAME_SAVES_CACHE).catch(() => {})
+}
+
 // Remove a download: delete its cached URLs AND its manifest row, so nothing is
-// left behind. Returns true if an entry existed.
+// left behind. A game also drops its captured save state.
 export async function removeDownload(key) {
   const entry = await getEntry(key)
   if (!entry) return false
@@ -257,6 +298,7 @@ export async function removeDownload(key) {
     const cache = await caches.open(OFFLINE_CACHE)
     await Promise.all((entry.urls || []).map((u) => cache.delete(u)))
   }
+  if (entry.section === 'games') await removeGameSave(entry.id)
   await delEntry(key)
   return true
 }

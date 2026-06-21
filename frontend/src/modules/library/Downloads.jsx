@@ -4,6 +4,8 @@ import {
   allEntries,
   getEstimate,
   shellBytes,
+  gameSavesBytes,
+  clearGameSaves,
   removeDownload,
   auditStorage,
   summarizeStorage,
@@ -28,14 +30,21 @@ export default function Downloads() {
   const [entries, setEntries] = useState(null)
   const [estimate, setEstimate] = useState({})
   const [shell, setShell] = useState(0)
+  const [saves, setSaves] = useState(0)
   const [audit, setAudit] = useState(null)
   const [verifying, setVerifying] = useState(false)
 
   const load = useCallback(async () => {
-    const [es, est, sh] = await Promise.all([allEntries(), getEstimate(), shellBytes()])
+    const [es, est, sh, gs] = await Promise.all([
+      allEntries(),
+      getEstimate(),
+      shellBytes(),
+      gameSavesBytes(),
+    ])
     setEntries(es)
     setEstimate(est)
     setShell(sh)
+    setSaves(gs)
   }, [])
 
   useEffect(() => {
@@ -53,6 +62,7 @@ export default function Downloads() {
     if (!entries?.length) return
     if (!window.confirm(`Remove all ${entries.length} downloads from your device?`)) return
     await Promise.all(entries.map((e) => removeDownload(e.key)))
+    await clearGameSaves()
     setAudit(null)
     load()
   }
@@ -68,7 +78,7 @@ export default function Downloads() {
 
   if (!entries) return <p className="text-sm text-slate-500">loading…</p>
 
-  const s = summarizeStorage(entries, estimate, shell)
+  const s = summarizeStorage(entries, estimate, shell, saves)
   const pct = s.usage != null && s.quota ? Math.min(100, Math.round((s.usage / s.quota) * 100)) : null
 
   return (
@@ -92,6 +102,7 @@ export default function Downloads() {
         <dl className="space-y-1 text-sm">
           <Line label="App offline shell" bytes={s.shellBytes} muted />
           {s.engineBytes > 0 && <Line label="Emulator engine" bytes={s.engineBytes} muted />}
+          {s.gameSavesBytes > 0 && <Line label="Game saves" bytes={s.gameSavesBytes} muted />}
           <Line label={`Downloads (${s.items.length})`} bytes={s.downloadsBytes} />
         </dl>
 

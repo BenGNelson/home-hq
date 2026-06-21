@@ -150,6 +150,14 @@
         window.EJS_onSaveState = function (e) {
           if (!gid || !e || !e.state) return;
           var state = e.state;
+          // Store the latest state locally (one per game) so reopening the game
+          // resumes it — including offline, where the server upload below can't
+          // reach. This is what makes "resume where you left off" work offline.
+          try {
+            caches.open('hq-game-saves').then(function (c) {
+              c.put('/__game-save/' + encodeURIComponent(gid), new Response(new Blob([state])));
+            });
+          } catch (err) {}
           captureShot().then(function (shot) {
             try {
               var fd = new FormData();
@@ -231,7 +239,22 @@
             .then(function (b) { return URL.createObjectURL(b); })
             .catch(function () { return u; });
         }
-        Promise.all([asBlobUrl(rom), asBlobUrl(loadstate)]).then(function (r) {
+        // Resume the MOST RECENT state: a locally-captured save (your latest,
+        // including any made offline) if one exists, otherwise the download-time
+        // save passed in via ?loadstate. Read straight from the saves cache (not
+        // via a URL the SW would have to serve).
+        function localSaveBlobUrl() {
+          return caches
+            .open('hq-game-saves')
+            .then(function (c) { return c.match('/__game-save/' + encodeURIComponent(gid)); })
+            .then(function (r) { return r ? r.blob() : null; })
+            .then(function (b) { return b ? URL.createObjectURL(b) : null; })
+            .catch(function () { return null; });
+        }
+        Promise.all([
+          asBlobUrl(rom),
+          localSaveBlobUrl().then(function (local) { return local || asBlobUrl(loadstate); }),
+        ]).then(function (r) {
           bootEngine(r[0] || rom, r[1]);
         });
       })();
