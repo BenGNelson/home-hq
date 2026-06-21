@@ -67,8 +67,17 @@ async function rangeResponse(res, rangeHeader) {
   if (!m) return res
   const buf = await res.arrayBuffer()
   const total = buf.byteLength
-  let start = m[1] ? parseInt(m[1], 10) : 0
-  let end = m[2] ? parseInt(m[2], 10) : total - 1
+  let start
+  let end
+  if (m[1] === '' && m[2] !== '') {
+    // Suffix range `bytes=-N` = the LAST N bytes (media elements use this to grab
+    // trailing metadata). Must NOT be read as start=0,end=N.
+    start = Math.max(0, total - parseInt(m[2], 10))
+    end = total - 1
+  } else {
+    start = m[1] ? parseInt(m[1], 10) : 0
+    end = m[2] ? parseInt(m[2], 10) : total - 1
+  }
   if (Number.isNaN(start)) start = 0
   if (Number.isNaN(end) || end > total - 1) end = total - 1
   if (start > end || start >= total) {
