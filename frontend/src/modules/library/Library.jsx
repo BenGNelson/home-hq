@@ -6,6 +6,7 @@ import { allEntries } from '../../lib/offlineStore.js'
 import { libraryHeadline, resumeHref, downloadHref } from '../../lib/library.js'
 import { progressLabel, progressFraction } from '../../lib/reading.js'
 import { formatAgo, formatSize } from '../../lib/format.js'
+import { SkeletonLine } from '../../components/ui.jsx'
 import GameCover from './GameCover.jsx'
 import BookCover from './BookCover.jsx'
 import ComicCover from './ComicCover.jsx'
@@ -22,23 +23,28 @@ export default function Library() {
 
   return (
     <div className="space-y-4">
-
-      {loading && !data && <p className="text-sm text-slate-500">loading…</p>}
       {/* Offline, the failure is expected and explained by the global banner —
           only surface a raw error when we're actually online. */}
       {error && online && <p className="text-sm text-rose-400">unavailable — {error}</p>}
 
+      {/* Each section reserves its shape with a skeleton while its own data loads,
+          so the page lays out at once and content fills in place instead of the
+          sections bouncing as separate calls land. */}
       <JumpBackIn />
 
-      {data && (
-        <>
-          <p className="text-sm text-slate-400">{libraryHeadline(data)}</p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {data.sections.map((s) => (
-              <SectionCard key={s.key} s={s} />
-            ))}
-          </div>
-        </>
+      {loading && !data ? (
+        <SectionsSkeleton />
+      ) : (
+        data && (
+          <>
+            <p className="text-sm text-slate-400">{libraryHeadline(data)}</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {data.sections.map((s) => (
+                <SectionCard key={s.key} s={s} />
+              ))}
+            </div>
+          </>
+        )
       )}
 
       {/* Downloads sit at the bottom so the content sections are the quick taps;
@@ -48,17 +54,82 @@ export default function Library() {
   )
 }
 
+// --- loading skeletons (reserve each section's shape so nothing bounces) -----
+
+function ShelfHeading({ children }) {
+  return <h3 className="text-sm font-medium uppercase tracking-wide text-slate-500">{children}</h3>
+}
+
+// A horizontal poster strip placeholder (Jump back in).
+function ShelfSkeleton({ label }) {
+  return (
+    <section className="space-y-2">
+      <ShelfHeading>{label}</ShelfHeading>
+      <div className="flex gap-3 overflow-hidden">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="w-28 shrink-0 space-y-1">
+            <div className="aspect-[3/4] w-full animate-pulse rounded-lg bg-slate-800" />
+            <SkeletonLine className="h-3 w-full" />
+            <SkeletonLine className="h-2 w-2/3" />
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+// The section-cards grid placeholder (Games / Books / …).
+function SectionsSkeleton() {
+  return (
+    <div className="space-y-3">
+      <SkeletonLine className="h-4 w-40" />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-5"
+          >
+            <div className="h-8 w-8 animate-pulse rounded bg-slate-800" />
+            <div className="flex-1 space-y-2">
+              <SkeletonLine className="h-4 w-24" />
+              <SkeletonLine className="h-3 w-16" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// The Downloaded cover-grid placeholder.
+function DownloadedSkeleton() {
+  return (
+    <section className="space-y-2">
+      <ShelfHeading>Downloaded</ShelfHeading>
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="space-y-1">
+            <div className="aspect-[3/4] w-full animate-pulse rounded-lg bg-slate-800" />
+            <SkeletonLine className="h-3 w-full" />
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 // Unified resume shelf: in-progress documents (resume to page) + recently-played
 // games (resume the newest save state), newest first. Tap to jump straight in;
 // ✕ removes from the shelf (clears the bookmark / last-played marker — never the
 // save files). Hidden when empty.
 function JumpBackIn() {
   const navigate = useNavigate()
-  const { data } = useApi('/library/continue', 30000)
+  const { data, loading } = useApi('/library/continue', 30000)
   const [removed, setRemoved] = useState(() => new Set())
 
   const key = (it) => `${it.kind}:${it.id}`
   const items = (data?.items ?? []).filter((it) => !removed.has(key(it)))
+  if (loading && !data) return <ShelfSkeleton label="Jump back in" />
   if (items.length === 0) return null
 
   const remove = (it) => {
@@ -109,7 +180,8 @@ function Downloaded() {
     }
   }, [])
 
-  if (!entries || entries.length === 0) return null
+  if (entries === null) return <DownloadedSkeleton />
+  if (entries.length === 0) return null
   const sorted = [...entries].sort((a, b) => (b.date || 0) - (a.date || 0))
   // A grid that grows downward (not a cramped horizontal strip) makes use of the
   // screen. The hub is a teaser — cap it and let "Manage" show the full set.
