@@ -793,6 +793,16 @@ download UI — is:
   explained. The SW also fails gracefully — an offline fetch it can't fulfil
   resolves to `Response.error()` rather than rejecting `respondWith()` (which
   would surface an ugly "FetchEvent.respondWith received an error" in the UI).
+- **Downloads page + storage manager** (`modules/library/Downloads.jsx`,
+  `/library/downloads`): a first-class destination (linked from the hub's
+  Downloaded shelf and the offline banner) that reads ONLY local sources, so it
+  works fully offline. It leads with our **exact** accounting — the app-shell
+  size (`shellBytes()`, summed from the real cache) + each download — rather than
+  `storage.estimate()`'s usage figure, which browsers pad for privacy and which
+  is shown only as a secondary "approx" quota caption. **Verify storage** runs
+  `auditStorage()` (which normalizes manifest vs. cache URLs to absolute, then
+  `auditCache()`) to prove no bytes sit outside the listed downloads. Per-item
+  delete and clear-all call `removeDownload()` (cache entries + manifest row).
 - **No dead ends:** a reader's Close uses history-back (`goBack` in `lib/nav.js`)
   so it returns to wherever you opened it from — the Downloads/hub view offline,
   the section list online (with scroll preserved) — falling back to a route only

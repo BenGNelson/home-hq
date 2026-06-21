@@ -111,7 +111,12 @@ function Downloaded() {
 
   return (
     <section className="space-y-2">
-      <h3 className="text-sm font-medium uppercase tracking-wide text-slate-500">Downloaded</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium uppercase tracking-wide text-slate-500">Downloaded</h3>
+        <Link to="/library/downloads" className="text-xs text-slate-400 active:text-slate-200">
+          Manage ›
+        </Link>
+      </div>
       <div className="flex gap-3 overflow-x-auto pb-1">
         {items.map((e) => (
           <Link

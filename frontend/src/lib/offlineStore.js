@@ -13,7 +13,7 @@
 // `downloadJob` here. Nothing else caches content. `auditCache` exists to PROVE
 // that — it cross-checks the real cache against the manifest and flags strays.
 
-import { OFFLINE_CACHE } from './offlineConfig.js'
+import { OFFLINE_CACHE, SHELL_CACHE } from './offlineConfig.js'
 
 const DB_NAME = 'home-hq-offline'
 const DB_VERSION = 1
@@ -209,10 +209,40 @@ export async function removeDownload(key) {
   return true
 }
 
-// Full audit: manifest vs. the real cache (catches orphan/missing bytes).
+// Full audit: manifest vs. the real cache (catches orphan/missing bytes). The
+// manifest stores URLs as passed (often relative, e.g. "/api/library/file?…")
+// while Cache Storage keys by the absolute URL, so normalize BOTH to absolute
+// hrefs before comparing — otherwise every item looks both orphaned and missing.
 export async function auditStorage() {
   const [entries, urls] = await Promise.all([allEntries(), cachedUrls()])
-  return auditCache(entries, urls)
+  const abs = (u) => {
+    try {
+      return new URL(u, self.location.href).href
+    } catch {
+      return u
+    }
+  }
+  const normEntries = entries.map((e) => ({ ...e, urls: (e.urls || []).map(abs) }))
+  return auditCache(normEntries, urls.map(abs))
+}
+
+// On-device size of the precached app shell (the one thing cached without an
+// explicit download) — summed from the real cached responses, so the storage
+// manager can show it as its own honest line. 0 if the Cache API is absent.
+export async function shellBytes() {
+  if (!('caches' in self)) return 0
+  try {
+    const cache = await caches.open(SHELL_CACHE)
+    const reqs = await cache.keys()
+    let total = 0
+    for (const req of reqs) {
+      const res = await cache.match(req)
+      if (res) total += (await res.blob()).size
+    }
+    return total
+  } catch {
+    return 0
+  }
 }
 
 // --- quota / eviction (I/O) ------------------------------------------------

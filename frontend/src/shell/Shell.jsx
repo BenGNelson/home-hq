@@ -156,11 +156,15 @@ export default function Shell({ modules, children }) {
         </header>
 
         {/* When the server is unreachable (e.g. on a plane), explain the empty
-            cockpit widgets and point at what still works. */}
+            cockpit widgets and point at what still works — tap through to your
+            downloads. */}
         {!online && (
-          <div className="bg-amber-900/40 px-4 py-1.5 text-center text-xs text-amber-200">
-            ✈️ Offline — live server data is unavailable. Downloaded Library content still works.
-          </div>
+          <NavLink
+            to="/library/downloads"
+            className="block bg-amber-900/40 px-4 py-1.5 text-center text-xs text-amber-200 active:bg-amber-900/60"
+          >
+            ✈️ Offline — live server data is unavailable. View your downloads ›
+          </NavLink>
         )}
 
         <main className="min-w-0 flex-1 overflow-auto p-4 md:p-6">{children}</main>

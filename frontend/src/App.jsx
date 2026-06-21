@@ -16,6 +16,7 @@ import BooksList from './modules/library/BooksList.jsx'
 import ComicsList from './modules/library/ComicsList.jsx'
 import AudiobooksList from './modules/library/AudiobooksList.jsx'
 import Reader from './modules/library/Reader.jsx'
+import Downloads from './modules/library/Downloads.jsx'
 import Containers from './modules/containers/Containers.jsx'
 import Printer from './modules/printer/Printer.jsx'
 import Network from './modules/network/Network.jsx'
@@ -92,6 +93,7 @@ export default function App() {
         <Route path="/library/games/detail" element={<GameDetail />} />
         <Route path="/library/play" element={<Player />} />
         <Route path="/library/read" element={<Reader />} />
+        <Route path="/library/downloads" element={<Downloads />} />
         <Route path="/containers" element={<Containers />} />
         <Route path="/printer" element={<Printer />} />
         <Route path="/network" element={<Network />} />
