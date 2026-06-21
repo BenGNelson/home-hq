@@ -10,6 +10,7 @@ import {
 } from '../../lib/offlineStore.js'
 import { readerHref } from '../../lib/library.js'
 import { formatSize } from '../../lib/format.js'
+import BackLink from '../../components/BackLink.jsx'
 
 // The Downloads page: a first-class destination for everything saved on this
 // device, and the audit-grade storage manager. It reads ONLY local sources
@@ -68,6 +69,7 @@ export default function Downloads() {
 
   return (
     <div className="space-y-5">
+      <BackLink to="/library">Library</BackLink>
       <h2 className="text-xl font-semibold">Downloads</h2>
 
       {/* Storage summary. We LEAD with our own exact accounting (summed from the
