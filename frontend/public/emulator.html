@@ -132,6 +132,52 @@
         // A stable game id so the engine keys its browser save states off it,
         // not off EJS_gameUrl (which becomes a per-session blob: URL below).
         window.EJS_gameID = gid || name || rom;
+
+        // --- in-game battery save (SRAM) persistence -----------------------
+        // EmulatorJS does NOT persist the game's own save (e.g. Pokemon's "Save")
+        // across sessions — it only fires a "saveSaveFiles" event with the .sav
+        // bytes. So we own it: seed the emulator with the saved SRAM on start
+        // (so "Continue" works), and capture every write back to a local cache +
+        // the server (roams + survives offline). Keyed by game id.
+        var sramServerUrl = '/api/library/games/sram?id=' + encodeURIComponent(gid || '');
+        var sramCacheKey = '/__game-sram/' + encodeURIComponent(gid || '');
+        function readSramCache() {
+          return caches.open('hq-game-saves')
+            .then(function (c) { return c.match(sramCacheKey); })
+            .then(function (r) { return r ? r.arrayBuffer() : null; })
+            .catch(function () { return null; });
+        }
+        // The SRAM to seed the game with: the latest on THIS device (local cache)
+        // if any, else whatever the server has (a new device / first time).
+        function loadSram() {
+          if (!gid) return Promise.resolve(null);
+          return readSramCache().then(function (local) {
+            if (local) return local;
+            return fetch(sramServerUrl).then(function (r) { return r.ok ? r.arrayBuffer() : null; }).catch(function () { return null; });
+          });
+        }
+        var lastSramUpload = 0;
+        function persistSram(bytes) {
+          if (!gid || !bytes || !bytes.length) return;
+          var blob = new Blob([bytes]);
+          // Always cache locally (cheap; survives reloads + works offline).
+          try {
+            caches.open('hq-game-saves').then(function (c) { c.put(sramCacheKey, new Response(blob)); });
+          } catch (e) {}
+          // Upload to the server, throttled (the event can fire on an interval).
+          var now = Date.now();
+          if (now - lastSramUpload > 15000) {
+            lastSramUpload = now;
+            try {
+              var fd = new FormData();
+              fd.append('id', gid);
+              fd.append('sram', blob, 'sram.bin');
+              fetch(sramServerUrl, { method: 'POST', body: fd });
+            } catch (e) {}
+          }
+        }
+        // Kick off the seed fetch early (parallel with the ROM).
+        var pendingSram = loadSram();
         // When the user saves a state in the in-game menu, push it (and its
         // screenshot) to the backend so it roams across devices + is backed up.
         // The event's `e.screenshot` is unusable: EmulatorJS v4.2.3 destructures
@@ -175,8 +221,27 @@
         // respected and the state stays in sync with it. Added on game start
         // (when the controls + gameManager exist), touch devices only.
         window.EJS_onGameStart = function () {
+          var emu = window.EJS_emulator;
+          // Seed the game's battery save (SRAM) + capture future writes — all
+          // platforms, so "Continue" loads your save. Inject first, then start
+          // capturing, so a capture can't overwrite the seed with empty data.
           try {
-            var emu = window.EJS_emulator;
+            if (emu) {
+              pendingSram.then(function (buf) {
+                if (buf && buf.byteLength && emu.gameManager) {
+                  try {
+                    emu.gameManager.FS.writeFile(emu.gameManager.getSaveFilePath(), new Uint8Array(buf));
+                    emu.gameManager.loadSaveFiles();
+                  } catch (e) {}
+                }
+                try {
+                  emu.on('saveSaveFiles', function (data) { persistSram(data); });
+                } catch (e) {}
+              });
+            }
+          } catch (e) {}
+          // Fast-forward toggle (touch devices only).
+          try {
             if (!emu || !emu.isMobile || !emu.elements || !emu.elements.parent) return;
             if (emu.elements.parent.querySelector('.ff-toggle')) return; // once per game
             var btn = document.createElement('div');

@@ -308,6 +308,15 @@ def save_state_files(saves_root, game_id, slot):
     return os.path.join(d, f"{slot}.state"), os.path.join(d, f"{slot}.png")
 
 
+def sram_file(saves_root, game_id):
+    """Path to a game's in-game battery save (SRAM / .sav) — ONE per game (the
+    game's own save, distinct from snapshot save states). None if inputs missing.
+    Lives in the same per-game dir, keyed by a hash of the id (no traversal)."""
+    if not saves_root or not game_id:
+        return None
+    return os.path.join(saves_game_dir(saves_root, game_id), "sram.bin")
+
+
 def list_save_states(saves_root, game_id):
     """A game's save states, newest first: [{slot, created_ms, has_shot}]. The
     slot id IS the creation time (ms), so no sidecar metadata is needed."""

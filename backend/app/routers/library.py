@@ -277,6 +277,41 @@ def list_save_states(id: str = Query(description="Game id from the section listi
     return {"states": library.list_save_states(settings.games_saves_dir, id)}
 
 
+# --- in-game battery save (SRAM) -------------------------------------------
+# The game's OWN save (e.g. Pokemon's in-game "Save"), distinct from snapshot
+# save states. One per game, overwritten on each save, stored server-side so it
+# roams across devices + rides the backup. EmulatorJS doesn't persist SRAM
+# itself, so the player captures the .sav and POSTs it here.
+
+
+@router.post("/library/games/sram")
+async def put_sram(
+    id: str = Form(description="Game id from the section listing"),
+    sram: UploadFile = File(description="The game's .sav battery save"),
+):
+    """Store/overwrite a game's in-game battery save (SRAM)."""
+    path = library.sram_file(settings.games_saves_dir, id)
+    if not path:
+        return Response(status_code=400)
+    data = await sram.read()
+    if not data or len(data) > _MAX_STATE_BYTES:
+        return Response(status_code=413)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as fh:
+        fh.write(data)
+    return Response(status_code=204)
+
+
+@router.get("/library/games/sram")
+def get_sram(id: str = Query(description="Game id")):
+    """Serve a game's in-game battery save (SRAM), so the player can seed the
+    emulator with it on open. 404 when there's none yet."""
+    path = library.sram_file(settings.games_saves_dir, id)
+    if not path or not os.path.isfile(path):
+        return Response(status_code=404)
+    return FileResponse(path, media_type="application/octet-stream")
+
+
 @router.get("/library/games/save-state")
 def get_save_state(
     id: str = Query(description="Game id"),

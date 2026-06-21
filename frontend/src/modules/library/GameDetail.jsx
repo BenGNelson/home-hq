@@ -4,7 +4,7 @@ import BackLink from '../../components/BackLink.jsx'
 import { useApi } from '../../lib/useApi.js'
 import { formatSize, formatAgo } from '../../lib/format.js'
 import { saveStatesUrl, saveStateShotUrl, saveStateUrl, gameOfflineUrls } from '../../lib/library.js'
-import { ensureEmulatorEngine } from '../../lib/offlineStore.js'
+import { ensureEmulatorEngine, cacheGameSram } from '../../lib/offlineStore.js'
 import { recordPlayed } from '../../lib/recentGames.js'
 import GameCover from './GameCover.jsx'
 import DownloadButton from './DownloadButton.jsx'
@@ -65,10 +65,10 @@ export default function GameDetail() {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => launch()}
+              onClick={() => launch(slots[0]?.slot)}
               className="rounded-xl bg-sky-600 px-6 py-3 font-medium text-white transition-colors active:bg-sky-700"
             >
-              ▶ Play
+              {slots.length ? '▶ Resume' : '▶ Play'}
             </button>
             {/* Save the ROM + its core (+ the shared engine, once) so the game
                 plays in airplane mode — plus the newest save state, so opening it
@@ -84,7 +84,10 @@ export default function GameDetail() {
                   ? [...gameOfflineUrls(game.id, game.core), saveStateUrl(game.id, slots[0].slot)]
                   : gameOfflineUrls(game.id, game.core),
               }}
-              onBefore={ensureEmulatorEngine}
+              onBefore={async () => {
+                await ensureEmulatorEngine()
+                await cacheGameSram(game.id) // seed the in-game save for offline-first play
+              }}
             />
           </div>
         </div>
