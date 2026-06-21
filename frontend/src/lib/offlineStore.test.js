@@ -1,0 +1,82 @@
+import { describe, it, expect } from 'vitest'
+import { downloadKey, auditCache, summarizeStorage } from './offlineStore.js'
+
+describe('downloadKey', () => {
+  it('combines section + id into one stable key', () => {
+    expect(downloadKey('books', 'Author/Title.epub')).toBe('books:Author/Title.epub')
+  })
+})
+
+describe('auditCache', () => {
+  const entries = [
+    { urls: ['/api/library/file?id=a', '/api/library/file?id=b'] },
+    { urls: ['/api/library/comics/page?id=c&n=0'] },
+  ]
+
+  it('is clean when the cache exactly matches the manifest', () => {
+    const cached = ['/api/library/file?id=a', '/api/library/file?id=b', '/api/library/comics/page?id=c&n=0']
+    const r = auditCache(entries, cached)
+    expect(r.orphans).toEqual([])
+    expect(r.missing).toEqual([])
+    expect(r.clean).toBe(true)
+  })
+
+  it('flags orphan cached bytes not referenced by any download', () => {
+    const cached = ['/api/library/file?id=a', '/api/library/file?id=b', '/api/library/comics/page?id=c&n=0', '/sneaky']
+    const r = auditCache(entries, cached)
+    expect(r.orphans).toEqual(['/sneaky'])
+    expect(r.clean).toBe(false)
+  })
+
+  it('flags manifest URLs missing from the cache (partial eviction)', () => {
+    const cached = ['/api/library/file?id=a'] // b + the comic page were evicted
+    const r = auditCache(entries, cached)
+    expect(r.missing).toContain('/api/library/file?id=b')
+    expect(r.missing).toContain('/api/library/comics/page?id=c&n=0')
+    expect(r.clean).toBe(false)
+  })
+
+  it('tolerates empty/undefined inputs', () => {
+    expect(auditCache(undefined, undefined)).toEqual({ orphans: [], missing: [], clean: true })
+  })
+})
+
+describe('summarizeStorage', () => {
+  const entries = [
+    { key: 'books:dune', name: 'Dune', bytes: 1_400_000, date: 200 },
+    { key: 'comics:saga', name: 'Saga Vol 1', bytes: 62_000_000, date: 300 },
+  ]
+
+  it('totals downloads, adds the shell, and orders items newest-first', () => {
+    const s = summarizeStorage(entries, { usage: 70_000_000, quota: 12_000_000_000 }, 2_000_000)
+    expect(s.items.map((e) => e.key)).toEqual(['comics:saga', 'books:dune']) // newest first
+    expect(s.downloadsBytes).toBe(63_400_000)
+    expect(s.shellBytes).toBe(2_000_000)
+    expect(s.accounted).toBe(65_400_000)
+    expect(s.quota).toBe(12_000_000_000)
+  })
+
+  it('computes unaccounted bytes from the browser usage figure', () => {
+    // usage exceeds what we can attribute → surfaced, not hidden
+    const s = summarizeStorage(entries, { usage: 70_000_000 }, 2_000_000)
+    expect(s.unaccounted).toBe(70_000_000 - 65_400_000)
+  })
+
+  it('never reports negative unaccounted bytes', () => {
+    const s = summarizeStorage(entries, { usage: 10 }, 0)
+    expect(s.unaccounted).toBe(0)
+  })
+
+  it('reports null usage/unaccounted when the browser gives no estimate', () => {
+    const s = summarizeStorage(entries, {}, 0)
+    expect(s.usage).toBeNull()
+    expect(s.unaccounted).toBeNull()
+  })
+
+  it('handles an empty store', () => {
+    const s = summarizeStorage([], { usage: 0, quota: 100 }, 0)
+    expect(s.items).toEqual([])
+    expect(s.downloadsBytes).toBe(0)
+    expect(s.accounted).toBe(0)
+  })
+})

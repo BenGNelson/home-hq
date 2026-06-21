@@ -739,11 +739,47 @@ docker compose --profile dev up -d frontend-dev   # + hot-reload on :5174
 The production build is an installable Progressive Web App (`vite-plugin-pwa`):
 a web manifest (`frontend/vite.config.js`) plus a service worker that precaches
 the built app shell, so it installs to a phone home screen and launches
-fullscreen. The service worker intentionally does **not** cache `/api` — live
-server data always hits the network (`navigateFallbackDenylist`). Icons are
-rasterized from `public/favicon.svg` by `frontend/scripts/gen-icons.mjs` (run
-manually if the favicon changes). Installability requires HTTPS, which the
-Tailscale `serve` HTTPS hostname provides.
+fullscreen. Icons are rasterized from `public/favicon.svg` by
+`frontend/scripts/gen-icons.mjs` (run manually if the favicon changes).
+Installability requires HTTPS, which the Tailscale `serve` HTTPS hostname
+provides.
+
+The service worker is a **custom** one we own (`frontend/src/sw.js`, built via
+vite-plugin-pwa's `injectManifest` strategy) rather than the auto-generated
+`generateSW` — so the caching is exactly what we declare, which is the
+foundation of the offline feature (below).
+
+### Offline foundation
+
+The Library's offline mode lets a downloaded book/PDF/comic be read on a plane
+(the server unreachable over the tailnet). Its foundation — built before any
+download UI — is:
+
+- **Custom SW with exactly two caches** (`frontend/src/lib/offlineConfig.js`):
+  `hq-shell` (the precached app shell — the one thing cached without an explicit
+  download) and `hq-offline` (content bytes). The fetch strategy: a request in
+  `hq-offline` is served **cache-first** (so a downloaded item reads offline with
+  **zero reader changes** — the readers request the same `/api/library/file` and
+  `/comics/page` URLs; the SW answers from cache); navigations are network-first
+  with a shell fallback (so the app boots offline); precached shell assets are
+  cache-first; **everything else goes to the network and is never cached.**
+- **The single-writer rule:** the *only* thing that writes to `hq-offline` is the
+  explicit `downloadJob()` in `offlineStore.js`. There is no runtime/opportunistic
+  caching, so every byte on the device is either the named shell or a download the
+  user chose — which is what makes the storage manager's accounting trustworthy
+  (`auditCache()` cross-checks the real cache against the manifest to *prove* it).
+- **Downloads manifest** (`offlineStore.js`): an IndexedDB record per download
+  (`{key, section, id, name, type, urls, bytes, date}`) — the index behind the
+  "Downloaded" shelf, per-item badges, and the storage manager. The pure
+  accounting (`auditCache`, `summarizeStorage`, `downloadKey`) is unit-tested;
+  the IndexedDB / Cache Storage / `storage.estimate()`+`persist()` I/O is thin.
+- **Offline detector** (`lib/online.jsx`): `OnlineProvider` + `useOnline()` probe
+  `/api/health` (NOT `navigator.onLine`, which only means the radio is up — over
+  the tailnet the radio can be online while the server is unreachable). The
+  write-sync
+  outbox (queued reading position, flushed on reconnect) will be app-driven, not
+  SW Background Sync (iOS Safari lacks it). _Foundation wired; download UI,
+  storage manager, outbox, and offline landing land in later phases._
 
 ### A note on the Docker socket
 
