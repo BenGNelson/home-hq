@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { fileUrl } from '../../lib/library.js'
 import { API_BASE } from '../../lib/useApi.js'
+import DownloadButton from './DownloadButton.jsx'
 
 // Reading theme injected into the book document via foliate's renderer.setStyles
 // (which foliate re-applies on every section load, so it sticks across pages).
@@ -192,6 +193,7 @@ export default function EpubReader() {
         <span className="min-w-0 flex-1 truncate text-center text-sm text-slate-300">
           {title || filename}
         </span>
+        <DownloadButton item={{ section, id, name: title || filename, type: 'book', urls: [fileUrl(section, id)] }} />
         <span className="shrink-0 text-sm tabular-nums text-slate-400">
           {percent != null ? `${percent}%` : '…'}
         </span>

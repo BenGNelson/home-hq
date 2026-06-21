@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { fileUrl } from '../../lib/library.js'
 import { API_BASE } from '../../lib/useApi.js'
+import DownloadButton from './DownloadButton.jsx'
 // The worker is referenced by URL (emitted as its own asset, fetched only when
 // the reader runs). The heavy pdf.js library itself is dynamically imported in
 // the effect below so it stays out of the main bundle — the PWA shell stays
@@ -172,6 +173,7 @@ export default function PdfReader() {
           ✕ Close
         </button>
         <span className="min-w-0 flex-1 truncate text-center text-sm text-slate-300">{filename}</span>
+        <DownloadButton item={{ section, id, name: filename, type: 'pdf', urls: [fileUrl(section, id)] }} />
         <span className="shrink-0 text-sm tabular-nums text-slate-400">
           {numPages ? `${page} / ${numPages}` : '…'}
         </span>

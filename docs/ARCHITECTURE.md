@@ -778,8 +778,15 @@ download UI — is:
   the tailnet the radio can be online while the server is unreachable). The
   write-sync
   outbox (queued reading position, flushed on reconnect) will be app-driven, not
-  SW Background Sync (iOS Safari lacks it). _Foundation wired; download UI,
-  storage manager, outbox, and offline landing land in later phases._
+  SW Background Sync (iOS Safari lacks it).
+- **Download button** (`modules/library/DownloadButton.jsx`): a compact control
+  in the PDF + EPUB reader top bars that calls `downloadJob()` for the item's
+  one file URL (`/library/file`), with streamed progress (magazines run 100+ MB).
+  Once downloaded, the reader opens the same `/library/file` URL and the SW
+  serves it from cache — verified end-to-end that a downloaded PDF renders with
+  the tailnet off (pdf.js range requests fall back cleanly to the cached full
+  response, so no 206 synthesis is needed). _Storage manager, write-sync outbox,
+  comics multi-file download, and the offline landing land in later phases._
 
 ### A note on the Docker socket
 
