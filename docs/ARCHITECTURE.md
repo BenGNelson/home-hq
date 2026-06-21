@@ -807,22 +807,29 @@ download UI — is:
 - **Offline detector** (`lib/online.jsx`): `OnlineProvider` + `useOnline()` probe
   `/api/health` (NOT `navigator.onLine`, which only means the radio is up — over
   the tailnet the radio can be online while the server is unreachable).
-- **Reading-position write-sync outbox** (`lib/progressOutbox.js`): every reader
-  and the audiobook player saves your spot through `saveProgress()`, which writes
-  the position to a per-item IndexedDB queue (keyed by `readingKey`/`listenKey`,
-  stamped with `updatedAt`) and then PUTs it to the existing
-  `/library/reading-progress` / `/library/listen-progress` endpoints. Offline,
-  the PUT fails and the position stays queued instead of vanishing; on reconnect
-  the `OutboxFlusher` component (`components/OutboxFlusher.jsx`, flushes on
-  mount-if-online and on every offline→online edge) replays the queue. It's
-  **app-driven, NOT SW Background Sync** (iOS Safari lacks it). Last-write-wins is
-  enforced by **compare-and-delete**: an entry is only removed if its `updatedAt`
-  still matches the value just sent, the flush sends the *freshest* value per key
-  (not a stale snapshot), and a 4xx drops the entry while a 5xx/network error
-  leaves it queued — so a newer save can never be clobbered by an in-flight stale
-  one. Readers also **resume from the queued local value** when reopened offline
-  (a pending entry is, by definition, newer than the server — it hasn't synced
-  yet). The pure key helpers are unit-tested; the IndexedDB/fetch I/O is thin.
+- **Reading-position local cache + write-sync outbox** (`lib/progressOutbox.js`):
+  one per-item IndexedDB store does two jobs. Every reader and the audiobook
+  player saves your spot through `saveProgress()`, which writes the position
+  (keyed by `readingKey`/`listenKey`, stamped `updatedAt`, `synced:false`) and
+  then PUTs it to the existing `/library/reading-progress` /
+  `/library/listen-progress` endpoints. **(1) Sync:** offline the PUT fails and
+  the entry stays `synced:false`; the `OutboxFlusher` component
+  (`components/OutboxFlusher.jsx`, runs on mount-if-online and every
+  offline→online edge) replays unsynced entries. App-driven, **NOT SW Background
+  Sync** (iOS Safari lacks it). **(2) Resume cache:** a synced entry is **kept,
+  not deleted** — so a downloaded item opened offline can resume where you left
+  off (the server holds the position too, but it's unreachable offline; deleting
+  on sync was the bug that sent offline reopens back to page 1). `resolveResume()`
+  picks the source (pure `chooseResume`): an **unsynced** local entry (offline
+  progress) always wins; else **online** the server is authoritative (roams
+  across devices); else the **local** copy (offline / server-failed). The
+  server fetch is bounded by a short timeout so an optimistic online flag can't
+  hang the reader. Last-write-wins is enforced by **compare-and-set**: an entry is
+  marked synced only if its `updatedAt` still matches the value just sent, and the
+  flush sends the *freshest* value per key (not a stale snapshot) — so a newer
+  save can never be clobbered by an in-flight stale one; a 4xx stops retrying
+  while a 5xx/network error stays unsynced. The pure helpers (`chooseResume`, the
+  keys) are unit-tested; the IndexedDB/fetch I/O is thin.
 - **Download button** (`modules/library/DownloadButton.jsx`): a compact control
   in the reader top bars that calls `downloadJob()` with the URLs that make up an
   item. A PDF/ebook is one `/library/file` URL; a **comic** is the asymmetric

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { fileUrl, formatTime, audiobookCoverUrl } from '../../lib/library.js'
 import { API_BASE } from '../../lib/useApi.js'
-import { saveProgress, getPending, listenKey } from '../../lib/progressOutbox.js'
+import { saveProgress, resolveResume, listenKey } from '../../lib/progressOutbox.js'
+import { useOnline } from '../../lib/online.jsx'
 import AudiobookCover from './AudiobookCover.jsx'
 
 // --- transport icons (crisp SVGs that inherit currentColor) ----------------
@@ -58,6 +59,7 @@ const SkipCircle = ({ seconds, mirror }) => (
 // chapter+position server-side (so it roams + joins the Jump-back-in shelf).
 // The Media Session API wires up the iOS lock-screen / Control-Center transport.
 export default function AudiobookPlayer({ bookPath, bookName, chapters }) {
+  const { online } = useOnline()
   const audioRef = useRef(null)
   const [idx, setIdx] = useState(0)
   const [playing, setPlaying] = useState(false)
@@ -78,18 +80,17 @@ export default function AudiobookPlayer({ bookPath, bookName, chapters }) {
   useEffect(() => {
     let cancelled = false
     const load = async () => {
-      let saved = null
-      const pending = await getPending(listenKey(bookPath))
-      if (pending?.body) {
-        saved = { chapter_id: pending.body.chapter_id, position_s: pending.body.position_s }
-      } else {
-        try {
+      // Offline progress wins, else the server when online (roams across
+      // devices), else the local copy when offline. Both the local body and the
+      // server response carry chapter_id + position_s.
+      const saved = await resolveResume({
+        key: listenKey(bookPath),
+        online,
+        serverFetch: async () => {
           const r = await fetch(`${API_BASE}/library/listen-progress?book=${encodeURIComponent(bookPath)}`)
-          if (r.ok) saved = await r.json()
-        } catch {
-          /* offline / no saved position */
-        }
-      }
+          return r.ok ? await r.json() : null
+        },
+      })
       if (cancelled) return
       if (saved && saved.chapter_id) {
         const i = chapters.findIndex((c) => c.id === saved.chapter_id)

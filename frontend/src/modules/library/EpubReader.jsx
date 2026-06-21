@@ -4,7 +4,7 @@ import { fileUrl } from '../../lib/library.js'
 import { API_BASE } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
 import { goBack } from '../../lib/nav.js'
-import { saveProgress, getPending, readingKey } from '../../lib/progressOutbox.js'
+import { saveProgress, resolveResume, readingKey } from '../../lib/progressOutbox.js'
 import DownloadButton from './DownloadButton.jsx'
 
 // Reading theme injected into the book document via foliate's renderer.setStyles
@@ -125,25 +125,20 @@ export default function EpubReader() {
         // Show the book's real (embedded) title in the header, not the filename.
         setTitle(bookTitle(view.book) || filename)
 
-        // Resume where we left off. A queued offline write (if any) is the
-        // freshest position — prefer it; otherwise ask the server (roams across
-        // devices).
-        let saved = null
-        const pending = await getPending(readingKey(section, id))
-        if (pending?.body) {
-          saved = pending.body
-        } else {
-          try {
+        // Resume: offline progress wins, else the server when online (roams
+        // across devices), else the local copy when offline.
+        const saved = await resolveResume({
+          key: readingKey(section, id),
+          online,
+          serverFetch: async () => {
             const r = await fetch(
               `${API_BASE}/library/reading-progress/item?section=${encodeURIComponent(
                 section
               )}&id=${encodeURIComponent(id)}`
             )
-            if (r.ok) saved = await r.json()
-          } catch {
-            /* none / offline — start at the beginning */
-          }
-        }
+            return r.ok ? await r.json() : null
+          },
+        })
         if (cancelled) return
         try {
           if (saved && saved.locator) await view.goTo(saved.locator)
