@@ -4,7 +4,7 @@ import { fileUrl } from '../../lib/library.js'
 import { API_BASE } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
 import { goBack } from '../../lib/nav.js'
-import { saveProgress, getPending, readingKey } from '../../lib/progressOutbox.js'
+import { saveProgress, resolveResume, readingKey } from '../../lib/progressOutbox.js'
 import DownloadButton from './DownloadButton.jsx'
 // The worker is referenced by URL (emitted as its own asset, fetched only when
 // the reader runs). The heavy pdf.js library itself is dynamically imported in
@@ -59,28 +59,22 @@ export default function PdfReader() {
         }
         docRef.current = pdf
         setNumPages(pdf.numPages)
-        // Resume where we left off. A queued offline write (if any) is the
-        // freshest position — it hasn't synced yet — so prefer it; otherwise
-        // ask the server (which roams across devices).
+        // Resume where we left off: offline progress wins, else the server when
+        // online (roams across devices), else the local copy when offline.
         let resume = 1
-        const pending = await getPending(readingKey(section, id))
-        if (pending?.body?.page) {
-          resume = pending.body.page
-        } else {
-          try {
+        const saved = await resolveResume({
+          key: readingKey(section, id),
+          online,
+          serverFetch: async () => {
             const r = await fetch(
               `${API_BASE}/library/reading-progress/item?section=${encodeURIComponent(
                 section
               )}&id=${encodeURIComponent(id)}`
             )
-            if (r.ok) {
-              const saved = await r.json()
-              if (saved && saved.page) resume = saved.page
-            }
-          } catch {
-            /* no saved position / offline — start at the beginning */
-          }
-        }
+            return r.ok ? await r.json() : null
+          },
+        })
+        if (saved && saved.page) resume = saved.page
         if (cancelled) return
         setPage(Math.min(Math.max(1, resume), pdf.numPages))
         setStatus('ready')

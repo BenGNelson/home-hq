@@ -4,7 +4,7 @@ import { comicInfoUrl, comicPageUrl, comicCoverUrl } from '../../lib/library.js'
 import { API_BASE } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
 import { goBack } from '../../lib/nav.js'
-import { saveProgress, getPending, readingKey } from '../../lib/progressOutbox.js'
+import { saveProgress, resolveResume, readingKey } from '../../lib/progressOutbox.js'
 import DownloadButton from './DownloadButton.jsx'
 
 // In-app comic reader (CBZ/CBR/CB7). The backend extracts + downscales one page
@@ -47,27 +47,22 @@ export default function ComicReader() {
           return
         }
         setNumPages(pages)
-        // Prefer a queued offline position (freshest, not yet synced); else ask
-        // the server (roams across devices).
+        // Resume: offline progress wins, else the server when online (roams
+        // across devices), else the local copy when offline.
         let resume = 1
-        const pending = await getPending(readingKey(section, id))
-        if (pending?.body?.page) {
-          resume = pending.body.page
-        } else {
-          try {
+        const saved = await resolveResume({
+          key: readingKey(section, id),
+          online,
+          serverFetch: async () => {
             const pr = await fetch(
               `${API_BASE}/library/reading-progress/item?section=${encodeURIComponent(
                 section
               )}&id=${encodeURIComponent(id)}`
             )
-            if (pr.ok) {
-              const saved = await pr.json()
-              if (saved && saved.page) resume = saved.page
-            }
-          } catch {
-            /* no saved position / offline — start at page 1 */
-          }
-        }
+            return pr.ok ? await pr.json() : null
+          },
+        })
+        if (saved && saved.page) resume = saved.page
         if (cancelled) return
         setPage(Math.min(Math.max(1, resume), pages))
         setStatus('ready')
