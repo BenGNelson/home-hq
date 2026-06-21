@@ -44,10 +44,10 @@ describe('resumeHref', () => {
       '/library/read?section=books&id=Dune.epub&reader=epub'
     )
   })
-  it('routes a play entry to the player with its save slot', () => {
+  it('routes a play entry to the player (no save slot — resume is the in-game Continue/SRAM)', () => {
     expect(
       resumeHref({ kind: 'play', id: 'Tetris.gb', core: 'gb', name: 'Tetris', slot: '123' })
-    ).toBe('/library/play?id=Tetris.gb&core=gb&name=Tetris&slot=123')
+    ).toBe('/library/play?id=Tetris.gb&core=gb&name=Tetris')
   })
   it('routes a listen entry to the audiobook player at the book path', () => {
     expect(resumeHref({ kind: 'listen', id: 'Orwell/Animal Farm' })).toBe(

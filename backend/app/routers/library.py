@@ -299,6 +299,11 @@ async def put_sram(
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as fh:
         fh.write(data)
+    # An in-game save means you're playing it — surface it on the Jump Back In
+    # shelf (records the real id + core, since the save dir name is a hash).
+    games = library.get_section("games")
+    core = games["formats"].get(os.path.splitext(id)[1].lower(), {}).get("core") if games else None
+    db.set_game_progress(id, core)
     return Response(status_code=204)
 
 
@@ -431,15 +436,16 @@ def library_continue():
                 "updated_ms": row["updated_ms"],
             }
         )
-    # Recently-played games that still have a ROM + at least one save state.
+    # Recently-played games that still have a ROM. Resume = open the game and let
+    # its in-game (SRAM) "Continue" pick up your save — NOT a save-state snapshot,
+    # which would restore an older machine state over your latest in-game save. So
+    # no slot, and a game counts as in-progress on any play (save state OR SRAM),
+    # not only when a save state exists.
     games = library.get_section("games")
     for row in db.list_game_progress():
         gid = row["game_id"]
         if not library.safe_path(games, settings, gid):
             continue  # ROM removed
-        states = library.list_save_states(settings.games_saves_dir, gid)
-        if not states:
-            continue  # all saves deleted
         entries.append(
             {
                 "kind": "play",
@@ -447,8 +453,7 @@ def library_continue():
                 "id": gid,
                 "name": library.display_name(games, gid),
                 "core": row["core"],
-                "slot": states[0]["slot"],
-                "updated_ms": states[0]["created_ms"],
+                "updated_ms": row["updated_ms"],
             }
         )
     # Audiobooks in progress (resume the book → its saved chapter + position).
