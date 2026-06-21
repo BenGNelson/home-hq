@@ -1,17 +1,28 @@
 import { useApi, API_BASE } from '../../lib/useApi.js'
+import { SkeletonLine } from '../../components/ui.jsx'
 
 // A horizontally-scrolling strip of poster art for the newest Plex additions.
 // Posters come through the backend art proxy (token stays server-side).
 export default function RecentlyAdded() {
-  const { data } = useApi('/plex/recently-added', 60000)
+  const { data, error } = useApi('/plex/recently-added', 60000)
   const items = data?.items ?? []
-  if (items.length === 0) return null
+  // Loaded-and-empty (or errored) → render nothing. While still loading (no data
+  // yet) → show a poster-strip skeleton so the row reserves its space instead of
+  // popping in (rather than showing the skeleton forever on an error).
+  if (error || (data && items.length === 0)) return null
 
   return (
     <section className="mt-6">
       <h3 className="mb-3 text-sm font-medium text-slate-400">Recently added to Plex</h3>
       <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2">
-        {items.map((it, i) => (
+        {!data
+          ? Array.from({ length: 8 }, (_, i) => (
+              <div key={`sk${i}`} className="w-28 shrink-0">
+                <SkeletonLine className="aspect-[2/3] w-full rounded-lg" />
+                <SkeletonLine className="mt-1 h-3 w-3/4" />
+              </div>
+            ))
+          : items.map((it, i) => (
           <div key={`${it.rating_key}-${i}`} className="w-28 shrink-0">
             <div className="aspect-[2/3] overflow-hidden rounded-lg border border-slate-800 bg-slate-900">
               <img

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useApi, API_BASE } from '../../lib/useApi.js'
-import { Row } from '../../components/ui.jsx'
+import { Row, SkeletonLine } from '../../components/ui.jsx'
 import SyncControl from '../../components/SyncControl.jsx'
 import RecentlyAdded from './RecentlyAdded.jsx'
 
@@ -53,7 +53,14 @@ export default function Plex() {
       {/* Server status card */}
       <section className="mb-4 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
         {!s ? (
-          <p className="text-sm text-slate-500">loading…</p>
+          <dl className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex h-5 items-center justify-between">
+                <SkeletonLine className="h-4 w-16" />
+                <SkeletonLine className="h-4 w-20" />
+              </div>
+            ))}
+          </dl>
         ) : !s.configured ? (
           <p className="text-sm text-slate-500">not configured</p>
         ) : !s.reachable ? (
@@ -84,8 +91,19 @@ export default function Plex() {
         </div>
         {libs.error ? (
           <p className="text-sm text-rose-400">unavailable — {libs.error}</p>
+        ) : !libs.data ? (
+          <div className="space-y-2">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="flex items-center justify-between gap-3 py-1">
+                <SkeletonLine className="h-4 w-40" />
+                <SkeletonLine className="h-4 w-12" />
+                <SkeletonLine className="h-4 w-10" />
+                <SkeletonLine className="h-4 w-10" />
+              </div>
+            ))}
+          </div>
         ) : libraries.length === 0 ? (
-          <p className="text-sm text-slate-500">loading…</p>
+          <p className="text-sm text-slate-500">No libraries.</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
