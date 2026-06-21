@@ -193,7 +193,7 @@ export default function EpubReader() {
         <span className="min-w-0 flex-1 truncate text-center text-sm text-slate-300">
           {title || filename}
         </span>
-        <DownloadButton item={{ section, id, name: title || filename, type: 'book', urls: [fileUrl(section, id)] }} />
+        <DownloadButton item={{ section, id, name: title || filename, reader: 'epub', urls: [fileUrl(section, id)] }} />
         <span className="shrink-0 text-sm tabular-nums text-slate-400">
           {percent != null ? `${percent}%` : '…'}
         </span>

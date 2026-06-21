@@ -173,7 +173,7 @@ export default function PdfReader() {
           ✕ Close
         </button>
         <span className="min-w-0 flex-1 truncate text-center text-sm text-slate-300">{filename}</span>
-        <DownloadButton item={{ section, id, name: filename, type: 'pdf', urls: [fileUrl(section, id)] }} />
+        <DownloadButton item={{ section, id, name: filename, reader: 'pdf', urls: [fileUrl(section, id)] }} />
         <span className="shrink-0 text-sm tabular-nums text-slate-400">
           {numPages ? `${page} / ${numPages}` : '…'}
         </span>

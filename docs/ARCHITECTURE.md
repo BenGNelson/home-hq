@@ -785,8 +785,19 @@ download UI — is:
   Once downloaded, the reader opens the same `/library/file` URL and the SW
   serves it from cache — verified end-to-end that a downloaded PDF renders with
   the tailnet off (pdf.js range requests fall back cleanly to the cached full
-  response, so no 206 synthesis is needed). _Storage manager, write-sync outbox,
-  comics multi-file download, and the offline landing land in later phases._
+  response, so no 206 synthesis is needed).
+- **Reaching downloads offline:** the Library hub shows a **Downloaded** shelf
+  read straight from the IndexedDB manifest (no server call), so it's the entry
+  point to your content when the server is unreachable; and the Shell shows a
+  global **offline banner** (from `useOnline`) so the empty cockpit widgets are
+  explained. The SW also fails gracefully — an offline fetch it can't fulfil
+  resolves to `Response.error()` rather than rejecting `respondWith()` (which
+  would surface an ugly "FetchEvent.respondWith received an error" in the UI).
+  _Note for testing: Playwright's `set_offline` does NOT block localhost, so
+  simulate a unreachable server by aborting `**/api/**` instead — SW cache hits
+  make no network request, so downloads still serve while live calls fail._
+  _The full audit-grade storage manager, write-sync outbox, comics multi-file
+  download, and the dedicated offline landing land in later phases._
 
 ### A note on the Docker socket
 

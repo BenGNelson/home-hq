@@ -146,8 +146,9 @@ export async function cachedUrls() {
 
 // Download one item for offline use: fetch + store every URL in the content
 // cache, tally the real byte size, and record one manifest entry. This is the
-// ONLY function that writes to OFFLINE_CACHE. `meta` = {section, id, name, type,
-// urls}. `onProgress({loaded, total})` is called as bytes stream in (total is
+// ONLY function that writes to OFFLINE_CACHE. `meta` = {section, id, name,
+// reader, urls} (`reader` = the engine to reopen it with — 'pdf'|'epub').
+// `onProgress({loaded, total})` is called as bytes stream in (total is
 // the summed Content-Length of files started so far, or null if any was
 // missing) so the UI can show a real percentage — magazines can be 100+ MB.
 // Returns the stored entry.
@@ -186,7 +187,7 @@ export async function downloadJob(meta, onProgress) {
     section: meta.section,
     id: meta.id,
     name: meta.name,
-    type: meta.type,
+    reader: meta.reader,
     urls: meta.urls,
     bytes: loaded,
     date: Date.now(),
