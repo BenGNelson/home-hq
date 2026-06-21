@@ -55,8 +55,10 @@ function Detail({ v }) {
         <p className="mt-2 text-sm opacity-90">{vpnExplanation(v)}</p>
       </div>
 
-      {/* Exit vs home comparison */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      {/* Exit vs home comparison — side by side from sm up so a portrait
+          tablet shows the pair adjacent (the comparison reads best that way),
+          not just wide desktops. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Endpoint
           title="VPN exit"
           subtitle="where the protected traffic appears to come from"

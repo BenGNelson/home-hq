@@ -215,7 +215,7 @@ export default function Containers() {
       {error ? (
         <p className="text-sm text-rose-400">unavailable — {error}</p>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-[18rem_1fr]">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[18rem_1fr]">
           {/* List */}
           <ul className="self-start divide-y divide-slate-800 rounded-xl border border-slate-800 bg-slate-900/50">
             {list.map((c) => (
