@@ -324,6 +324,16 @@ export default function Guide() {
           <Code>✓ offline</Code> badge for what you’ve saved, and when the server is
           unreachable the app falls back to your downloads.
         </p>
+        <p>
+          Your <strong>reading/listening spot is kept even offline</strong>. Each
+          time you turn a page the position is queued on the device and PUT to the
+          server; if you’re offline the write waits in a small{' '}
+          <strong>outbox</strong> and is replayed the moment the server is
+          reachable again (last-write-wins), so progress made on a plane syncs
+          back and shows up on your other devices. Reopening a book offline
+          resumes from that local spot. It’s app-driven on reconnect rather than
+          the browser’s Background Sync, which iOS Safari doesn’t support.
+        </p>
       </Section>
 
       <Section title="Network module">

@@ -4,6 +4,7 @@ import { fileUrl } from '../../lib/library.js'
 import { API_BASE } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
 import { goBack } from '../../lib/nav.js'
+import { saveProgress, getPending, readingKey } from '../../lib/progressOutbox.js'
 import DownloadButton from './DownloadButton.jsx'
 // The worker is referenced by URL (emitted as its own asset, fetched only when
 // the reader runs). The heavy pdf.js library itself is dynamically imported in
@@ -58,20 +59,27 @@ export default function PdfReader() {
         }
         docRef.current = pdf
         setNumPages(pdf.numPages)
-        // Resume where we left off (server-side, roams across devices).
+        // Resume where we left off. A queued offline write (if any) is the
+        // freshest position — it hasn't synced yet — so prefer it; otherwise
+        // ask the server (which roams across devices).
         let resume = 1
-        try {
-          const r = await fetch(
-            `${API_BASE}/library/reading-progress/item?section=${encodeURIComponent(
-              section
-            )}&id=${encodeURIComponent(id)}`
-          )
-          if (r.ok) {
-            const saved = await r.json()
-            if (saved && saved.page) resume = saved.page
+        const pending = await getPending(readingKey(section, id))
+        if (pending?.body?.page) {
+          resume = pending.body.page
+        } else {
+          try {
+            const r = await fetch(
+              `${API_BASE}/library/reading-progress/item?section=${encodeURIComponent(
+                section
+              )}&id=${encodeURIComponent(id)}`
+            )
+            if (r.ok) {
+              const saved = await r.json()
+              if (saved && saved.page) resume = saved.page
+            }
+          } catch {
+            /* no saved position / offline — start at the beginning */
           }
-        } catch {
-          /* no saved position / offline — start at the beginning */
         }
         if (cancelled) return
         setPage(Math.min(Math.max(1, resume), pdf.numPages))
@@ -125,11 +133,11 @@ export default function PdfReader() {
   useEffect(() => {
     if (status !== 'ready' || !section || !id || !numPages) return
     const t = setTimeout(() => {
-      fetch(`${API_BASE}/library/reading-progress`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ section, id, page, total: numPages }),
-      }).catch(() => {})
+      saveProgress({
+        key: readingKey(section, id),
+        path: '/library/reading-progress',
+        body: { section, id, page, total: numPages },
+      })
     }, 600)
     return () => clearTimeout(t)
   }, [page, status, numPages, section, id])

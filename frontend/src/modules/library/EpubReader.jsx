@@ -4,6 +4,7 @@ import { fileUrl } from '../../lib/library.js'
 import { API_BASE } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
 import { goBack } from '../../lib/nav.js'
+import { saveProgress, getPending, readingKey } from '../../lib/progressOutbox.js'
 import DownloadButton from './DownloadButton.jsx'
 
 // Reading theme injected into the book document via foliate's renderer.setStyles
@@ -77,11 +78,11 @@ export default function EpubReader() {
       saveTimer.current = setTimeout(() => {
         const { locator, fraction } = posRef.current
         if (!locator) return
-        fetch(`${API_BASE}/library/reading-progress`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ section, id, locator, fraction }),
-        }).catch(() => {})
+        saveProgress({
+          key: readingKey(section, id),
+          path: '/library/reading-progress',
+          body: { section, id, locator, fraction },
+        })
       }, 800)
     }
 
@@ -124,17 +125,24 @@ export default function EpubReader() {
         // Show the book's real (embedded) title in the header, not the filename.
         setTitle(bookTitle(view.book) || filename)
 
-        // Resume where we left off (server-side, roams across devices).
+        // Resume where we left off. A queued offline write (if any) is the
+        // freshest position — prefer it; otherwise ask the server (roams across
+        // devices).
         let saved = null
-        try {
-          const r = await fetch(
-            `${API_BASE}/library/reading-progress/item?section=${encodeURIComponent(
-              section
-            )}&id=${encodeURIComponent(id)}`
-          )
-          if (r.ok) saved = await r.json()
-        } catch {
-          /* none / offline — start at the beginning */
+        const pending = await getPending(readingKey(section, id))
+        if (pending?.body) {
+          saved = pending.body
+        } else {
+          try {
+            const r = await fetch(
+              `${API_BASE}/library/reading-progress/item?section=${encodeURIComponent(
+                section
+              )}&id=${encodeURIComponent(id)}`
+            )
+            if (r.ok) saved = await r.json()
+          } catch {
+            /* none / offline — start at the beginning */
+          }
         }
         if (cancelled) return
         try {
