@@ -29,7 +29,6 @@ export default function Library() {
       {error && online && <p className="text-sm text-rose-400">unavailable — {error}</p>}
 
       <JumpBackIn />
-      <Downloaded />
 
       {data && (
         <>
@@ -41,6 +40,10 @@ export default function Library() {
           </div>
         </>
       )}
+
+      {/* Downloads sit at the bottom so the content sections are the quick taps;
+          offline you reach Downloads via the banner anyway. */}
+      <Downloaded />
     </div>
   )
 }
