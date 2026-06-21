@@ -147,16 +147,39 @@ export async function cachedUrls() {
 // Download one item for offline use: fetch + store every URL in the content
 // cache, tally the real byte size, and record one manifest entry. This is the
 // ONLY function that writes to OFFLINE_CACHE. `meta` = {section, id, name, type,
-// urls}. Returns the stored entry. Phase-2 UI calls this from the Download button.
-export async function downloadJob(meta) {
+// urls}. `onProgress({loaded, total})` is called as bytes stream in (total is
+// the summed Content-Length of files started so far, or null if any was
+// missing) so the UI can show a real percentage — magazines can be 100+ MB.
+// Returns the stored entry.
+export async function downloadJob(meta, onProgress) {
   const cache = await caches.open(OFFLINE_CACHE)
-  let bytes = 0
+  let loaded = 0
+  let total = 0
+  let totalKnown = true
   for (const url of meta.urls) {
     const res = await fetch(url, { cache: 'no-store' })
     if (!res.ok) throw new Error(`download failed (${res.status}) for ${url}`)
-    const body = await res.blob()
-    bytes += body.size
-    await cache.put(url, new Response(body, { headers: res.headers }))
+    const len = Number(res.headers.get('content-length'))
+    if (len > 0) total += len
+    else totalKnown = false
+    // Stream the body so progress updates mid-file (a big PDF is one URL).
+    const reader = res.body?.getReader?.()
+    const chunks = []
+    if (reader) {
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        chunks.push(value)
+        loaded += value.length
+        onProgress?.({ loaded, total: totalKnown ? total : null })
+      }
+    } else {
+      const buf = new Uint8Array(await res.arrayBuffer())
+      chunks.push(buf)
+      loaded += buf.length
+      onProgress?.({ loaded, total: totalKnown ? total : null })
+    }
+    await cache.put(url, new Response(new Blob(chunks), { headers: res.headers }))
   }
   const entry = {
     key: downloadKey(meta.section, meta.id),
@@ -165,7 +188,7 @@ export async function downloadJob(meta) {
     name: meta.name,
     type: meta.type,
     urls: meta.urls,
-    bytes,
+    bytes: loaded,
     date: Date.now(),
   }
   await putEntry(entry)
