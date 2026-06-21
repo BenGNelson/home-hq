@@ -811,6 +811,11 @@ download UI — is:
   `auditStorage()` (which normalizes manifest vs. cache URLs to absolute, then
   `auditCache()`) to prove no bytes sit outside the listed downloads. Per-item
   delete and clear-all call `removeDownload()` (cache entries + manifest row).
+- **Download state is visible everywhere:** browse rows (papers, books) show a
+  "✓ offline" `SavedBadge` for items already downloaded (`useDownloaded()` reads
+  the manifest into a key set), so you can tell what's saved without opening it.
+  And when offline, the sidebar dims every module that needs the server (all but
+  the Library), so the nav reads as "only the Library works right now".
 - **No dead ends:** a reader's Close uses history-back (`goBack` in `lib/nav.js`)
   so it returns to wherever you opened it from — the Downloads/hub view offline,
   the section list online (with scroll preserved) — falling back to a route only

@@ -26,7 +26,7 @@ function StatusDot() {
 // reference docs read as secondary to the functional modules above them.
 // `external` links (e.g. the backend's OpenAPI docs) render as a plain <a> that
 // opens in a new tab, since they're not client-side routes.
-function NavItem({ to, icon, label, muted, external }) {
+function NavItem({ to, icon, label, muted, external, dimmed }) {
   const layout = 'flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition'
   const idle = muted
     ? 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300'
@@ -34,9 +34,13 @@ function NavItem({ to, icon, label, muted, external }) {
   // Emoji glyphs are always full-color, so dim them a touch in the muted Docs
   // footer to keep that section reading as secondary to the modules above.
   const iconCls = `text-base leading-none${muted ? ' opacity-70' : ''}`
+  // Offline, modules that need the server are dimmed (still tappable) so the
+  // sidebar reads as "only the Library works right now".
+  const dimCls = dimmed ? 'opacity-40' : ''
+  const title = dimmed ? 'Needs a connection' : undefined
   if (external) {
     return (
-      <a href={to} target="_blank" rel="noreferrer" className={`${layout} ${idle}`}>
+      <a href={to} target="_blank" rel="noreferrer" title={title} className={`${layout} ${idle} ${dimCls}`}>
         <span className={iconCls}>{icon}</span>
         <span>{label}</span>
         <span className="ml-auto text-xs text-slate-600">↗</span>
@@ -46,8 +50,9 @@ function NavItem({ to, icon, label, muted, external }) {
   return (
     <NavLink
       to={to}
+      title={title}
       className={({ isActive }) =>
-        `${layout} ${isActive ? 'bg-slate-800 text-white' : idle}`
+        `${layout} ${isActive ? 'bg-slate-800 text-white' : idle} ${dimCls}`
       }
     >
       <span className={iconCls}>{icon}</span>
@@ -56,8 +61,9 @@ function NavItem({ to, icon, label, muted, external }) {
   )
 }
 
-// A labeled nav section: a small uppercase header over its module links.
-function NavSection({ group, items, muted }) {
+// A labeled nav section: a small uppercase header over its module links. When
+// offline, modules that aren't the Library are dimmed (they need the server).
+function NavSection({ group, items, muted, online }) {
   return (
     <div>
       <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -65,7 +71,15 @@ function NavSection({ group, items, muted }) {
       </p>
       <div className="space-y-1">
         {items.map((m) => (
-          <NavItem key={m.id} to={m.path} icon={m.icon} label={m.label} muted={muted} external={m.external} />
+          <NavItem
+            key={m.id}
+            to={m.path}
+            icon={m.icon}
+            label={m.label}
+            muted={muted}
+            external={m.external}
+            dimmed={!online && !m.path?.startsWith('/library')}
+          />
         ))}
       </div>
     </div>
@@ -117,7 +131,7 @@ export default function Shell({ modules, children }) {
         </div>
         <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto">
           {navSections.map((s) => (
-            <NavSection key={s.group} group={s.group} items={s.items} />
+            <NavSection key={s.group} group={s.group} items={s.items} online={online} />
           ))}
         </nav>
 
@@ -127,7 +141,7 @@ export default function Shell({ modules, children }) {
             the project. */}
         {footer && (
           <div className="mt-auto border-t border-slate-800 pt-3">
-            <NavSection group={footer.group} items={footer.items} muted />
+            <NavSection group={footer.group} items={footer.items} muted online={online} />
           </div>
         )}
       </aside>
