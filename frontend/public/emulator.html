@@ -178,6 +178,29 @@
         }
         // Kick off the seed fetch early (parallel with the ROM).
         var pendingSram = loadSram();
+        // Capture the live SRAM ourselves on a timer + when the page is hidden
+        // (don't rely on EmulatorJS's own save interval/exit, which is unreliable
+        // — the iframe can be torn down before it fires). getSaveFile(true)
+        // flushes the core's battery RAM to the FS, then reads it.
+        var lastSramSig = '';
+        function captureSram(emu) {
+          try {
+            var sav = emu.gameManager.getSaveFile(true);
+            if (!sav || !sav.length) return;
+            // Cheap sampled checksum (every 64 bytes) to skip unchanged SRAM.
+            var sum = sav.length >>> 0;
+            for (var i = 0; i < sav.length; i += 64) sum = (sum * 31 + sav[i]) >>> 0;
+            var sig = '' + sum;
+            if (sig === lastSramSig) return; // unchanged → skip
+            lastSramSig = sig;
+            persistSram(sav);
+          } catch (e) {}
+        }
+        function startSramCapture(emu) {
+          setInterval(function () { captureSram(emu); }, 5000);
+          document.addEventListener('visibilitychange', function () { if (document.hidden) captureSram(emu); });
+          window.addEventListener('pagehide', function () { captureSram(emu); });
+        }
         // When the user saves a state in the in-game menu, push it (and its
         // screenshot) to the backend so it roams across devices + is backed up.
         // The event's `e.screenshot` is unusable: EmulatorJS v4.2.3 destructures
@@ -226,17 +249,15 @@
           // platforms, so "Continue" loads your save. Inject first, then start
           // capturing, so a capture can't overwrite the seed with empty data.
           try {
-            if (emu) {
+            if (emu && emu.gameManager) {
               pendingSram.then(function (buf) {
-                if (buf && buf.byteLength && emu.gameManager) {
+                if (buf && buf.byteLength) {
                   try {
                     emu.gameManager.FS.writeFile(emu.gameManager.getSaveFilePath(), new Uint8Array(buf));
                     emu.gameManager.loadSaveFiles();
                   } catch (e) {}
                 }
-                try {
-                  emu.on('saveSaveFiles', function (data) { persistSram(data); });
-                } catch (e) {}
+                startSramCapture(emu); // begin reliable polling capture
               });
             }
           } catch (e) {}
