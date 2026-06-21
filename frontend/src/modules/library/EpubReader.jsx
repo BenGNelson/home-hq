@@ -5,6 +5,7 @@ import { API_BASE } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
 import { goBack } from '../../lib/nav.js'
 import { saveProgress, resolveResume, readingKey } from '../../lib/progressOutbox.js'
+import { useSaveOnExit } from '../../lib/useSaveOnExit.js'
 import DownloadButton from './DownloadButton.jsx'
 
 // Reading theme injected into the book document via foliate's renderer.setStyles
@@ -63,6 +64,15 @@ export default function EpubReader() {
   const [status, setStatus] = useState('loading') // loading | ready | error
   const [percent, setPercent] = useState(null)
   const [title, setTitle] = useState('')
+
+  // Flush the position on leaving/backgrounding (the debounced save() below is
+  // canceled on unmount, so turning a page right before exiting would be lost).
+  useSaveOnExit(() => {
+    const { locator, fraction } = posRef.current
+    return readyRef.current && locator
+      ? { key: readingKey(section, id), path: '/library/reading-progress', body: { section, id, locator, fraction } }
+      : null
+  })
 
   useEffect(() => {
     if (!section || !id) {

@@ -5,6 +5,7 @@ import { API_BASE } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
 import { goBack } from '../../lib/nav.js'
 import { saveProgress, resolveResume, readingKey } from '../../lib/progressOutbox.js'
+import { useSaveOnExit } from '../../lib/useSaveOnExit.js'
 import DownloadButton from './DownloadButton.jsx'
 // The worker is referenced by URL (emitted as its own asset, fetched only when
 // the reader runs). The heavy pdf.js library itself is dynamically imported in
@@ -135,6 +136,18 @@ export default function PdfReader() {
     }, 600)
     return () => clearTimeout(t)
   }, [page, status, numPages, section, id])
+
+  // Also flush the position when leaving/backgrounding (the debounce above is
+  // canceled on unmount, so a page-turn right before exiting would be lost).
+  useSaveOnExit(() =>
+    status === 'ready' && section && id && numPages
+      ? {
+          key: readingKey(section, id),
+          path: '/library/reading-progress',
+          body: { section, id, page, total: numPages },
+        }
+      : null
+  )
 
   // Re-render the page when the viewport changes size.
   useEffect(() => {
