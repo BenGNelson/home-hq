@@ -2,9 +2,12 @@ import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useApi } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
+import { useDownloaded } from '../../lib/useDownloaded.js'
+import { downloadKey } from '../../lib/offlineStore.js'
 import { formatSize } from '../../lib/format.js'
 import { readerHref, browseFolder, searchItems, folderCrumbs } from '../../lib/library.js'
 import OfflineSection from './OfflineSection.jsx'
+import SavedBadge from './SavedBadge.jsx'
 
 // The Magazines & Papers section: a folder browser that mirrors the library on
 // disk at any nesting depth, so a series with many issues (e.g. every National
@@ -128,9 +131,11 @@ function SearchResults({ items, query }) {
   )
 }
 
-// The tappable PDF rows — each opens in the in-app reader.
+// The tappable PDF rows — each opens in the in-app reader. A "✓ offline" badge
+// marks rows you've already downloaded.
 function PaperRows({ items }) {
   const navigate = useNavigate()
+  const downloaded = useDownloaded()
   return (
     <ul className="divide-y divide-slate-800 overflow-hidden rounded-xl border border-slate-800 bg-slate-900/40">
       {items.map((it) => (
@@ -146,6 +151,7 @@ function PaperRows({ items }) {
                 <span className="block text-xs text-slate-500">{formatSize(it.size)}</span>
               )}
             </span>
+            <SavedBadge saved={downloaded?.has(downloadKey('papers', it.id))} />
             <span className="shrink-0 text-slate-600">›</span>
           </button>
         </li>
