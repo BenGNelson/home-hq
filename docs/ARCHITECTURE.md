@@ -793,6 +793,13 @@ download UI — is:
   explained. The SW also fails gracefully — an offline fetch it can't fulfil
   resolves to `Response.error()` rather than rejecting `respondWith()` (which
   would surface an ugly "FetchEvent.respondWith received an error" in the UI).
+- **No dead ends:** a reader's Close uses history-back (`goBack` in `lib/nav.js`)
+  so it returns to wherever you opened it from — the Downloads/hub view offline,
+  the section list online (with scroll preserved) — falling back to a route only
+  when there's no in-app history. And each readable section list (papers, books),
+  when offline, renders its **downloaded subset** from the manifest
+  (`OfflineSection`) instead of erroring, so closing a reader never lands on a
+  broken page.
   _Note for testing: Playwright's `set_offline` does NOT block localhost, so
   simulate a unreachable server by aborting `**/api/**` instead — SW cache hits
   make no network request, so downloads still serve while live calls fail._

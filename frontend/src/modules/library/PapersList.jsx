@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useApi } from '../../lib/useApi.js'
+import { useOnline } from '../../lib/online.jsx'
 import { formatSize } from '../../lib/format.js'
 import { readerHref, browseFolder, searchItems, folderCrumbs } from '../../lib/library.js'
+import OfflineSection from './OfflineSection.jsx'
 
 // The Magazines & Papers section: a folder browser that mirrors the library on
 // disk at any nesting depth, so a series with many issues (e.g. every National
@@ -14,9 +16,14 @@ import { readerHref, browseFolder, searchItems, folderCrumbs } from '../../lib/l
 // Plain rows (PDFs have no cheap cover render) — mobile-first, big tap targets.
 export default function PapersList() {
   const { data, error, loading } = useApi('/library/papers', 30000)
+  const { online } = useOnline()
   const [params] = useSearchParams()
   const path = params.get('path') || ''
   const [query, setQuery] = useState('')
+
+  // Offline the live list can't load — show the downloaded papers instead so the
+  // section never dead-ends (e.g. closing a reader back onto this page).
+  if (!online) return <OfflineSection section="papers" label="Magazines & Papers" icon="📄" />
 
   const items = data?.items ?? []
   const crumbs = folderCrumbs(path)
