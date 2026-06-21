@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { playerSrc, saveStateUrl } from '../../lib/library.js'
+import { useOnline } from '../../lib/online.jsx'
+import { goBack } from '../../lib/nav.js'
 
 // Full-screen game player. The emulator runs inside an isolated <iframe>
 // (emulator.html) so unmounting this route fully tears the engine down. It's a
@@ -11,6 +13,7 @@ import { playerSrc, saveStateUrl } from '../../lib/library.js'
 export default function Player() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
+  const { online } = useOnline()
   const frameRef = useRef(null)
   // CSS-immersive fallback for platforms without the Fullscreen API (iOS
   // Safari / installed PWAs don't implement requestFullscreen on non-video
@@ -36,10 +39,12 @@ export default function Player() {
     )
   }
 
-  // Exit to the game's own detail page (its save states, Play) rather than the
-  // Games list — sensible whether you arrived from the detail page or resumed
-  // from the hub's Jump Back In shelf.
-  const exitToDetail = () => navigate(`/library/games/detail?id=${encodeURIComponent(id)}`)
+  // Exit back to where you came from (history-back). Falls back to the game's
+  // detail page online, or — since that page needs the live API — to Downloads
+  // when offline, so exiting a downloaded game never dead-ends on "That game
+  // isn't in the library".
+  const exitToDetail = () =>
+    goBack(navigate, online ? `/library/games/detail?id=${encodeURIComponent(id)}` : '/library/downloads')
 
   // Native fullscreen where supported (desktop); CSS immersive otherwise (iOS).
   const goFullscreen = () => {

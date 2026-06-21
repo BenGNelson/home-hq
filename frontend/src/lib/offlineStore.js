@@ -220,6 +220,7 @@ export async function downloadJob(meta, onProgress) {
     // list — both so the player can open the item offline without the live API.
     ...(meta.core ? { core: meta.core } : {}),
     ...(meta.chapters ? { chapters: meta.chapters } : {}),
+    ...(meta.engineVersion != null ? { engineVersion: meta.engineVersion } : {}),
   }
   await putEntry(entry)
   return entry
@@ -228,11 +229,22 @@ export async function downloadJob(meta, onProgress) {
 // The shared EmulatorJS engine (host page + loader + core-agnostic assets) that
 // every downloaded game needs. Cached once as its own manifest entry (section
 // 'emulator') — the storage manager shows it as a distinct "Emulator engine"
-// line, like the app shell. A game download ensures this first.
+// line, like the app shell. A game download ensures this first. Bump
+// ENGINE_VERSION whenever emulator.html or EMULATOR_ENGINE_URLS changes so a
+// device that already cached the engine refreshes it instead of running stale.
+const ENGINE_VERSION = 2
 export async function ensureEmulatorEngine() {
   const key = downloadKey('emulator', 'engine')
-  if (await getEntry(key)) return
-  await downloadJob({ section: 'emulator', id: 'engine', name: 'Emulator engine', urls: EMULATOR_ENGINE_URLS })
+  const existing = await getEntry(key)
+  if (existing && existing.engineVersion === ENGINE_VERSION) return
+  if (existing) await removeDownload(key) // stale engine → replace
+  await downloadJob({
+    section: 'emulator',
+    id: 'engine',
+    name: 'Emulator engine',
+    engineVersion: ENGINE_VERSION,
+    urls: EMULATOR_ENGINE_URLS,
+  })
 }
 
 // Remove a download: delete its cached URLs AND its manifest row, so nothing is
