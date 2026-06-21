@@ -1114,3 +1114,15 @@ Short record of *why* things are the way they are, so future changes have contex
   bar stays mounted instead of unmounting/remounting (which made it flicker and
   refetch `/api/library` on every hop). The hub and the detail/player/reader
   routes sit outside the layout (they never showed the switcher).
+- **Two-up layouts switch at `sm` (640px), not `md` (768px).** A small tablet in
+  portrait (e.g. an 8.3" tablet ≈ 744px wide) sits *just under* Tailwind's `md`,
+  so a `md:`-gated two-column layout would leave it on the cramped single-column
+  phone view despite having room for two. The multi-column surfaces — the
+  dashboard widget masonry, the VPN exit-vs-home comparison, and the Containers
+  list+detail master view — therefore go two-up at `sm`, which covers portrait
+  tablets (and large phones in landscape) while narrow phones stay single-column.
+  The nav itself intentionally stays a slide-in drawer at that width (the
+  persistent 224px sidebar only appears at `md`+): on a portrait tablet a fixed
+  sidebar would eat the width the content just reclaimed, and a hamburger is a
+  fine touch affordance. Rotating to landscape (≈1133px, well past `md`) brings
+  the sidebar back.

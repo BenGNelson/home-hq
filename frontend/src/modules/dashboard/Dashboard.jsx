@@ -13,8 +13,11 @@ export default function Dashboard() {
   return (
     <div>
       {/* Masonry flow: cards pack vertically per column instead of aligning
-          into rows, so a short card never leaves a gap under a tall neighbour. */}
-      <div className="columns-1 gap-4 md:columns-2 [&>*]:mb-4 [&>*]:break-inside-avoid">
+          into rows, so a short card never leaves a gap under a tall neighbour.
+          Two columns kick in at sm (640px) so a portrait tablet (e.g. iPad
+          mini, 744px — just under Tailwind's md) uses both, not just phones in
+          landscape; narrow phones stay single-column. */}
+      <div className="columns-1 gap-4 sm:columns-2 [&>*]:mb-4 [&>*]:break-inside-avoid">
         <SystemWidget />
         <DiskWidget />
         <DrivesWidget />
