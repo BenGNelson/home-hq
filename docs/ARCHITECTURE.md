@@ -179,7 +179,9 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/library/games/save-state?id=&slot=` | a save state's bytes | `FileResponse` — the `EJS_loadStateURL` target for resuming |
 | `GET /api/library/games/save-state/screenshot?id=&slot=` | a save state's screenshot | `FileResponse` (the detail-page thumbnail) |
 | `DELETE /api/library/games/save-states?id=&slot=` | delete a save state | removes the slot's files |
-| `GET /api/library/continue` | the unified "Jump back in" shelf | merges in-progress reading items + recently-played games (newest save), newest first; skips entries whose file is gone |
+| `POST /api/library/games/sram` | store a game's in-game battery save (SRAM) | multipart; one `.sav` per game (overwritten); size-capped; also marks the game last-played |
+| `GET /api/library/games/sram?id=` | a game's in-game battery save | `FileResponse` — the player seeds the emulator's FS with this on open (404 when none yet) |
+| `GET /api/library/continue` | the unified "Jump back in" shelf | merges in-progress reading items + recently-played games, newest first; a game counts as in-progress on any play (incl. an in-game save), and resumes by booting (in-game Continue), not a save-state slot; skips entries whose file is gone |
 | `GET /api/library/reading-progress/item?section=&id=` | one item's saved position (page/total or locator/fraction) | the reader fetches this on open to resume |
 | `PUT /api/library/reading-progress` | save reading position (upsert) | body `{section,id,page,total}` (PDF) or `{section,id,locator,fraction}` (ebook); validated against a real item |
 | `DELETE /api/library/reading-progress?section=&id=` | remove a document from the shelf | clears its bookmark |
@@ -383,8 +385,10 @@ server-side in a `reading_progress` table keyed by `(section, item_id)`: PDFs
 bookmark by `page`/`total`, while ebooks (no stable pages) bookmark by a foliate
 location string (`locator`, a CFI) plus a 0..1 `fraction` — both readers
 self-resume on open. Games record a `game_progress` "last played" marker
-when a save state is written (the on-disk save dir is a *hash* of the game id,
-so this table holds the real id + core to resume + show art). Both **roam across
+on any play — when a save state OR an in-game (SRAM) save is written (the on-disk
+save dir is a *hash* of the game id, so this table holds the real id + core to
+resume + show art); the game then resumes by booting to its in-game Continue, not
+a save-state slot. Both **roam across
 devices** and ride the backup. The Library hub's **Jump back in** shelf merges
 them — `GET /library/continue` returns in-progress documents (resume to the
 saved page) and recently-played games (resume the newest save state), newest
@@ -815,14 +819,25 @@ download UI — is:
   and ROM all come from cache offline. The ROM (and any resume save state) are
   loaded by `emulator.html` itself via `fetch`+blob URL rather than EmulatorJS's
   own XHR, since a service-worker-intercepted XHR for a large binary stalls on
-  iOS. **Two save systems, both ours to persist:** EmulatorJS does NOT keep the
-  game's in-game **battery save (SRAM)** — Pokémon's own "Save" — across sessions
-  (it only fires a `saveSaveFiles` event), so `emulator.html` captures the `.sav`
-  to a local cache + uploads it to `/library/games/sram` (one per game, roams +
-  offline), and on boot seeds the emulator's FS with the latest so "Continue"
-  works everywhere. **Save states** (the snapshot button) are the separate system
-  — captured the same way, listed on the detail page; the captured saves live in
-  a `hq-game-saves` cache shown as a "Game saves" storage line. The engine bundle
+  iOS. **Two save systems, both ours to persist** (EmulatorJS persists neither
+  reliably):
+  - The game's in-game **battery save (SRAM)** — Pokémon's own "Save" → "Continue"
+    — is the *everyday* save. EmulatorJS doesn't keep it across sessions, so
+    `emulator.html` **polls the live SRAM itself** (every 5s + on page-hide, via
+    `getSaveFile(true)`, which flushes the core's battery RAM to the FS) — a poll,
+    not EmulatorJS's `saveSaveFiles` event, because that event doesn't fire before
+    the iframe is torn down on exit. Each change is written to a local cache and
+    POSTed to `/library/games/sram` (one `.sav` per game, roams + offline). On open
+    it seeds the emulator's FS (`FS.writeFile(getSaveFilePath())` + `loadSaveFiles()`)
+    with the latest (local cache first, else server) so "Continue" works on any
+    device and offline. **Opening a game boots normally and the SRAM Continue loads
+    your spot — save states are NOT auto-loaded** (a save state restores the whole
+    machine, incl. an older SRAM, so auto-loading one would clobber the newer
+    in-game save).
+  - **Save states** (the snapshot button) are the deliberate "freeze this exact
+    moment" system — captured via `EJS_onSaveState` (with a screenshot), listed on
+    the detail page to resume from. The locally-captured copies live in a
+    `hq-game-saves` cache shown as a "Game saves" storage line. The engine bundle
   is versioned (`ENGINE_VERSION`) and the SW serves `emulator.html` network-first
   (refreshing the cached copy) so engine-page changes reach a device without a
   re-download. Once

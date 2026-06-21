@@ -54,7 +54,7 @@ const ENDPOINTS = [
     '/api/plex · …',
     'Status (streams/transcodes), now-playing sessions, recently added, libraries, background sync, cached library items & show episodes, on-demand item detail, and a poster proxy.',
   ],
-  ['/api/library · /{section} · /file · /games/cover · /books/cover · /comics/page · /listen-progress · /reading-progress · /continue', 'The owned-content hub: sections + counts (games, books, comics, audiobooks, magazines & papers), a section’s items, a range-capable traversal-guarded file stream (used by the emulator, the PDF + ebook readers, and the audiobook player — audio gets a real MIME type so it plays on iOS), proxied/cached game box art and book covers, comic page count + per-page extraction (each comic page pulled from its CBZ/CBR/CB7 archive on the server, downscaled to a cached WebP), server-side save states + reading + listening position + pinned folders (all roam across devices), and the unified "Jump back in" shelf that resumes books/comics/documents (to your spot), audiobooks (chapter + position), and games (into the last save state).'],
+  ['/api/library · /{section} · /file · /games/cover · /books/cover · /comics/page · /listen-progress · /reading-progress · /continue', 'The owned-content hub: sections + counts (games, books, comics, audiobooks, magazines & papers), a section’s items, a range-capable traversal-guarded file stream (used by the emulator, the PDF + ebook readers, and the audiobook player — audio gets a real MIME type so it plays on iOS), proxied/cached game box art and book covers, comic page count + per-page extraction (each comic page pulled from its CBZ/CBR/CB7 archive on the server, downscaled to a cached WebP), server-side game saves (the in-game battery save / "Continue" AND explicit save states) + reading + listening position + pinned folders (all roam across devices), and the unified "Jump back in" shelf that resumes books/comics/documents (to your spot), audiobooks (chapter + position), and games (boot + in-game Continue).'],
 ]
 
 // Plain-language one-liners for the tools named on this page, so the guide
@@ -272,10 +272,14 @@ export default function Guide() {
           version. <strong>Box art</strong> is matched to each ROM by name and cached
           locally (proxied like Plex artwork); titles are cleaned up from raw filenames,
           each game has a detail page, and a <strong>Recently played</strong> row lives
-          in the browser. <strong>Save states roam</strong>: saving in-game uploads the
-          state + a screenshot to the server (stored where the off-site backup picks it
-          up), so any device can resume from a game’s detail page. The in-game battery
-          save (SRAM) still lives in the browser for now.
+          in the browser. <strong>Two kinds of save, both roam across your devices</strong>
+          (and ride the off-site backup): your <strong>in-game save</strong> — the game’s
+          own “Save” → “Continue” — is the everyday one. The app captures it as you play
+          (and seeds it back when you open the game), so you resume where you left off on
+          any device, even offline. <strong>Save states</strong> (the snapshot button) are
+          the second kind — each with a screenshot, listed on the game’s detail page to
+          resume from. Opening a game boots it normally and your in-game Continue loads
+          your spot; save states are there when you want to jump to an exact moment.
         </p>
         <p>
           <strong>Reading</strong> is mostly client-side: PDFs (magazines
