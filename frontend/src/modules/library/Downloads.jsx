@@ -20,8 +20,9 @@ import BackLink from '../../components/BackLink.jsx'
 // and "Verify storage" scans the real cache to prove nothing is unaccounted-for.
 const ICONS = { pdf: '📄', epub: '📖', comic: '🦸', listen: '🎧' }
 
-// An audiobook entry has no `reader`; key its icon off the section instead.
-const itemIcon = (e) => (e.section === 'audiobooks' ? '🎧' : ICONS[e.reader] || '📄')
+// Audiobooks/games have no `reader`; key their icon off the section instead.
+const itemIcon = (e) =>
+  e.section === 'audiobooks' ? '🎧' : e.section === 'games' ? '🎮' : ICONS[e.reader] || '📄'
 
 export default function Downloads() {
   const [entries, setEntries] = useState(null)
@@ -90,7 +91,8 @@ export default function Downloads() {
 
         <dl className="space-y-1 text-sm">
           <Line label="App offline shell" bytes={s.shellBytes} muted />
-          <Line label={`Downloads (${entries.length})`} bytes={s.downloadsBytes} />
+          {s.engineBytes > 0 && <Line label="Emulator engine" bytes={s.engineBytes} muted />}
+          <Line label={`Downloads (${s.items.length})`} bytes={s.downloadsBytes} />
         </dl>
 
         {pct != null && (
@@ -122,8 +124,9 @@ export default function Downloads() {
         </div>
       </section>
 
-      {/* The downloads themselves. */}
-      {entries.length === 0 ? (
+      {/* The downloads themselves (the shared emulator engine is summarized
+          above, not listed as a content download). */}
+      {s.items.length === 0 ? (
         <p className="text-sm text-slate-400">
           No downloads yet. Open a book or paper and tap <span className="text-slate-200">⬇</span> in the
           reader to save it for offline.

@@ -181,8 +181,11 @@ function Downloaded() {
   }, [])
 
   if (entries === null) return <DownloadedSkeleton />
-  if (entries.length === 0) return null
-  const sorted = [...entries].sort((a, b) => (b.date || 0) - (a.date || 0))
+  // The shared emulator engine is infrastructure (shown on the Downloads page),
+  // not a content tile.
+  const content = entries.filter((e) => e.section !== 'emulator')
+  if (content.length === 0) return null
+  const sorted = [...content].sort((a, b) => (b.date || 0) - (a.date || 0))
   // A grid that grows downward (not a cramped horizontal strip) makes use of the
   // screen. The hub is a teaser — cap it and let "Manage" show the full set.
   const CAP = 12

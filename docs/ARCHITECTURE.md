@@ -803,8 +803,20 @@ download UI — is:
   dispatcher). The SW synthesizes **206 Partial Content** from a cached body for
   range requests on **media** responses (audio/video) — iOS Safari won't play a
   cached `<audio>` served as a plain 200 — while non-media (PDFs) keep the full
-  200 pdf.js is happy with. Once downloaded, the reader/player
-  requests the same URLs and the SW serves them from cache — verified end-to-end that a downloaded PDF renders with
+  200 pdf.js is happy with. A **game** download is the most involved: it caches
+  the ROM + its libretro core (both non-thread variants — `gb`→gambatte,
+  `gba`/`gbc`→mgba) and, once, the shared **EmulatorJS engine** (`emulator.html`
+  + the core-agnostic `/emulatorjs/` assets) as a distinct `emulator` manifest
+  entry that the storage manager shows as its own "Emulator engine" line.
+  `ensureEmulatorEngine()` runs before a game download (via the button's
+  `onBefore`). The SW no longer bypasses `/emulator.html` + `/emulatorjs/` — it
+  serves them from cache when downloaded (the host page is matched by bare path
+  since it carries per-game query params), so the emulator iframe, engine, core,
+  and ROM all come from cache offline. Save states already persist to the browser
+  (EmulatorJS `save-state-location: browser`), so offline play + save + resume
+  works locally; syncing an offline save back to the server is deferred. Once
+  downloaded, the reader/player requests the same URLs and the SW serves them from
+  cache — verified end-to-end that a downloaded PDF renders with
   the tailnet off (pdf.js range requests fall back cleanly to the cached full
   response, so no 206 synthesis is needed).
 - **Reaching downloads offline:** the Library hub shows a **Downloaded** shelf

@@ -3,9 +3,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import BackLink from '../../components/BackLink.jsx'
 import { useApi } from '../../lib/useApi.js'
 import { formatSize, formatAgo } from '../../lib/format.js'
-import { saveStatesUrl, saveStateShotUrl } from '../../lib/library.js'
+import { saveStatesUrl, saveStateShotUrl, gameOfflineUrls } from '../../lib/library.js'
+import { ensureEmulatorEngine } from '../../lib/offlineStore.js'
 import { recordPlayed } from '../../lib/recentGames.js'
 import GameCover from './GameCover.jsx'
+import DownloadButton from './DownloadButton.jsx'
 
 // A game's "title page": box art + title + Play, plus its server-side save
 // states (roam across devices) — each with a screenshot, Resume (launch into
@@ -61,12 +63,26 @@ export default function GameDetail() {
               {game.size != null && <> · {formatSize(game.size)}</>}
             </p>
           </div>
-          <button
-            onClick={() => launch()}
-            className="rounded-xl bg-sky-600 px-6 py-3 font-medium text-white transition-colors active:bg-sky-700"
-          >
-            ▶ Play
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => launch()}
+              className="rounded-xl bg-sky-600 px-6 py-3 font-medium text-white transition-colors active:bg-sky-700"
+            >
+              ▶ Play
+            </button>
+            {/* Save the ROM + its core (+ the shared engine, once) so the game
+                plays in airplane mode. */}
+            <DownloadButton
+              item={{
+                section: 'games',
+                id: game.id,
+                name: game.name,
+                core: game.core,
+                urls: gameOfflineUrls(game.id, game.core),
+              }}
+              onBefore={ensureEmulatorEngine}
+            />
+          </div>
         </div>
       </div>
 

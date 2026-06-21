@@ -86,11 +86,25 @@ async function rangeResponse(res, rangeHeader) {
 }
 
 async function handle(request) {
-  // 1) Explicitly-downloaded content → cache-first (works fully offline). The
-  //    reader/player requested the same /api/library/file, /comics/page, etc.
-  //    URL it would online; if it's in the offline cache, serve the local copy
-  //    (honouring a Range header so cached audio plays + seeks on iOS).
   const offline = await caches.open(OFFLINE_CACHE)
+
+  // The emulator host page is requested with per-game query params (?core=&rom=)
+  // but is the same file, downloaded with a game — match it by bare path. Not
+  // cached + offline → fail (you can't reach a non-downloaded game offline).
+  if (new URL(request.url).pathname === '/emulator.html') {
+    const cachedPage = await offline.match('/emulator.html')
+    if (cachedPage) return cachedPage
+    try {
+      return await fetch(request)
+    } catch {
+      return Response.error()
+    }
+  }
+
+  // 1) Explicitly-downloaded content → cache-first (works fully offline). The
+  //    reader/player requested the same /api/library/file, /comics/page, or
+  //    /emulatorjs/ URL it would online; if it's in the offline cache, serve the
+  //    local copy (honouring a Range header so cached audio plays + seeks on iOS).
   const downloaded = await offline.match(request, { ignoreVary: true })
   if (downloaded) {
     // Only MEDIA needs a synthesized 206 (iOS won't play cached <audio>/<video>
@@ -132,9 +146,5 @@ async function handle(request) {
 self.addEventListener('fetch', (event) => {
   const { request } = event
   if (request.method !== 'GET') return
-  const url = new URL(request.url)
-  // Never intercept the isolated emulator page or its engine assets — they load
-  // straight from the network as before (offline ROM play is a later phase).
-  if (url.pathname.startsWith('/emulator.html') || url.pathname.startsWith('/emulatorjs/')) return
   event.respondWith(handle(request))
 })
