@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useApi, API_BASE } from '../../lib/useApi.js'
+import { useOnline } from '../../lib/online.jsx'
+import { useDownloaded } from '../../lib/useDownloaded.js'
+import { downloadKey } from '../../lib/offlineStore.js'
 import {
   readerHref,
   browseFolder,
@@ -10,6 +13,8 @@ import {
   pinsUrl,
 } from '../../lib/library.js'
 import ComicCover from './ComicCover.jsx'
+import OfflineSection from './OfflineSection.jsx'
+import SavedBadge from './SavedBadge.jsx'
 
 const PAGE = 60 // issues rendered per "page" — keeps a big folder from choking
 
@@ -21,6 +26,7 @@ const PAGE = 60 // issues rendered per "page" — keeps a big folder from chokin
 // lives in ?path= so the back gesture walks back up the tree.
 export default function ComicsList() {
   const { data, error, loading } = useApi('/library/comics', 30000)
+  const { online } = useOnline()
   const [params] = useSearchParams()
   const path = params.get('path') || ''
   const [query, setQuery] = useState('')
@@ -64,6 +70,10 @@ export default function ComicsList() {
   const items = data?.items ?? []
   const crumbs = folderCrumbs(path)
   const searching = query.trim().length > 0
+
+  // Offline, the folder browser + covers can't load — show the comics you've
+  // downloaded instead, so the section never dead-ends.
+  if (!online) return <OfflineSection section="comics" label="Comics" icon="🦸" />
 
   return (
     <div className="space-y-4">
@@ -226,6 +236,7 @@ function SearchResults({ items, query }) {
 // would otherwise load thousands of covers (and DOM nodes) at once.
 function IssueGrid({ items }) {
   const navigate = useNavigate()
+  const downloaded = useDownloaded()
   const [shown, setShown] = useState(PAGE)
   const visible = items.slice(0, shown)
 
@@ -238,7 +249,14 @@ function IssueGrid({ items }) {
             onClick={() => navigate(readerHref('comics', it))}
             className="group text-left active:opacity-80"
           >
-            <ComicCover comic={it} className="w-full rounded-lg transition-transform group-active:scale-95" />
+            <span className="relative block">
+              <ComicCover comic={it} className="w-full rounded-lg transition-transform group-active:scale-95" />
+              {downloaded?.has(downloadKey('comics', it.id)) && (
+                <span className="absolute right-1 top-1">
+                  <SavedBadge saved />
+                </span>
+              )}
+            </span>
             <span className="mt-1 block truncate text-xs text-slate-300">{it.name}</span>
           </button>
         ))}

@@ -38,9 +38,9 @@ export default function DownloadButton({ item }) {
     setState('downloading')
     setPct(0)
     try {
-      const entry = await downloadJob(item, ({ loaded, total }) => {
+      const entry = await downloadJob(item, ({ fraction, loaded }) => {
         if (!mounted.current) return
-        setPct(total ? Math.min(100, Math.round((loaded / total) * 100)) : 0)
+        setPct(Math.min(100, Math.round((fraction || 0) * 100)))
         setBytes(loaded)
       })
       if (!mounted.current) return

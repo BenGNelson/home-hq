@@ -788,10 +788,15 @@ download UI — is:
   outbox (queued reading position, flushed on reconnect) will be app-driven, not
   SW Background Sync (iOS Safari lacks it).
 - **Download button** (`modules/library/DownloadButton.jsx`): a compact control
-  in the PDF + EPUB reader top bars that calls `downloadJob()` for the item's
-  one file URL (`/library/file`), with streamed progress (magazines run 100+ MB).
-  Once downloaded, the reader opens the same `/library/file` URL and the SW
-  serves it from cache — verified end-to-end that a downloaded PDF renders with
+  in the reader top bars that calls `downloadJob()` with the URLs that make up an
+  item. A PDF/ebook is one `/library/file` URL; a **comic** is the asymmetric
+  case — the browser can't unpack CBZ/CBR/CB7, so the reader fetches
+  server-rendered pages, and an offline comic must pre-cache **its info endpoint
+  + cover + every page image** (`/comics/info`, `/comics/cover`, `/comics/page?n=`
+  for all N). `downloadJob` reports a single 0..1 `fraction` — within-file bytes
+  for a one-file download, per-file across a many-file one — so the bar is smooth
+  for a 100+ MB magazine and a 145-page comic alike. Once downloaded, the reader
+  requests the same URLs and the SW serves them from cache — verified end-to-end that a downloaded PDF renders with
   the tailnet off (pdf.js range requests fall back cleanly to the cached full
   response, so no 206 synthesis is needed).
 - **Reaching downloads offline:** the Library hub shows a **Downloaded** shelf

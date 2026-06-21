@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { comicInfoUrl, comicPageUrl } from '../../lib/library.js'
+import { comicInfoUrl, comicPageUrl, comicCoverUrl } from '../../lib/library.js'
 import { API_BASE } from '../../lib/useApi.js'
+import { useOnline } from '../../lib/online.jsx'
+import { goBack } from '../../lib/nav.js'
+import DownloadButton from './DownloadButton.jsx'
 
 // In-app comic reader (CBZ/CBR/CB7). The backend extracts + downscales one page
 // at a time, so this is just an <img> pager: fetch the page count on open,
@@ -14,7 +17,11 @@ export default function ComicReader() {
   const navigate = useNavigate()
   const section = 'comics'
   const id = params.get('id')
+  const { online } = useOnline()
   const back = '/library/comics'
+  // Close returns to where you came from (history-back); offline it falls back to
+  // the Library hub (Downloads), not the comics browser which can't load.
+  const exit = () => goBack(navigate, online ? back : '/library')
 
   const [numPages, setNumPages] = useState(0)
   const [page, setPage] = useState(1)
@@ -126,12 +133,30 @@ export default function ComicReader() {
         style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
       >
         <button
-          onClick={() => navigate(back)}
+          onClick={exit}
           className="shrink-0 whitespace-nowrap rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 active:bg-slate-700"
         >
           ✕ Close
         </button>
         <span className="min-w-0 flex-1 truncate text-center text-sm text-slate-300">{title}</span>
+        {/* A comic download = its info + cover + EVERY rendered page (the browser
+            can't unpack the archive, so the reader fetches server-rendered pages;
+            offline they must already be in the cache). */}
+        {numPages > 0 && (
+          <DownloadButton
+            item={{
+              section: 'comics',
+              id,
+              name: title,
+              reader: 'comic',
+              urls: [
+                comicInfoUrl(id),
+                comicCoverUrl(id),
+                ...Array.from({ length: numPages }, (_, n) => comicPageUrl(id, n)),
+              ],
+            }}
+          />
+        )}
         <span className="shrink-0 text-sm tabular-nums text-slate-400">
           {numPages ? `${page} / ${numPages}` : '…'}
         </span>

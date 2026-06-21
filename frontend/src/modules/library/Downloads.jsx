@@ -18,7 +18,7 @@ import BackLink from '../../components/BackLink.jsx'
 // fully offline and is the trustworthy answer to "what's taking up space?":
 // every byte is shown as either the app shell or a download you can open/delete,
 // and "Verify storage" scans the real cache to prove nothing is unaccounted-for.
-const ICONS = { pdf: '📄', epub: '📖' }
+const ICONS = { pdf: '📄', epub: '📖', comic: '🦸' }
 
 export default function Downloads() {
   const [entries, setEntries] = useState(null)
