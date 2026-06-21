@@ -148,39 +148,44 @@ export async function cachedUrls() {
 // cache, tally the real byte size, and record one manifest entry. This is the
 // ONLY function that writes to OFFLINE_CACHE. `meta` = {section, id, name,
 // reader, urls} (`reader` = the engine to reopen it with — 'pdf'|'epub').
-// `onProgress({loaded, total})` is called as bytes stream in (total is
-// the summed Content-Length of files started so far, or null if any was
-// missing) so the UI can show a real percentage — magazines can be 100+ MB.
-// Returns the stored entry.
+// `onProgress({fraction, loaded})` reports a 0..1 overall fraction: within-file
+// byte progress for a one-file download (a 100+ MB magazine) and per-file
+// progress across a many-file download (a comic = info + cover + N pages), so
+// the bar is smooth either way. Returns the stored entry.
 export async function downloadJob(meta, onProgress) {
   const cache = await caches.open(OFFLINE_CACHE)
+  const files = meta.urls.length
   let loaded = 0
-  let total = 0
-  let totalKnown = true
-  for (const url of meta.urls) {
+  for (let i = 0; i < files; i++) {
+    const url = meta.urls[i]
     const res = await fetch(url, { cache: 'no-store' })
     if (!res.ok) throw new Error(`download failed (${res.status}) for ${url}`)
-    const len = Number(res.headers.get('content-length'))
-    if (len > 0) total += len
-    else totalKnown = false
-    // Stream the body so progress updates mid-file (a big PDF is one URL).
+    const flen = Number(res.headers.get('content-length')) || 0
     const reader = res.body?.getReader?.()
     const chunks = []
+    let fileLoaded = 0
+    const report = () => {
+      const cur = flen ? Math.min(fileLoaded / flen, 1) : 0
+      onProgress?.({ fraction: (i + cur) / files, loaded })
+    }
     if (reader) {
       for (;;) {
         const { done, value } = await reader.read()
         if (done) break
         chunks.push(value)
+        fileLoaded += value.length
         loaded += value.length
-        onProgress?.({ loaded, total: totalKnown ? total : null })
+        report()
       }
     } else {
       const buf = new Uint8Array(await res.arrayBuffer())
       chunks.push(buf)
+      fileLoaded += buf.length
       loaded += buf.length
-      onProgress?.({ loaded, total: totalKnown ? total : null })
+      report()
     }
     await cache.put(url, new Response(new Blob(chunks), { headers: res.headers }))
+    onProgress?.({ fraction: (i + 1) / files, loaded }) // file complete
   }
   const entry = {
     key: downloadKey(meta.section, meta.id),
