@@ -175,6 +175,16 @@ export function readerHref(section, item) {
   return `/library/read?${q.toString()}`
 }
 
+// Where a downloaded manifest entry opens. Audiobooks are a folder played by the
+// audiobook view (routed by ?path=), not the /library/read reader dispatcher;
+// everything else opens in a reader. Used by the Downloads page / offline lists.
+export function downloadHref(entry) {
+  if (entry.section === 'audiobooks') {
+    return `/library/audiobooks?path=${encodeURIComponent(entry.id)}`
+  }
+  return readerHref(entry.section, { id: entry.id, reader: entry.reader })
+}
+
 // Group play items by their system label → ordered [[label, items], ...].
 export function groupByLabel(items) {
   const groups = {}

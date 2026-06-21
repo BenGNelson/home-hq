@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useApi, API_BASE } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
 import { allEntries } from '../../lib/offlineStore.js'
-import { libraryHeadline, resumeHref, readerHref } from '../../lib/library.js'
+import { libraryHeadline, resumeHref, downloadHref } from '../../lib/library.js'
 import { progressLabel, progressFraction } from '../../lib/reading.js'
 import { formatAgo, formatSize } from '../../lib/format.js'
 import GameCover from './GameCover.jsx'
@@ -128,7 +128,7 @@ function Downloaded() {
         {items.map((e) => (
           <Link
             key={e.key}
-            to={readerHref(e.section, { id: e.id, reader: e.reader })}
+            to={downloadHref(e)}
             className="block active:opacity-80"
           >
             <div className="flex aspect-[3/4] items-center justify-center rounded-lg bg-slate-800 p-2 text-center">

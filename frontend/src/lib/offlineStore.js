@@ -196,6 +196,9 @@ export async function downloadJob(meta, onProgress) {
     urls: meta.urls,
     bytes: loaded,
     date: Date.now(),
+    // Audiobooks carry their ordered chapter list so the player can run offline
+    // without the live folder-browse (other types leave this undefined).
+    ...(meta.chapters ? { chapters: meta.chapters } : {}),
   }
   await putEntry(entry)
   return entry

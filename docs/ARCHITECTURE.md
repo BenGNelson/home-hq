@@ -795,7 +795,15 @@ download UI — is:
   + cover + every page image** (`/comics/info`, `/comics/cover`, `/comics/page?n=`
   for all N). `downloadJob` reports a single 0..1 `fraction` — within-file bytes
   for a one-file download, per-file across a many-file one — so the bar is smooth
-  for a 100+ MB magazine and a 145-page comic alike. Once downloaded, the reader
+  for a 100+ MB magazine and a 145-page comic alike. An **audiobook** download
+  caches every chapter file and stores the **chapter list in the manifest entry**,
+  so the player runs offline without the live folder-browse; offline,
+  `AudiobooksList` reads the book's chapters from the manifest and routes via
+  `downloadHref()` (audiobooks open the `?path=` player, not the `/library/read`
+  dispatcher). The SW synthesizes **206 Partial Content** from a cached body for
+  range requests on **media** responses (audio/video) — iOS Safari won't play a
+  cached `<audio>` served as a plain 200 — while non-media (PDFs) keep the full
+  200 pdf.js is happy with. Once downloaded, the reader/player
   requests the same URLs and the SW serves them from cache — verified end-to-end that a downloaded PDF renders with
   the tailnet off (pdf.js range requests fall back cleanly to the cached full
   response, so no 206 synthesis is needed).

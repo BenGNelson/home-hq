@@ -1,8 +1,14 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useApi } from '../../lib/useApi.js'
-import { browseFolder, folderCrumbs, naturalCompare } from '../../lib/library.js'
+import { useOnline } from '../../lib/online.jsx'
+import { useDownloaded, useDownloadedEntries } from '../../lib/useDownloaded.js'
+import { downloadKey } from '../../lib/offlineStore.js'
+import { browseFolder, folderCrumbs, naturalCompare, fileUrl } from '../../lib/library.js'
 import AudiobookPlayer from './AudiobookPlayer.jsx'
 import AudiobookCover from './AudiobookCover.jsx'
+import OfflineSection from './OfflineSection.jsx'
+import SavedBadge from './SavedBadge.jsx'
+import DownloadButton from './DownloadButton.jsx'
 
 // The Audiobooks section. A book is a FOLDER of ordered chapter files, nested
 // under author/collection folders — so this is a folder browser (mirrors disk at
@@ -11,9 +17,30 @@ import AudiobookCover from './AudiobookCover.jsx'
 // player + its chapters). The current folder lives in ?path= so back walks up.
 export default function AudiobooksList() {
   const { data, error, loading } = useApi('/library/audiobooks', 30000)
+  const { online } = useOnline()
+  const downloaded = useDownloaded()
+  const entries = useDownloadedEntries()
   const [params] = useSearchParams()
   const path = params.get('path') || ''
   const navigate = useNavigate()
+
+  // OFFLINE: the live folder browse can't load, so drive from the on-device
+  // manifest. A downloaded book carries its chapter list, so the player runs
+  // entirely from cache; otherwise show the downloaded-audiobooks subset.
+  if (!online) {
+    if (entries == null) return <p className="text-sm text-slate-500">loading…</p>
+    const book = entries.find((e) => e.section === 'audiobooks' && e.id === path)
+    if (book) {
+      const name = path.split('/').pop()
+      return (
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">{name}</h2>
+          <AudiobookPlayer bookPath={path} bookName={name} chapters={book.chapters || []} />
+        </div>
+      )
+    }
+    return <OfflineSection section="audiobooks" label="Audiobooks" icon="🎧" />
+  }
 
   const items = data?.items ?? []
   const { folders, issues } = browseFolder(items, path)
@@ -26,7 +53,24 @@ export default function AudiobooksList() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold">{isBook ? path.split('/').pop() : 'Audiobooks'}</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold">{isBook ? path.split('/').pop() : 'Audiobooks'}</h2>
+        {/* A book download = every chapter file (the chapter list is stored in the
+            manifest so the player can run offline). Audiobooks are big — this can
+            be hundreds of MB. */}
+        {isBook && (
+          <DownloadButton
+            item={{
+              section: 'audiobooks',
+              id: path,
+              name: path.split('/').pop(),
+              reader: 'listen',
+              chapters,
+              urls: chapters.map((c) => fileUrl('audiobooks', c.id)),
+            }}
+          />
+        )}
+      </div>
 
       {loading && !data && <p className="text-sm text-slate-500">loading…</p>}
       {error && <p className="text-sm text-rose-400">unavailable — {error}</p>}
@@ -69,6 +113,7 @@ export default function AudiobooksList() {
                         {f.count} file{f.count === 1 ? '' : 's'}
                       </span>
                     </span>
+                    <SavedBadge saved={downloaded?.has(downloadKey('audiobooks', f.path))} />
                     <span className="shrink-0 text-slate-600">›</span>
                   </button>
                 </li>
