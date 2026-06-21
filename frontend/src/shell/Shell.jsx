@@ -5,6 +5,19 @@ import { useOnline } from '../lib/online.jsx'
 import { groupModules, activeModule, FOOTER_GROUP } from '../lib/nav.js'
 import ThemePicker from './ThemePicker.jsx'
 import ErrorBoundary from '../components/ErrorBoundary.jsx'
+import { ExternalLink } from 'lucide-react'
+
+// A nav glyph: a Lucide icon component (the norm — monochrome, inherits the
+// text color so it themes + dims cleanly) or, for a host-local link that still
+// supplies an emoji/text string, that string. Lucide icons are forwardRef
+// objects (not functions), so we branch on string, not `typeof === 'function'`.
+function NavIcon({ icon, muted }) {
+  if (typeof icon === 'string') {
+    return <span className={`text-base leading-none${muted ? ' opacity-70' : ''}`}>{icon}</span>
+  }
+  const Icon = icon
+  return <Icon className={`h-4 w-4 shrink-0${muted ? ' opacity-70' : ''}`} aria-hidden="true" />
+}
 
 // A live health indicator: green when the API answers, red when it doesn't.
 function StatusDot() {
@@ -31,9 +44,6 @@ function NavItem({ to, icon, label, muted, external, dimmed }) {
   const idle = muted
     ? 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300'
     : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
-  // Emoji glyphs are always full-color, so dim them a touch in the muted Docs
-  // footer to keep that section reading as secondary to the modules above.
-  const iconCls = `text-base leading-none${muted ? ' opacity-70' : ''}`
   // Offline, modules that need the server are dimmed (still tappable) so the
   // sidebar reads as "only the Library works right now".
   const dimCls = dimmed ? 'opacity-40' : ''
@@ -41,9 +51,9 @@ function NavItem({ to, icon, label, muted, external, dimmed }) {
   if (external) {
     return (
       <a href={to} target="_blank" rel="noreferrer" title={title} className={`${layout} ${idle} ${dimCls}`}>
-        <span className={iconCls}>{icon}</span>
+        <NavIcon icon={icon} muted={muted} />
         <span>{label}</span>
-        <span className="ml-auto text-xs text-slate-600">↗</span>
+        <ExternalLink className="ml-auto h-3.5 w-3.5 text-slate-600" aria-hidden="true" />
       </a>
     )
   }
@@ -55,7 +65,7 @@ function NavItem({ to, icon, label, muted, external, dimmed }) {
         `${layout} ${isActive ? 'bg-slate-800 text-white' : idle} ${dimCls}`
       }
     >
-      <span className={iconCls}>{icon}</span>
+      <NavIcon icon={icon} muted={muted} />
       <span>{label}</span>
     </NavLink>
   )

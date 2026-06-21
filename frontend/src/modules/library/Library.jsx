@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useApi, API_BASE } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
 import { allEntries } from '../../lib/offlineStore.js'
-import { libraryHeadline, resumeHref, downloadHref } from '../../lib/library.js'
+import { libraryHeadline, resumeHref, downloadHref, sectionIcon } from '../../lib/library.js'
 import { progressLabel, progressFraction } from '../../lib/reading.js'
 import { formatAgo, formatSize } from '../../lib/format.js'
 import { SkeletonLine } from '../../components/ui.jsx'
@@ -11,6 +11,13 @@ import GameCover from './GameCover.jsx'
 import BookCover from './BookCover.jsx'
 import ComicCover from './ComicCover.jsx'
 import AudiobookCover from './AudiobookCover.jsx'
+
+// Render a section's Lucide icon (mapping lives in lib/library.js, shared with
+// the offline section headers).
+function SectionIcon({ id, className }) {
+  const Icon = sectionIcon(id)
+  return <Icon className={className} aria-hidden="true" />
+}
 
 // The Library hub: your owned content (games + magazines/papers now, more
 // later), played/read in-app. Mobile-first — big tap-target section cards that
@@ -291,7 +298,7 @@ function SectionCard({ s }) {
           : 'border-slate-800 bg-slate-900/30'
       }`}
     >
-      <span className="text-3xl">{s.icon}</span>
+      <SectionIcon id={s.key} className="h-8 w-8 shrink-0 text-slate-300" />
       <div className="min-w-0">
         <div className="font-medium text-slate-100">{s.label}</div>
         <div className="text-sm text-slate-400">{sub}</div>

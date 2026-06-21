@@ -47,10 +47,15 @@ export default function HomeWidget() {
 function Row({ e }) {
   const href = homeAssistantUrl(`/history?entity_id=${encodeURIComponent(e.entity_id)}`)
   const low = lowBattery(e)
+  const Icon = entityIcon(e)
   const body = (
     <div className="flex items-center justify-between gap-3">
       <span className="flex min-w-0 items-center gap-2">
-        <span aria-hidden>{entityIcon(e)}</span>
+        {Icon ? (
+          <Icon className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+        ) : (
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-slate-600" aria-hidden="true" />
+        )}
         <span className="truncate text-slate-300">{entityLabel(e)}</span>
       </span>
       <span className={`shrink-0 tabular-nums ${low ? 'text-amber-400' : 'text-slate-400'}`}>

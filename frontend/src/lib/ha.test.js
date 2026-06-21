@@ -1,23 +1,24 @@
 import { describe, it, expect } from 'vitest'
+import { Battery, Droplet, Zap, Route, Lock, WashingMachine } from 'lucide-react'
 import { entityIcon, entityLabel, entityValue, lowBattery } from './ha.js'
 
 describe('entityIcon', () => {
   it('prefers device_class over domain', () => {
-    expect(entityIcon({ device_class: 'battery', domain: 'sensor' })).toBe('🔋')
-    expect(entityIcon({ device_class: 'humidity', domain: 'sensor' })).toBe('💧')
+    expect(entityIcon({ device_class: 'battery', domain: 'sensor' })).toBe(Battery)
+    expect(entityIcon({ device_class: 'humidity', domain: 'sensor' })).toBe(Droplet)
   })
 
   it('maps the Tesla-style device classes (charging, distance)', () => {
     // binary_sensor.*_charging would otherwise fall through to the bell icon.
-    expect(entityIcon({ device_class: 'battery_charging', domain: 'binary_sensor' })).toBe('⚡')
-    // sensor.*_range would otherwise fall through to the dot.
-    expect(entityIcon({ device_class: 'distance', domain: 'sensor' })).toBe('🛣️')
+    expect(entityIcon({ device_class: 'battery_charging', domain: 'binary_sensor' })).toBe(Zap)
+    // sensor.*_range would otherwise fall through to null.
+    expect(entityIcon({ device_class: 'distance', domain: 'sensor' })).toBe(Route)
   })
 
-  it('falls back to domain, then id keywords, then a dot', () => {
-    expect(entityIcon({ domain: 'lock' })).toBe('🔒')
-    expect(entityIcon({ domain: 'sensor', entity_id: 'sensor.dryer_time_remaining' })).toBe('🧺')
-    expect(entityIcon({ domain: 'sensor', entity_id: 'sensor.mystery' })).toBe('•')
+  it('falls back to domain, then id keywords, then null', () => {
+    expect(entityIcon({ domain: 'lock' })).toBe(Lock)
+    expect(entityIcon({ domain: 'sensor', entity_id: 'sensor.dryer_time_remaining' })).toBe(WashingMachine)
+    expect(entityIcon({ domain: 'sensor', entity_id: 'sensor.mystery' })).toBe(null)
   })
 })
 
