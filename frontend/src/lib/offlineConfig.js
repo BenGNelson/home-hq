@@ -10,3 +10,9 @@
 //                   action. Nothing is ever cached here implicitly.
 export const SHELL_CACHE = 'hq-shell'
 export const OFFLINE_CACHE = 'hq-offline'
+// Captured game save states (the "resume where you left off" snapshot, incl.
+// offline saves), one per game id. Kept separate from OFFLINE_CACHE so the
+// downloads audit stays clean; surfaced as a "Game saves" storage line. NOTE:
+// this literal is duplicated in public/emulator.html (a static file that can't
+// import) — keep them in sync.
+export const GAME_SAVES_CACHE = 'hq-game-saves'
