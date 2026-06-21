@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useApi } from '../lib/useApi.js'
+import { useOnline } from '../lib/online.jsx'
 import { groupModules, activeModule, FOOTER_GROUP } from '../lib/nav.js'
 import ThemePicker from './ThemePicker.jsx'
 
@@ -76,6 +77,7 @@ function NavSection({ group, items, muted }) {
 export default function Shell({ modules, children }) {
   const [open, setOpen] = useState(false)
   const location = useLocation()
+  const { online } = useOnline()
 
   // Close the mobile drawer whenever the route changes (after a tap).
   useEffect(() => setOpen(false), [location.pathname])
@@ -152,6 +154,14 @@ export default function Shell({ modules, children }) {
             <ThemePicker />
           </div>
         </header>
+
+        {/* When the server is unreachable (e.g. on a plane), explain the empty
+            cockpit widgets and point at what still works. */}
+        {!online && (
+          <div className="bg-amber-900/40 px-4 py-1.5 text-center text-xs text-amber-200">
+            ✈️ Offline — live server data is unavailable. Downloaded Library content still works.
+          </div>
+        )}
 
         <main className="min-w-0 flex-1 overflow-auto p-4 md:p-6">{children}</main>
       </div>

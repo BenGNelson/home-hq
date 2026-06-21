@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApi, API_BASE } from '../../lib/useApi.js'
-import { libraryHeadline, resumeHref } from '../../lib/library.js'
+import { useOnline } from '../../lib/online.jsx'
+import { allEntries } from '../../lib/offlineStore.js'
+import { libraryHeadline, resumeHref, readerHref } from '../../lib/library.js'
 import { progressLabel, progressFraction } from '../../lib/reading.js'
-import { formatAgo } from '../../lib/format.js'
+import { formatAgo, formatSize } from '../../lib/format.js'
 import GameCover from './GameCover.jsx'
 import BookCover from './BookCover.jsx'
 import ComicCover from './ComicCover.jsx'
@@ -16,14 +18,18 @@ import AudiobookCover from './AudiobookCover.jsx'
 // last save state), so you skip the drill-down.
 export default function Library() {
   const { data, error, loading } = useApi('/library', 30000)
+  const { online } = useOnline()
 
   return (
     <div className="space-y-4">
 
       {loading && !data && <p className="text-sm text-slate-500">loading…</p>}
-      {error && <p className="text-sm text-rose-400">unavailable — {error}</p>}
+      {/* Offline, the failure is expected and explained by the global banner —
+          only surface a raw error when we're actually online. */}
+      {error && online && <p className="text-sm text-rose-400">unavailable — {error}</p>}
 
       <JumpBackIn />
+      <Downloaded />
 
       {data && (
         <>
@@ -76,6 +82,51 @@ function JumpBackIn() {
             onResume={() => navigate(resumeHref(it))}
             onRemove={() => remove(it)}
           />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+// Items saved for offline reading, straight from the on-device manifest (no
+// server call) — so this is the entry point to your downloads when the server
+// is unreachable (on a plane). Newest first; tap to open in the right reader
+// (which loads the cached copy via the service worker). Hidden until you've
+// saved one.
+function Downloaded() {
+  const [entries, setEntries] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    allEntries()
+      .then((e) => alive && setEntries(e))
+      .catch(() => alive && setEntries([]))
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  if (!entries || entries.length === 0) return null
+  const items = [...entries].sort((a, b) => (b.date || 0) - (a.date || 0))
+
+  return (
+    <section className="space-y-2">
+      <h3 className="text-sm font-medium uppercase tracking-wide text-slate-500">Downloaded</h3>
+      <div className="flex gap-3 overflow-x-auto pb-1">
+        {items.map((e) => (
+          <Link
+            key={e.key}
+            to={readerHref(e.section, { id: e.id, reader: e.reader })}
+            className="block w-28 shrink-0 active:opacity-80"
+          >
+            <div className="flex aspect-[3/4] items-center justify-center rounded-lg bg-slate-800 p-2 text-center">
+              <span className="line-clamp-5 text-xs font-medium text-slate-300">{e.name}</span>
+            </div>
+            <span className="mt-1 block truncate text-xs text-slate-200">{e.name}</span>
+            <span className="block truncate text-[11px] text-slate-500">
+              {formatSize(e.bytes)} · offline
+            </span>
+          </Link>
         ))}
       </div>
     </section>

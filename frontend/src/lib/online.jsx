@@ -56,6 +56,12 @@ export function OnlineProvider({ children, intervalMs = 30000 }) {
     const onVisible = () => {
       if (document.visibilityState === 'visible') run()
     }
+    // The radio dropping (airplane mode) is a definitive offline signal — flip
+    // immediately rather than waiting for the next probe. The radio coming back
+    // is NOT definitive (the tailnet/server may still be unreachable), so that
+    // just triggers a re-probe.
+    const goOffline = () => alive && setOnline(false)
+    window.addEventListener('offline', goOffline)
     window.addEventListener('online', run)
     window.addEventListener('focus', run)
     document.addEventListener('visibilitychange', onVisible)
@@ -63,6 +69,7 @@ export function OnlineProvider({ children, intervalMs = 30000 }) {
     return () => {
       alive = false
       clearInterval(id)
+      window.removeEventListener('offline', goOffline)
       window.removeEventListener('online', run)
       window.removeEventListener('focus', run)
       document.removeEventListener('visibilitychange', onVisible)

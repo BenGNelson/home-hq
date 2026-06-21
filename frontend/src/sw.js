@@ -80,8 +80,17 @@ async function handle(request) {
   const shellHit = await shell.match(request)
   if (shellHit) return shellHit
 
-  // 4) Everything else (live /api data, etc.) → network, never cached here.
-  return fetch(request)
+  // 4) Everything else (live /api data, etc.) → network, never cached here. If
+  //    the network fails (offline), resolve to a network-error Response rather
+  //    than letting this promise REJECT — a rejected respondWith() surfaces as an
+  //    ugly "FetchEvent.respondWith received an error: TypeError" in the app's
+  //    error text and offers nothing better. Response.error() makes the caller's
+  //    fetch fail cleanly, exactly as it would with no service worker at all.
+  try {
+    return await fetch(request)
+  } catch {
+    return Response.error()
+  }
 }
 
 self.addEventListener('fetch', (event) => {
