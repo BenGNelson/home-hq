@@ -806,10 +806,23 @@ download UI — is:
   the IndexedDB / Cache Storage / `storage.estimate()`+`persist()` I/O is thin.
 - **Offline detector** (`lib/online.jsx`): `OnlineProvider` + `useOnline()` probe
   `/api/health` (NOT `navigator.onLine`, which only means the radio is up — over
-  the tailnet the radio can be online while the server is unreachable). The
-  write-sync
-  outbox (queued reading position, flushed on reconnect) will be app-driven, not
-  SW Background Sync (iOS Safari lacks it).
+  the tailnet the radio can be online while the server is unreachable).
+- **Reading-position write-sync outbox** (`lib/progressOutbox.js`): every reader
+  and the audiobook player saves your spot through `saveProgress()`, which writes
+  the position to a per-item IndexedDB queue (keyed by `readingKey`/`listenKey`,
+  stamped with `updatedAt`) and then PUTs it to the existing
+  `/library/reading-progress` / `/library/listen-progress` endpoints. Offline,
+  the PUT fails and the position stays queued instead of vanishing; on reconnect
+  the `OutboxFlusher` component (`components/OutboxFlusher.jsx`, flushes on
+  mount-if-online and on every offline→online edge) replays the queue. It's
+  **app-driven, NOT SW Background Sync** (iOS Safari lacks it). Last-write-wins is
+  enforced by **compare-and-delete**: an entry is only removed if its `updatedAt`
+  still matches the value just sent, the flush sends the *freshest* value per key
+  (not a stale snapshot), and a 4xx drops the entry while a 5xx/network error
+  leaves it queued — so a newer save can never be clobbered by an in-flight stale
+  one. Readers also **resume from the queued local value** when reopened offline
+  (a pending entry is, by definition, newer than the server — it hasn't synced
+  yet). The pure key helpers are unit-tested; the IndexedDB/fetch I/O is thin.
 - **Download button** (`modules/library/DownloadButton.jsx`): a compact control
   in the reader top bars that calls `downloadJob()` with the URLs that make up an
   item. A PDF/ebook is one `/library/file` URL; a **comic** is the asymmetric
@@ -896,8 +909,10 @@ download UI — is:
   _Note for testing: Playwright's `set_offline` does NOT block localhost, so
   simulate a unreachable server by aborting `**/api/**` instead — SW cache hits
   make no network request, so downloads still serve while live calls fail._
-  _The full audit-grade storage manager, write-sync outbox, comics multi-file
-  download, and the dedicated offline landing land in later phases._
+  _The audit-grade storage manager, comics multi-file download, the dedicated
+  offline landing, and the reading-position write-sync outbox are all built (see
+  the outbox bullet above); offline mode is feature-complete across all media
+  types._
 
 ### A note on the Docker socket
 

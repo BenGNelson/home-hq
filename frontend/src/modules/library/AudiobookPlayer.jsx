@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { fileUrl, formatTime, audiobookCoverUrl } from '../../lib/library.js'
 import { API_BASE } from '../../lib/useApi.js'
+import { saveProgress, getPending, listenKey } from '../../lib/progressOutbox.js'
 import AudiobookCover from './AudiobookCover.jsx'
 
 // --- transport icons (crisp SVGs that inherit currentColor) ----------------
@@ -71,34 +72,46 @@ export default function AudiobookPlayer({ bookPath, bookName, chapters }) {
   const current = chapters[idx]
   stateRef.current = { chapterId: current?.id, time }
 
-  // Load saved position once, then allow the audio src to mount on the right chapter.
+  // Load saved position once, then allow the audio src to mount on the right
+  // chapter. A queued offline write (if any) is the freshest position — prefer
+  // it; otherwise ask the server (roams across devices).
   useEffect(() => {
     let cancelled = false
-    fetch(`${API_BASE}/library/listen-progress?book=${encodeURIComponent(bookPath)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((saved) => {
-        if (cancelled) return
-        if (saved && saved.chapter_id) {
-          const i = chapters.findIndex((c) => c.id === saved.chapter_id)
-          if (i >= 0) {
-            setIdx(i)
-            seekTo.current = saved.position_s || 0
-          }
+    const load = async () => {
+      let saved = null
+      const pending = await getPending(listenKey(bookPath))
+      if (pending?.body) {
+        saved = { chapter_id: pending.body.chapter_id, position_s: pending.body.position_s }
+      } else {
+        try {
+          const r = await fetch(`${API_BASE}/library/listen-progress?book=${encodeURIComponent(bookPath)}`)
+          if (r.ok) saved = await r.json()
+        } catch {
+          /* offline / no saved position */
         }
-        setReady(true)
-      })
-      .catch(() => setReady(true))
+      }
+      if (cancelled) return
+      if (saved && saved.chapter_id) {
+        const i = chapters.findIndex((c) => c.id === saved.chapter_id)
+        if (i >= 0) {
+          setIdx(i)
+          seekTo.current = saved.position_s || 0
+        }
+      }
+      setReady(true)
+    }
+    load()
     return () => {
       cancelled = true
     }
   }, [bookPath]) // chapters are stable for a given book
 
   const putProgress = (chapterId, position) =>
-    fetch(`${API_BASE}/library/listen-progress`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ book_id: bookPath, chapter_id: chapterId, position_s: position }),
-    }).catch(() => {})
+    saveProgress({
+      key: listenKey(bookPath),
+      path: '/library/listen-progress',
+      body: { book_id: bookPath, chapter_id: chapterId, position_s: position },
+    })
 
   const save = (force = false) => {
     const a = audioRef.current

@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
 import { OnlineProvider } from './lib/online.jsx'
+import OutboxFlusher from './components/OutboxFlusher.jsx'
 import { requestPersist } from './lib/offlineStore.js'
 import './index.css'
 
@@ -17,6 +18,7 @@ requestPersist()
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <OnlineProvider>
+      <OutboxFlusher />
       <BrowserRouter>
         <App />
       </BrowserRouter>
