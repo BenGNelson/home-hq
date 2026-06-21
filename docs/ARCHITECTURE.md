@@ -719,10 +719,23 @@ contend with Bambu Studio's own live view. The UI consumes it as a live MJPEG
 feed: `GET /api/printer/camera/stream` re-streams the frames as
 `multipart/x-mixed-replace`, so a plain `<img>` swaps them in place over one
 connection (no per-frame refetch); a streamer re-asserts interest as it plays so
-a watched feed never idles out. `GET /api/printer/camera` still returns a single
-latest frame as a snapshot/fallback. The camera is opt-in (`PRINTER_CAMERA`)
-because it may need its own network reachability (e.g. a separate port-forward to
-the printer).
+a watched feed never idles out. `GET /api/printer/camera` returns a single latest
+frame as a snapshot. The camera is opt-in (`PRINTER_CAMERA`) because it may need
+its own network reachability (e.g. a separate port-forward to the printer).
+
+**Client-side stream-vs-snapshot fallback.** WebKit (every browser on iOS, and
+Safari on macOS) does not reliably render `multipart/x-mixed-replace` in an
+`<img>` — it sticks on "connecting" and paints the broken-image glyph. So
+`Camera.jsx` chooses a render path: `lib/camera.js`'s pure `prefersSnapshot(ua)`
+puts WebKit straight onto **snapshot polling** (re-fetch `/api/printer/camera`
+~1/s) while Blink/Gecko use the smoother MJPEG stream. Two safety nets make it
+robust regardless of UA quirks (iPadOS reports a Mac UA; iOS Chrome is WebKit
+under the hood): the stream path **times out into snapshot mode** if no frame
+renders within a grace window, and snapshot polling **preloads each frame
+off-screen and only swaps the visible `<img>` on success**, so a 503 during the
+camera's on-demand warmup keeps the last good frame (or the "connecting" overlay)
+up instead of flashing a broken image. Snapshot mode trades frame rate for
+working-everywhere.
 
 ---
 

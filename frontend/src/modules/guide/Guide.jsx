@@ -362,9 +362,12 @@ export default function Guide() {
           Bambu Studio’s live view). The UI shows it as a live MJPEG feed —{' '}
           <Code>/api/printer/camera/stream</Code> re-streams the frames so a plain
           image element swaps them in place over one connection — while{' '}
-          <Code>/api/printer/camera</Code> still serves a single frame as a snapshot.
-          It’s opt-in (<Code>PRINTER_CAMERA</Code>) since it may need its own network
-          reachability.
+          <Code>/api/printer/camera</Code> serves a single frame as a snapshot.
+          WebKit browsers (iOS, and Safari on macOS) can’t render that MJPEG
+          stream in an image element, so on those the UI automatically falls back
+          to polling the snapshot endpoint about once a second — lower frame rate,
+          but it works everywhere. It’s opt-in (<Code>PRINTER_CAMERA</Code>) since
+          it may need its own network reachability.
         </p>
       </Section>
 
