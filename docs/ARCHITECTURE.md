@@ -391,7 +391,7 @@ resume + show art); the game then resumes by booting to its in-game Continue, no
 a save-state slot. Both **roam across
 devices** and ride the backup. The Library hub's **Jump back in** shelf merges
 them — `GET /library/continue` returns in-progress documents (resume to the
-saved page) and recently-played games (resume the newest save state), newest
+saved page) and recently-played games (boot to their in-game Continue), newest
 first — so one tap skips the drill-down. Each kind's remove clears only its
 marker (`reading_progress` row, or `game_progress` row), never the content or
 the save files; the shelf also skips entries whose underlying file is gone.
@@ -462,17 +462,23 @@ title + Play). **Recently played** is tracked **client-side** (localStorage, thi
 device) for now — consistent with in-browser saves; it graduates to the backend
 with save roaming.
 
-**Save states roam.** The engine fires `EJS_onSaveState` (state blob +
-screenshot) when you save a state in-game; the iframe POSTs it to the backend,
-which stores it under `/data/saves` — a writable volume that lives under the
-host's `/`, so save states **roam across devices AND ride the off-site restic
-backup** (the RAID is *not* in that backup). A game's detail page lists its
-states (screenshot thumbnails), and **Resume** relaunches the game with
-`EJS_loadStateURL` pointed at the chosen state's bytes. Slot ids are
-backend-assigned millisecond timestamps (digits only) — that's also the
-traversal guard for the file paths. Still in-browser / client-side for now:
-in-game SRAM (the "save in the game" battery) and the Recently Played row;
-custom slot names + auto-save-on-exit are easy follow-ups.
+**Game saves roam — two systems, both server-synced + backed up.** Both live
+under `/data/saves` (a writable volume on the host's `/`, so they **roam across
+devices AND ride the off-site restic backup** — the RAID is *not* in that
+backup), one per-game folder keyed by a hash of the id.
+- **In-game battery save (SRAM) — the everyday one.** The game's own "Save" →
+  "Continue". `emulator.html` polls the live SRAM as you play and POSTs it to
+  `POST /library/games/sram` (overwriting one `.sav` per game); on open it seeds
+  the emulator's FS with the latest so Continue resumes your spot anywhere. This
+  is what a normal "open the game and keep playing" uses — opening a game does
+  **not** auto-load a save state (that would snapshot-restore an older SRAM over
+  it). An in-game save also marks the game last-played for the Jump-back-in shelf.
+- **Save states — explicit snapshots.** The engine fires `EJS_onSaveState` (state
+  blob + screenshot) when you hit Save State in-game; the iframe POSTs it to
+  `POST /library/games/save-states`. A game's detail page lists its states
+  (screenshot thumbnails), and **Resume** relaunches with `EJS_loadStateURL`
+  pointed at the chosen state's bytes. Slot ids are backend-assigned millisecond
+  timestamps (digits only) — also the traversal guard for the file paths.
 
 ## Config backup (host script, app only lists)
 
@@ -1059,6 +1065,21 @@ Short record of *why* things are the way they are, so future changes have contex
   `children` array even before its data lands). It stays opt-in — widgets that
   self-hide when unconfigured (Printer, Tailscale) skip it so they never flash a
   skeleton and then vanish on installs without them.
+- **Game saves: the in-game battery save (SRAM) is the everyday one; save states
+  are explicit snapshots; and we own persistence for both.** EmulatorJS persists
+  neither across sessions in our setup (it has browser storage for the ROM and for
+  save states but none for SRAM, and even its save-state persistence is unreliable
+  through our iframe teardown). Two non-obvious choices fell out of debugging it on
+  a real device: (1) **capture SRAM by polling** the live save (`getSaveFile`)
+  every few seconds + on page-hide, *not* via EmulatorJS's `saveSaveFiles` event —
+  the event doesn't fire before the iframe is destroyed on exit, so saves were
+  lost. (2) **Don't auto-load a save state when opening a game** — a save state
+  restores the entire machine *including the SRAM frozen at that moment*, so
+  auto-loading the newest state on open silently rewound the player's latest
+  in-game save. Opening a game now just boots, and the seeded SRAM + the game's own
+  "Continue" is the resume; save states stay a deliberate "jump to an exact moment"
+  feature. Both sync to `/data/saves` (roam + backup); the local captures sit in a
+  separate `hq-game-saves` cache so the downloads storage audit stays exact.
 - **Page title lives in the shell, not each page.** The persistent top bar shows
   the current section's name, resolved from the route by `activeModule()` in
   `lib/nav.js` (longest matching path prefix, so a deep route like
