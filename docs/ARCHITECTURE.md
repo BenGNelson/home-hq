@@ -812,7 +812,11 @@ download UI — is:
   player saves your spot through `saveProgress()`, which writes the position
   (keyed by `readingKey`/`listenKey`, stamped `updatedAt`, `synced:false`) and
   then PUTs it to the existing `/library/reading-progress` /
-  `/library/listen-progress` endpoints. **(1) Sync:** offline the PUT fails and
+  `/library/listen-progress` endpoints. The per-page save is debounced and that
+  timer is canceled on unmount, so the page readers also flush the latest
+  position on exit/background via `useSaveOnExit` (the audiobook player already
+  saved on exit) — without it, turning a page and immediately leaving lost that
+  spot, so a downloaded item could reopen at page 1 offline. **(1) Sync:** offline the PUT fails and
   the entry stays `synced:false`; the `OutboxFlusher` component
   (`components/OutboxFlusher.jsx`, runs on mount-if-online and every
   offline→online edge) replays unsynced entries. App-driven, **NOT SW Background

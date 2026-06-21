@@ -5,6 +5,7 @@ import { API_BASE } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
 import { goBack } from '../../lib/nav.js'
 import { saveProgress, resolveResume, readingKey } from '../../lib/progressOutbox.js'
+import { useSaveOnExit } from '../../lib/useSaveOnExit.js'
 import DownloadButton from './DownloadButton.jsx'
 
 // In-app comic reader (CBZ/CBR/CB7). The backend extracts + downscales one page
@@ -95,6 +96,18 @@ export default function ComicReader() {
     }, 600)
     return () => clearTimeout(t)
   }, [page, status, numPages, id])
+
+  // Also flush on leaving/backgrounding (the debounce above is canceled on
+  // unmount, so a page-turn right before exiting would otherwise be lost).
+  useSaveOnExit(() =>
+    status === 'ready' && section && id && numPages
+      ? {
+          key: readingKey(section, id),
+          path: '/library/reading-progress',
+          body: { section, id, page, total: numPages },
+        }
+      : null
+  )
 
   const go = (delta) => {
     setPage((p) => {

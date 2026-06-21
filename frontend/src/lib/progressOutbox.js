@@ -137,7 +137,12 @@ function putWithTimeout(path, body) {
 // means the position is never lost and is always available to resume from while
 // offline.
 export async function saveProgress({ key, path, body }) {
-  const updatedAt = await queueWrite(key, path, body)
+  let updatedAt
+  try {
+    updatedAt = await queueWrite(key, path, body)
+  } catch {
+    return false // IndexedDB unavailable (e.g. private mode) — best effort, never throw
+  }
   try {
     const res = await putWithTimeout(path, body)
     if (res.ok) {
