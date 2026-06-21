@@ -11,7 +11,7 @@ import { formatSize } from '../../lib/format.js'
 // `item` = { section, id, name, type, urls } — the download job. The only writer
 // of offline content is downloadJob(), so a tap here is the sole way bytes land
 // on the device (the audit-grade single-writer rule).
-export default function DownloadButton({ item }) {
+export default function DownloadButton({ item, onBefore }) {
   const key = downloadKey(item.section, item.id)
   const [state, setState] = useState('checking')
   const [pct, setPct] = useState(0)
@@ -38,6 +38,7 @@ export default function DownloadButton({ item }) {
     setState('downloading')
     setPct(0)
     try {
+      if (onBefore) await onBefore() // e.g. games ensure the shared emulator engine first
       const entry = await downloadJob(item, ({ fraction, loaded }) => {
         if (!mounted.current) return
         setPct(Math.min(100, Math.round((fraction || 0) * 100)))

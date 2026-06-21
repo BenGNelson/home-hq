@@ -175,14 +175,46 @@ export function readerHref(section, item) {
   return `/library/read?${q.toString()}`
 }
 
-// Where a downloaded manifest entry opens. Audiobooks are a folder played by the
-// audiobook view (routed by ?path=), not the /library/read reader dispatcher;
-// everything else opens in a reader. Used by the Downloads page / offline lists.
+// Where a downloaded manifest entry opens. Audiobooks → the ?path= player;
+// games → the emulator player (needs the stored core + name); everything else
+// → the /library/read reader. Used by the Downloads page / offline lists.
 export function downloadHref(entry) {
   if (entry.section === 'audiobooks') {
     return `/library/audiobooks?path=${encodeURIComponent(entry.id)}`
   }
+  if (entry.section === 'games') {
+    const q = new URLSearchParams({ id: entry.id, core: entry.core || '', name: entry.name || '' })
+    return `/library/play?${q.toString()}`
+  }
   return readerHref(entry.section, { id: entry.id, reader: entry.reader })
+}
+
+// --- offline emulator (ROMs) -----------------------------------------------
+// The shared EmulatorJS engine assets a game needs (cached once, not per-game).
+// Captured live from a real game load. The host page (emulator.html) is matched
+// by bare path in the SW since it's requested with per-game query params.
+export const EMULATOR_ENGINE_URLS = [
+  '/emulator.html',
+  `${EMULATORJS_DATA}loader.js`,
+  `${EMULATORJS_DATA}emulator.min.js`,
+  `${EMULATORJS_DATA}emulator.min.css`,
+  `${EMULATORJS_DATA}localization/en-US.json`,
+  `${EMULATORJS_DATA}compression/extract7z.js`,
+]
+
+// EmulatorJS maps our system core name to a libretro core file.
+const LIBRETRO_CORE = { gb: 'gambatte', gbc: 'mgba', gba: 'mgba' }
+
+// The per-game offline URLs: the ROM + its core (both non-thread variants, since
+// iOS may pick either) + the core's report. The shared engine is separate.
+export function gameOfflineUrls(id, core) {
+  const lib = LIBRETRO_CORE[core] || core
+  return [
+    fileUrl('games', id),
+    `${EMULATORJS_DATA}cores/${lib}-wasm.data`,
+    `${EMULATORJS_DATA}cores/${lib}-legacy-wasm.data`,
+    `${EMULATORJS_DATA}cores/reports/${lib}.json`,
+  ]
 }
 
 // Group play items by their system label → ordered [[label, items], ...].

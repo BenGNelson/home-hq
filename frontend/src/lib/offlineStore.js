@@ -14,6 +14,7 @@
 // that — it cross-checks the real cache against the manifest and flags strays.
 
 import { OFFLINE_CACHE, SHELL_CACHE } from './offlineConfig.js'
+import { EMULATOR_ENGINE_URLS } from './library.js'
 
 const DB_NAME = 'home-hq-offline'
 const DB_VERSION = 1
@@ -46,14 +47,23 @@ export function auditCache(entries, cachedUrls) {
 // shell line, the downloads total, and — when the browser reports a usage
 // figure — how much of it our accounting explains vs. is unaccounted-for.
 export function summarizeStorage(entries, estimate = {}, shellBytes = 0) {
-  const items = [...(entries ?? [])].sort((a, b) => (b.date || 0) - (a.date || 0))
+  const all = entries ?? []
+  // The shared emulator engine is infrastructure, not a content download — show
+  // it as its own line (like the app shell), not in the items list.
+  const engineBytes = all
+    .filter((e) => e.section === 'emulator')
+    .reduce((n, e) => n + (e.bytes || 0), 0)
+  const items = all
+    .filter((e) => e.section !== 'emulator')
+    .sort((a, b) => (b.date || 0) - (a.date || 0))
   const downloadsBytes = items.reduce((n, e) => n + (e.bytes || 0), 0)
-  const accounted = downloadsBytes + (shellBytes || 0)
+  const accounted = downloadsBytes + (shellBytes || 0) + engineBytes
   const usage = typeof estimate.usage === 'number' ? estimate.usage : null
   const quota = typeof estimate.quota === 'number' ? estimate.quota : null
   return {
     items,
     shellBytes: shellBytes || 0,
+    engineBytes,
     downloadsBytes,
     accounted,
     usage,
@@ -202,6 +212,16 @@ export async function downloadJob(meta, onProgress) {
   }
   await putEntry(entry)
   return entry
+}
+
+// The shared EmulatorJS engine (host page + loader + core-agnostic assets) that
+// every downloaded game needs. Cached once as its own manifest entry (section
+// 'emulator') — the storage manager shows it as a distinct "Emulator engine"
+// line, like the app shell. A game download ensures this first.
+export async function ensureEmulatorEngine() {
+  const key = downloadKey('emulator', 'engine')
+  if (await getEntry(key)) return
+  await downloadJob({ section: 'emulator', id: 'engine', name: 'Emulator engine', urls: EMULATOR_ENGINE_URLS })
 }
 
 // Remove a download: delete its cached URLs AND its manifest row, so nothing is

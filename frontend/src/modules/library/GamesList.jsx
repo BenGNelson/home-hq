@@ -1,17 +1,26 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApi } from '../../lib/useApi.js'
+import { useOnline } from '../../lib/online.jsx'
+import { useDownloaded } from '../../lib/useDownloaded.js'
+import { downloadKey } from '../../lib/offlineStore.js'
 import { groupByLabel } from '../../lib/library.js'
 import { getRecent } from '../../lib/recentGames.js'
 import GameCover from './GameCover.jsx'
+import OfflineSection from './OfflineSection.jsx'
+import SavedBadge from './SavedBadge.jsx'
 
 // The Games section: a "Recently Played" row (client-side, this device) above a
 // box-art grid grouped by system. Tapping a game opens its detail page (the
 // "title page"). Mobile-first — covers are big tap targets.
 export default function GamesList() {
   const { data, error, loading } = useApi('/library/games', 30000)
+  const { online } = useOnline()
   // Read on mount; returning from a game remounts this page, so it stays fresh.
   const [recent] = useState(() => getRecent())
+
+  // Offline, the library can't load — show the games you've downloaded.
+  if (!online) return <OfflineSection section="games" label="Games" icon="🎮" />
 
   return (
     <div className="space-y-5">
@@ -47,6 +56,7 @@ function RecentlyPlayed({ recent, items }) {
 
 function Section({ title, games }) {
   const navigate = useNavigate()
+  const downloaded = useDownloaded()
   return (
     <section className="space-y-2">
       <h3 className="text-sm font-medium uppercase tracking-wide text-slate-500">{title}</h3>
@@ -57,7 +67,14 @@ function Section({ title, games }) {
             onClick={() => navigate(`/library/games/detail?id=${encodeURIComponent(g.id)}`)}
             className="group text-left"
           >
-            <GameCover game={g} className="transition-transform group-active:scale-95" />
+            <span className="relative block">
+              <GameCover game={g} className="transition-transform group-active:scale-95" />
+              {downloaded?.has(downloadKey('games', g.id)) && (
+                <span className="absolute right-1 top-1">
+                  <SavedBadge saved />
+                </span>
+              )}
+            </span>
             <span className="mt-1 block truncate text-xs text-slate-300">{g.name}</span>
           </button>
         ))}

@@ -79,4 +79,16 @@ describe('summarizeStorage', () => {
     expect(s.downloadsBytes).toBe(0)
     expect(s.accounted).toBe(0)
   })
+
+  it('breaks the shared emulator engine out of the items as its own line', () => {
+    const e = [
+      { key: 'books:d', section: 'books', name: 'D', bytes: 1000, date: 2 },
+      { key: 'emulator:engine', section: 'emulator', name: 'Emulator engine', bytes: 5000, date: 1 },
+    ]
+    const s = summarizeStorage(e, {}, 0)
+    expect(s.items.map((i) => i.key)).toEqual(['books:d']) // engine not a content item
+    expect(s.engineBytes).toBe(5000)
+    expect(s.downloadsBytes).toBe(1000)
+    expect(s.accounted).toBe(6000) // downloads + shell(0) + engine
+  })
 })
