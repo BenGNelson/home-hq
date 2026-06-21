@@ -113,6 +113,13 @@ export function saveStateShotUrl(id, slot) {
   return `${API_BASE}/library/games/save-state/screenshot?id=${encodeURIComponent(id)}&slot=${encodeURIComponent(slot)}`
 }
 
+// A game's in-game battery save (SRAM) — the game's OWN save (e.g. Pokemon's
+// "Save"), one per game, stored server-side so it roams. GET serves it, POST
+// (multipart) overwrites it. The emulator captures + restores it.
+export function gameSramUrl(id) {
+  return `${API_BASE}/library/games/sram?id=${encodeURIComponent(id)}`
+}
+
 // The isolated player page (public/emulator.html) for a game item. Running
 // EmulatorJS inside an iframe keeps its window globals + teardown out of the SPA.
 export function playerSrc(item, data = EMULATORJS_DATA) {

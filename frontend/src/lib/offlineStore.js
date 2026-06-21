@@ -14,7 +14,7 @@
 // that — it cross-checks the real cache against the manifest and flags strays.
 
 import { OFFLINE_CACHE, SHELL_CACHE, GAME_SAVES_CACHE } from './offlineConfig.js'
-import { EMULATOR_ENGINE_URLS } from './library.js'
+import { EMULATOR_ENGINE_URLS, gameSramUrl } from './library.js'
 
 const DB_NAME = 'home-hq-offline'
 const DB_VERSION = 1
@@ -235,7 +235,7 @@ export async function downloadJob(meta, onProgress) {
 // line, like the app shell. A game download ensures this first. Bump
 // ENGINE_VERSION whenever emulator.html or EMULATOR_ENGINE_URLS changes so a
 // device that already cached the engine refreshes it instead of running stale.
-const ENGINE_VERSION = 4
+const ENGINE_VERSION = 5
 export async function ensureEmulatorEngine() {
   const key = downloadKey('emulator', 'engine')
   const existing = await getEntry(key)
@@ -279,6 +279,23 @@ async function removeGameSave(gid) {
   try {
     const cache = await caches.open(GAME_SAVES_CACHE)
     await cache.delete(gameSaveKey(gid))
+    await cache.delete('/__game-sram/' + encodeURIComponent(gid))
+  } catch {
+    /* ignore */
+  }
+}
+
+// Seed a game's in-game battery save (SRAM) into the local saves cache at
+// download time, so playing it offline before ever playing online still has
+// your server-side save. Best-effort (no save yet → 404 → skip).
+export async function cacheGameSram(id) {
+  if (!('caches' in self) || !id) return
+  try {
+    const res = await fetch(gameSramUrl(id))
+    if (res.ok) {
+      const cache = await caches.open(GAME_SAVES_CACHE)
+      await cache.put('/__game-sram/' + encodeURIComponent(id), res)
+    }
   } catch {
     /* ignore */
   }

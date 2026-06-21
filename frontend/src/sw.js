@@ -98,15 +98,21 @@ async function handle(request) {
   const offline = await caches.open(OFFLINE_CACHE)
 
   // The emulator host page is requested with per-game query params (?core=&rom=)
-  // but is the same file, downloaded with a game — match it by bare path. Not
-  // cached + offline → fail (you can't reach a non-downloaded game offline).
+  // but is the same file (downloaded with a game; matched by bare path). Serve it
+  // NETWORK-FIRST so online play always runs the latest engine page — and refresh
+  // the cached copy on the way through (when a game is downloaded), so OFFLINE
+  // play picks up engine-page changes after a single online load, with no
+  // re-download. Offline falls back to the cached page; not cached + offline =
+  // fail (you can't reach a non-downloaded game offline).
   if (new URL(request.url).pathname === '/emulator.html') {
-    const cachedPage = await offline.match('/emulator.html')
-    if (cachedPage) return cachedPage
     try {
-      return await fetch(request)
+      const fresh = await fetch(request)
+      if (fresh.ok && (await offline.match('/emulator.html'))) {
+        await offline.put('/emulator.html', fresh.clone()) // keep the downloaded engine page current
+      }
+      return fresh
     } catch {
-      return Response.error()
+      return (await offline.match('/emulator.html')) || Response.error()
     }
   }
 

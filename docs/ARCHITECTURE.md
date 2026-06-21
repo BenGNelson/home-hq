@@ -812,9 +812,20 @@ download UI — is:
   `onBefore`). The SW no longer bypasses `/emulator.html` + `/emulatorjs/` — it
   serves them from cache when downloaded (the host page is matched by bare path
   since it carries per-game query params), so the emulator iframe, engine, core,
-  and ROM all come from cache offline. Save states already persist to the browser
-  (EmulatorJS `save-state-location: browser`), so offline play + save + resume
-  works locally; syncing an offline save back to the server is deferred. Once
+  and ROM all come from cache offline. The ROM (and any resume save state) are
+  loaded by `emulator.html` itself via `fetch`+blob URL rather than EmulatorJS's
+  own XHR, since a service-worker-intercepted XHR for a large binary stalls on
+  iOS. **Two save systems, both ours to persist:** EmulatorJS does NOT keep the
+  game's in-game **battery save (SRAM)** — Pokémon's own "Save" — across sessions
+  (it only fires a `saveSaveFiles` event), so `emulator.html` captures the `.sav`
+  to a local cache + uploads it to `/library/games/sram` (one per game, roams +
+  offline), and on boot seeds the emulator's FS with the latest so "Continue"
+  works everywhere. **Save states** (the snapshot button) are the separate system
+  — captured the same way, listed on the detail page; the captured saves live in
+  a `hq-game-saves` cache shown as a "Game saves" storage line. The engine bundle
+  is versioned (`ENGINE_VERSION`) and the SW serves `emulator.html` network-first
+  (refreshing the cached copy) so engine-page changes reach a device without a
+  re-download. Once
   downloaded, the reader/player requests the same URLs and the SW serves them from
   cache — verified end-to-end that a downloaded PDF renders with
   the tailnet off (pdf.js range requests fall back cleanly to the cached full
