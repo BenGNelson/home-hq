@@ -153,10 +153,18 @@ export default function EpubReader() {
     return () => {
       cancelled = true
       clearTimeout(saveTimer.current)
+      // foliate's teardown can throw on a view that didn't fully render (some
+      // books open blank). A throw here is during React's unmount, so without
+      // guarding it, it takes down the whole app (blank screen on Close). Guard
+      // it — the error boundary is the backstop, this is the source fix.
       if (view) {
-        view.removeEventListener('relocate', onRelocate)
-        view.close?.()
-        view.remove()
+        try {
+          view.removeEventListener('relocate', onRelocate)
+          view.close?.()
+          view.remove()
+        } catch {
+          /* ignore — best-effort cleanup of a half-open view */
+        }
       }
       viewRef.current = null
       readyRef.current = false

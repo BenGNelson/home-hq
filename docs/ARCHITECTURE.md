@@ -323,6 +323,14 @@ iframe that (a WebKit quirk) must run with `allow-scripts`, so a
 boundary there — it allows our inline theme script and the reader's `blob:`
 iframe/styles/fonts, same-origin everything else.
 
+A per-route **error boundary** (`components/ErrorBoundary.jsx`, wrapping the
+routed content in `Shell`, keyed by pathname) means a crash inside one screen —
+notably a reader engine throwing during render or **teardown** — shows a
+contained fallback instead of unmounting the whole app to a blank screen. The
+ebook reader also guards foliate's teardown in a try/catch (some books open
+blank, and tearing down a half-rendered view can throw during React's unmount —
+that's the source of the crash; the boundary is the backstop).
+
 **Comics are the one server-assisted reader.** A comic is a CBZ/CBR/CB7 archive
 of page images (zip/rar/7z). Browsers can't read RAR/7z, and the scanned pages
 are often huge, so — unlike the client-side game/PDF/ebook engines — the backend

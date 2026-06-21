@@ -4,6 +4,7 @@ import { useApi } from '../lib/useApi.js'
 import { useOnline } from '../lib/online.jsx'
 import { groupModules, activeModule, FOOTER_GROUP } from '../lib/nav.js'
 import ThemePicker from './ThemePicker.jsx'
+import ErrorBoundary from '../components/ErrorBoundary.jsx'
 
 // A live health indicator: green when the API answers, red when it doesn't.
 function StatusDot() {
@@ -167,7 +168,12 @@ export default function Shell({ modules, children }) {
           </NavLink>
         )}
 
-        <main className="min-w-0 flex-1 overflow-auto p-4 md:p-6">{children}</main>
+        {/* Per-route error boundary: a crash in one screen (e.g. a reader engine
+            throwing) shows a contained fallback instead of unmounting the whole
+            app to a blank screen. Keyed by route so navigating clears the error. */}
+        <main className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
+          <ErrorBoundary key={location.pathname}>{children}</ErrorBoundary>
+        </main>
       </div>
     </div>
   )
