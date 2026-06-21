@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { fileUrl } from '../../lib/library.js'
 import { API_BASE } from '../../lib/useApi.js'
+import { useOnline } from '../../lib/online.jsx'
+import { goBack } from '../../lib/nav.js'
 import DownloadButton from './DownloadButton.jsx'
 // The worker is referenced by URL (emitted as its own asset, fetched only when
 // the reader runs). The heavy pdf.js library itself is dynamically imported in
@@ -20,7 +22,13 @@ export default function PdfReader() {
   const navigate = useNavigate()
   const section = params.get('section')
   const id = params.get('id')
+  const { online } = useOnline()
+  // Close returns to wherever you came from (history-back). When there's no
+  // in-app history, fall back to the section list online, or the Library hub
+  // (which has your Downloads) offline — so closing never dead-ends on a list
+  // page that can't load.
   const back = `/library/${section || 'papers'}`
+  const exit = () => goBack(navigate, online ? back : '/library')
 
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
@@ -167,13 +175,15 @@ export default function PdfReader() {
         style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
       >
         <button
-          onClick={() => navigate(back)}
+          onClick={exit}
           className="shrink-0 whitespace-nowrap rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 active:bg-slate-700"
         >
           ✕ Close
         </button>
         <span className="min-w-0 flex-1 truncate text-center text-sm text-slate-300">{filename}</span>
-        <DownloadButton item={{ section, id, name: filename, reader: 'pdf', urls: [fileUrl(section, id)] }} />
+        <DownloadButton
+          item={{ section, id, name: filename.replace(/\.[^.]+$/, ''), reader: 'pdf', urls: [fileUrl(section, id)] }}
+        />
         <span className="shrink-0 text-sm tabular-nums text-slate-400">
           {numPages ? `${page} / ${numPages}` : '…'}
         </span>

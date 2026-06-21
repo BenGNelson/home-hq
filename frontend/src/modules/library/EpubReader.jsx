@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { fileUrl } from '../../lib/library.js'
 import { API_BASE } from '../../lib/useApi.js'
+import { useOnline } from '../../lib/online.jsx'
+import { goBack } from '../../lib/nav.js'
 import DownloadButton from './DownloadButton.jsx'
 
 // Reading theme injected into the book document via foliate's renderer.setStyles
@@ -46,7 +48,11 @@ export default function EpubReader() {
   const navigate = useNavigate()
   const section = params.get('section')
   const id = params.get('id')
+  const { online } = useOnline()
+  // Close returns to where you came from (history-back); falls back to the
+  // section list online, or the Library hub (with your Downloads) offline.
   const back = `/library/${section || 'books'}`
+  const exit = () => goBack(navigate, online ? back : '/library')
 
   const hostRef = useRef(null)
   const viewRef = useRef(null)
@@ -185,7 +191,7 @@ export default function EpubReader() {
         style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
       >
         <button
-          onClick={() => navigate(back)}
+          onClick={exit}
           className="shrink-0 whitespace-nowrap rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 active:bg-slate-700"
         >
           ✕ Close
@@ -193,7 +199,15 @@ export default function EpubReader() {
         <span className="min-w-0 flex-1 truncate text-center text-sm text-slate-300">
           {title || filename}
         </span>
-        <DownloadButton item={{ section, id, name: title || filename, reader: 'epub', urls: [fileUrl(section, id)] }} />
+        <DownloadButton
+          item={{
+            section,
+            id,
+            name: title || filename.replace(/\.[^.]+$/, ''),
+            reader: 'epub',
+            urls: [fileUrl(section, id)],
+          }}
+        />
         <span className="shrink-0 text-sm tabular-nums text-slate-400">
           {percent != null ? `${percent}%` : '…'}
         </span>

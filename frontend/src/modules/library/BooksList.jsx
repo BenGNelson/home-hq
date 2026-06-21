@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApi, API_BASE } from '../../lib/useApi.js'
+import { useOnline } from '../../lib/online.jsx'
 import { readerHref, bookSubtitle } from '../../lib/library.js'
 import BookCover from './BookCover.jsx'
+import OfflineSection from './OfflineSection.jsx'
 
 // The Books section. With 10k+ books a flat list is useless, so this is purely
 // search-driven: an empty box just prompts you to search, and results (from the
@@ -15,6 +17,7 @@ export default function BooksList() {
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const { online } = useOnline()
 
   // Indexer status — gives the library size + the "not configured"/"indexing…" UI.
   const status = useApi('/library/books/index-status', 5000).data
@@ -59,6 +62,10 @@ export default function BooksList() {
   }, [input])
 
   const items = results?.items ?? []
+
+  // Offline, search can't reach the server — show your downloaded books instead,
+  // so the section never dead-ends (e.g. closing a reader back onto this page).
+  if (!online) return <OfflineSection section="books" label="Books" icon="📖" />
 
   return (
     <div className="space-y-4">
