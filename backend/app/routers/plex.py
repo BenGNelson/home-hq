@@ -123,6 +123,40 @@ class PlexInsightsModel(BaseModel):
     stats: InsightStatsModel
 
 
+# --- /plex/watch-stats (degrades; exclude_none) ---
+class WatchUserModel(BaseModel):
+    user: str
+    plays: int
+    hours: float
+
+
+class WatchTopModel(BaseModel):
+    title: str
+    plays: int
+    type: str
+
+
+class WatchPeriodModel(BaseModel):
+    total_plays: int
+    total_hours: float
+    by_user: list[WatchUserModel] = []
+    by_type: dict[str, int] = {}
+    top: list[WatchTopModel] = []
+
+
+class WatchPeriodsModel(BaseModel):
+    week: WatchPeriodModel
+    month: WatchPeriodModel
+    year: WatchPeriodModel
+    all: WatchPeriodModel
+
+
+class WatchStatsModel(BaseModel):
+    available: bool
+    reason: str | None = Field(default=None, description="not_configured | unreachable")
+    periods: WatchPeriodsModel | None = None
+
+
 # --- /plex/sync/status (always full → NO exclude_none) ---
 class SyncStatusModel(BaseModel):
     running: bool
@@ -270,6 +304,43 @@ def plex_insights(hours: int = 24):
         "samples": samples,
         "stats": summarize_insights(samples),
     }
+
+
+# Watch-stats is computed live from Plex history (a few hundred entries, ~0.1s),
+# but the dashboard may poll it, so a short TTL cache absorbs repeat hits without
+# re-querying Plex each time. monotonic clock so a wall-clock change can't wedge it.
+_WATCH_STATS_TTL = 300.0
+_watch_stats_cache = {"ts": 0.0, "data": None}
+
+
+@router.get("/plex/watch-stats", response_model=WatchStatsModel, response_model_exclude_none=True)
+def plex_watch_stats():
+    """Per-user + per-type Plex watch statistics over week/month/year/all-time,
+    computed live from Plex's watch history. Hours are summed from each item's
+    runtime (looked up once per item and cached). Degrades to available:false when
+    Plex isn't configured or is unreachable."""
+    from app.plex_stats import compute_watch_stats  # avoid import cycle at load
+
+    if not settings.plex_token:
+        return {"available": False, "reason": "not_configured"}
+
+    now = time.monotonic()
+    cached = _watch_stats_cache["data"]
+    if cached is not None and now - _watch_stats_cache["ts"] < _WATCH_STATS_TTL:
+        return cached
+
+    try:
+        server = _connect(timeout=15)
+        result = compute_watch_stats(server)
+    except Exception:
+        result = {"available": False, "reason": "unreachable"}
+
+    # Only cache a successful read — caching an "unreachable" would keep the page
+    # broken for the full TTL after a brief Plex blip, even as the other Plex
+    # endpoints recover immediately. On failure, retry on the next request.
+    if result.get("available"):
+        _watch_stats_cache.update(ts=time.monotonic(), data=result)
+    return result
 
 
 def _added_ts(it):
