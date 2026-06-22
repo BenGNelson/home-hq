@@ -187,6 +187,19 @@ class Settings(BaseSettings):
     # frame, so this only fires once nobody is actually watching.
     printer_camera_idle_timeout: int = 10
 
+    # --- Solar (Enphase Envoy / IQ Gateway, local API via pyenphase) ---
+    # All optional: if envoy_host (plus either username/password or a token) are
+    # unset, /api/solar reports available:false ("not configured"). The Envoy is
+    # read over its local HTTPS API; on firmware 7+ pyenphase mints a token from
+    # the Enlighten cloud using the homeowner login + the gateway serial (which it
+    # auto-reads from the Envoy) and auto-refreshes it. Creds/token are secrets —
+    # they live only in .env.
+    envoy_host: str = ""  # Envoy's reachable host/IP (if behind a 2nd router, the forward's WAN IP)
+    enphase_username: str = ""  # Enlighten (enphaseenergy.com) homeowner login
+    enphase_password: str = ""  # Enlighten password (secret)
+    enphase_token: str = ""  # optional: a pre-minted token used instead of user/pass
+    solar_cache_ttl: int = 10  # seconds to reuse the last Envoy poll (smooths widget polling)
+
     # --- In-app doc viewers (files mounted read-only into the container) ---
     # Under /readme & /srv-guide, not /app — see the mount note in
     # docker-compose.yml (the test runner bind-mounts ./backend over /app).
