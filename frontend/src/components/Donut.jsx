@@ -29,7 +29,9 @@ export function Donut({
   }
 
   return (
-    <div className={`flex flex-wrap items-center gap-4 ${className}`}>
+    // Stack on phones (chart on top, legend full-width below) so labels get the
+    // whole width and don't truncate; side-by-side from sm up where there's room.
+    <div className={`flex flex-col items-center gap-4 sm:flex-row ${className}`}>
       <div className="relative shrink-0" style={{ width: size, height: size }}>
         <svg
           viewBox={`0 0 ${size} ${size}`}
@@ -48,7 +50,7 @@ export function Donut({
         )}
       </div>
 
-      <ul className="min-w-0 flex-1 space-y-1.5 text-sm">
+      <ul className="w-full space-y-1.5 text-sm sm:min-w-0 sm:flex-1">
         {arcs.map((arc, i) => (
           <li key={i} className="flex items-center gap-2">
             <span
