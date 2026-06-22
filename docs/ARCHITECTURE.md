@@ -60,6 +60,7 @@ backend/app/
     smart.py         # /api/smart    (per-drive SMART, from a host timer's JSON)
     storage.py       # /api/storage/trends  (SMART + capacity history)
     printer.py       # /api/printer  (cached snapshot from the MQTT client)
+    solar.py         # /api/solar    (live Enphase Envoy production via pyenphase)
     plex.py          # /api/plex + library browser endpoints
     library.py       # /api/library  (owned-content hub: list + range-stream files)
   library.py         # pure: section framework, listing, the path-traversal guard
@@ -132,6 +133,7 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/tailscale` | tailnet devices (online state, exit node, last seen) | reads a host timer's `tailscale.json` |
 | `GET /api/uptime` | per-service availability — status, uptime % (24h/7d), latency | reads a host prober's `uptime.json` |
 | `GET /api/ha` | curated Home Assistant entities (glance + deep-link), self-hides when unconfigured | reads a host timer's `ha.json` |
+| `GET /api/solar` | live Enphase solar (production, consumption + net on metered systems, today/7-day/lifetime), self-hides when unconfigured | `pyenphase` reads the Envoy's local API; authenticated client + short TTL cached |
 | `GET /api/storage/db` | SQLite file size + per-table row counts (growth visibility) | stats the DB file + `COUNT(*)` per table |
 | `GET /api/diskio` | per-disk cumulative read/write bytes (rates computed client-side) | parses host `/proc/diskstats` |
 | `GET /api/raid` | software-RAID array state (healthy/degraded, rebuild %) | parses host `/proc/mdstat` |
@@ -631,6 +633,37 @@ nothing here is committed with a real value: `HA_TOKEN` lives only in the
 gitignored `.env`, never in the repo or the container. Read-only by design: no
 service calls, no control proxying, and (per the notifications stance) no alert
 rules on HA entities. Control is HA's job — the deep-link hands off to it.
+
+## Solar (Enphase Envoy) — direct, not through HA
+
+The HA principle above would suggest routing the solar gateway through Home
+Assistant too. We chose to read it **directly from the backend** instead, because
+solar is a *data* integration — like Plex, the printer, or the VPN check, all of
+which HQ already owns — not a smart-home *control* device. Reading it directly
+keeps a rich, HQ-native Solar module (production/consumption/net) under our own
+roof and avoids a hard dependency on HA being up.
+
+"Direct" does **not** mean reimplementing Enphase's gnarly auth: we use
+[`pyenphase`](https://pypi.org/project/pyenphase/) — the same library HA's own
+Envoy integration is built on. It carries the firmware-7+ **token auth** (mint
+from the Enlighten cloud using the homeowner login + the gateway serial it
+auto-reads, then ~6-month auto-refresh), the pre-7 digest fallback, the
+self-signed local HTTPS, and the metered-vs-not data model. `app/solar.py` holds
+an authenticated `Envoy` client across requests (auth is a cloud round-trip),
+serializes refreshes with a lock, caches the last poll for `SOLAR_CACHE_TTL`
+seconds, and degrades to `available:false` on any failure. The pure `shape()`
+(EnvoyData → the `/api/solar` payload, incl. `net_watts = production −
+consumption`) is unit-tested without a live gateway. Unlike the HA/SMART/VPN
+collectors this is **not** a host-script-writes-JSON bridge — the data needs no
+host privileges, so the backend (already behind the docker-socket-proxy) makes
+the call itself; the Enlighten creds live in `.env` like the Plex token and the
+printer access code.
+
+Network note: the Envoy is reached over its **local** API. If it sits behind a
+secondary router/NAT (a common home setup with a second AP), it needs a
+port-forward of TCP 443 to it, and `ENVOY_HOST` is then the forward's WAN-side IP.
+Token minting is a separate *outbound* call to the Enlighten cloud, so it's
+unaffected by that NAT.
 
 ## Database growth guardrails
 

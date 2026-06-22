@@ -36,3 +36,9 @@ libarchive-c>=5.1
 # Audio metadata — pulls an audiobook's embedded cover art (ID3 APIC / MP4 covr /
 # FLAC pictures) out of its first chapter. Pure Python, no system libs.
 mutagen>=1.47
+
+# Enphase Envoy (solar) local API client for /api/solar. Handles the firmware 7+
+# token auth (mint + ~6-month auto-refresh via the Enlighten cloud), the
+# self-signed local HTTPS, and the metered/non-metered data model. Same library
+# Home Assistant's official Envoy integration is built on. See app/solar.py.
+pyenphase>=1.20

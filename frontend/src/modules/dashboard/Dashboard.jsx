@@ -3,6 +3,7 @@ import DiskWidget from './widgets/DiskWidget.jsx'
 import DrivesWidget from './widgets/DrivesWidget.jsx'
 import ContainersWidget from './widgets/ContainersWidget.jsx'
 import PrinterWidget from './widgets/PrinterWidget.jsx'
+import SolarWidget from './widgets/SolarWidget.jsx'
 import HomeWidget from './widgets/HomeWidget.jsx'
 import PlexWidget from './widgets/PlexWidget.jsx'
 import TailscaleWidget from './widgets/TailscaleWidget.jsx'
@@ -24,6 +25,7 @@ export default function Dashboard() {
         <PlexWidget />
         <ContainersWidget />
         <PrinterWidget />
+        <SolarWidget />
         <HomeWidget />
         <TailscaleWidget />
       </div>
