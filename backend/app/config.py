@@ -160,10 +160,12 @@ class Settings(BaseSettings):
     # --- Speedtest / ISP monitor (in-app sampler → SQLite, runs the Ookla CLI) ---
     # All optional. The backend shells out to the Ookla `speedtest` binary (baked
     # into the image) on a schedule, stores each result, and serves the trend.
-    # !! DATA COST: each gigabit test moves ~3.5 GB of traffic. Mind a metered/
-    # capped connection — the default 6h interval = 4 tests/day ≈ 14 GB/day. Set
-    # SPEEDTEST_INTERVAL=0 to disable the schedule entirely (manual /run only).
-    speedtest_enabled: bool = True
+    # !! DATA COST: each gigabit test moves ~3.5 GB of traffic. Because that's a
+    # surprising/expensive thing to do automatically, the scheduler is OFF by
+    # default — set SPEEDTEST_ENABLED=true to opt in (then SPEEDTEST_INTERVAL
+    # controls cadence; 6h = 4 tests/day ≈ 14 GB/day). The manual /run button
+    # works regardless. SPEEDTEST_INTERVAL=0 also disables the schedule.
+    speedtest_enabled: bool = False
     speedtest_interval: int = 21600  # seconds between scheduled tests (0 = manual-only)
     speedtest_retention_days: int = 90  # retention window (days)
     speedtest_min_download: float = 0  # Mbps; >0 → alert when latest download is below it (0 = no alert)

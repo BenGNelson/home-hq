@@ -1,0 +1,12 @@
+# Keep the build context lean and prevent stray files from being baked into the
+# image. The Dockerfile only COPYs `app/` + the requirements files, so this is a
+# backstop — but it stops a local `.env`, caches, or tests from ever shipping.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+tests/
+.env
+.env.*
+*.local

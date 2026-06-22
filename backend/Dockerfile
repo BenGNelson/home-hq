@@ -1,5 +1,6 @@
-# Small, current Python base image.
-FROM python:3.12-slim
+# Small, current Python base image. Digest-pinned (like the socket-proxy in
+# compose) so a rebuild is reproducible; bump the digest deliberately.
+FROM python:3.12-slim@sha256:d764629ce0ddd8c71fd371e9901efb324a95789d2315a47db7e4d27e78f1b0e9
 
 WORKDIR /app
 
@@ -7,18 +8,23 @@ WORKDIR /app
 # libarchive-c binding — one lib covers every format (see app/comics.py).
 # Also installs the Ookla speedtest CLI (the ISP monitor shells out to it; see
 # app/speedtest.py). The base has no curl, so we add curl + ca-certificates,
-# pull the pinned 1.2.0 linux-x86_64 binary into /usr/local/bin, and verify it.
+# pull the pinned 1.2.0 linux-x86_64 tarball, verify its SHA256 before trusting
+# it (supply-chain guard), then extract the binary into /usr/local/bin.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libarchive13 curl ca-certificates \
-    && curl -fsSL https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-x86_64.tgz \
-        | tar xz -C /usr/local/bin speedtest \
+    && curl -fsSL -o /tmp/speedtest.tgz https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-x86_64.tgz \
+    && echo "5690596c54ff9bed63fa3732f818a05dbc2db19ad36ed68f21ca5f64d5cfeeb7  /tmp/speedtest.tgz" | sha256sum -c - \
+    && tar xz -C /usr/local/bin -f /tmp/speedtest.tgz speedtest \
+    && rm /tmp/speedtest.tgz \
     && speedtest --version \
     && rm -rf /var/lib/apt/lists/*
 
 # Install deps first (in their own layer) so Docker caches them and only
-# reinstalls when requirements.txt changes — not on every code edit.
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# reinstalls when the requirements change — not on every code edit. We install
+# from the fully-pinned requirements.lock (reproducible rebuilds); requirements.txt
+# rides along as the commented source of intent (see its header to regenerate).
+COPY requirements.txt requirements.lock ./
+RUN pip install --no-cache-dir -r requirements.lock
 
 # Copy the application code.
 COPY app ./app
