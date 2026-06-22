@@ -14,6 +14,9 @@ export const API_BASE = import.meta.env.VITE_API_BASE ?? '/api'
 //  - During steady polling of the SAME path it keeps the last good data and
 //    only swaps it in on success, so the view doesn't flicker; a failed poll
 //    keeps the last good data and surfaces an error.
+//  - Polling only runs while the tab is VISIBLE — a backgrounded PWA stops
+//    hitting the backend, and regaining visibility kicks an immediate refresh
+//    (so the view isn't stale) before resuming the interval.
 export function useApi(path, intervalMs = 5000) {
   const [state, setState] = useState({ data: null, error: null, loading: true })
 
@@ -33,12 +36,34 @@ export function useApi(path, intervalMs = 5000) {
       }
     }
 
-    load()
     // intervalMs of 0 (or falsy) = fetch once, no polling.
-    const id = intervalMs ? setInterval(load, intervalMs) : null
+    let id = null
+    const startPolling = () => {
+      if (id == null && intervalMs) id = setInterval(load, intervalMs)
+    }
+    const stopPolling = () => {
+      if (id != null) {
+        clearInterval(id)
+        id = null
+      }
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        if (intervalMs) load() // polling consumers refresh on return; one-shot stays one-shot
+        startPolling()
+      } else {
+        stopPolling()
+      }
+    }
+
+    load()
+    if (document.visibilityState !== 'hidden') startPolling()
+    document.addEventListener('visibilitychange', onVisibility)
+
     return () => {
       cancelled = true
-      if (id) clearInterval(id)
+      stopPolling()
+      document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [path, intervalMs])
 

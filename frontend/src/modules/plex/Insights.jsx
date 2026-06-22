@@ -27,6 +27,7 @@ export default function Insights() {
             <button
               key={w.hours}
               onClick={() => setHours(w.hours)}
+              aria-pressed={hours === w.hours}
               className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
                 hours === w.hours
                   ? 'bg-slate-700 text-white'

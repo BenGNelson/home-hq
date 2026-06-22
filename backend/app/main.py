@@ -132,6 +132,9 @@ tags_metadata = [
     {"name": "Printer", "description": "3D-printer telemetry, controls, chamber camera, and print history."},
     {"name": "Alerts", "description": "Push-notification engine — rule status, history, and a test trigger."},
     {"name": "Monitoring", "description": "Service-availability probing — per-target uptime % and latency."},
+    {"name": "Devices", "description": "Home Assistant bridge — a curated, read-only glance at home devices."},
+    {"name": "Solar", "description": "Solar / energy production read from the Enphase Envoy gateway."},
+    {"name": "Weather", "description": "Current conditions and a multi-day forecast for the configured location."},
     {"name": "Docs", "description": "In-app document sources (project README) served as markdown."},
 ]
 
