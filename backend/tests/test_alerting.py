@@ -7,6 +7,7 @@ from app.alerting import (
     Rule,
     _check_backup,
     _check_containers,
+    _check_db,
     _check_disk,
     _check_printer,
     _check_printer_hms,
@@ -86,6 +87,16 @@ def test_disk_full_vs_ok():
     key, msg = _check_disk(full)
     assert key.startswith("full:") and "96%" in msg
     assert _check_disk({"disk": {"available": True, "mount": "/m", "percent": 80.0}}) == (None, "")
+
+
+def test_db_over_ceiling_vs_ok():
+    over = settings.alert_db_max_mb * 1024 * 1024 + 1
+    key, msg = _check_db({"db": {"size_bytes": over}})
+    assert key.startswith("big:") and "MB" in msg
+    under = {"db": {"size_bytes": settings.alert_db_max_mb * 1024 * 1024 - 1}}
+    assert _check_db(under) == (None, "")
+    # No size reading at all -> quiet.
+    assert _check_db({"db": {"size_bytes": None}}) == (None, "")
 
 
 def test_watchdog_unhealthy_fires_even_when_stale():

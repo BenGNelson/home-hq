@@ -2,3 +2,9 @@ node_modules
 dist
 .vite
 npm-debug.log
+# Defense-in-depth: never bake secrets / host-local config into the image.
+# (src/host.local.jsx ends in .jsx, NOT .local, so `*.local` does not match it —
+# the intended host-local build content is preserved.)
+.env*
+*.local
+.git

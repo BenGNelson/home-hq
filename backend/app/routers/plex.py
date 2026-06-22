@@ -26,6 +26,7 @@ from plexapi.server import PlexServer
 from pydantic import BaseModel, Field
 
 from app import db, images
+from app.db import _like_escape
 from app.config import settings
 
 router = APIRouter()
@@ -541,8 +542,8 @@ def library_items(
     where = "library_key = ? AND type != 'episode'"
     params = [library_key]
     if search:
-        where += " AND title LIKE ?"
-        params.append(f"%{search}%")
+        where += " AND title LIKE ? ESCAPE '\\'"
+        params.append(f"%{_like_escape(search)}%")
 
     with db.get_conn() as conn:
         total = conn.execute(

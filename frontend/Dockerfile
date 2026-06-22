@@ -17,3 +17,10 @@ FROM nginx:alpine AS serve
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
+
+# Liveness: confirm nginx is actually serving the shell on :80. nginx:alpine
+# ships wget (not curl); --spider does a request without saving the body. Use
+# 127.0.0.1, not localhost — localhost resolves to ::1 first, but nginx only
+# binds IPv4, so a localhost probe gets connection-refused.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget -q --spider http://127.0.0.1/ || exit 1
