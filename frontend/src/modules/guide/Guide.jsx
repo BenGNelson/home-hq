@@ -34,6 +34,7 @@ const ENDPOINTS = [
   ['/api/ha', 'A curated, read-only glance at a few Home Assistant entities (deep-linking into HA for control), from a host timer that calls HA’s API.'],
   ['/api/storage/db', 'SQLite file size + per-table row counts — the local DB’s growth, with caps shown.'],
   ['/api/plex/insights', 'Plex activity trends over time (streams/transcodes/bandwidth) + stats.'],
+  ['/api/plex/watch-stats', 'Per-viewer + per-type watch stats (plays + hours) over week/month/year/all-time, from Plex view history.'],
   ['/api/diskio', 'Per-disk read/write byte counters (/proc/diskstats); the Storage page graphs rates client-side.'],
   ['/api/raid', 'Software-RAID array health, parsed from /proc/mdstat.'],
   ['/api/smart', 'Per-drive SMART health, collected daily by a host timer.'],

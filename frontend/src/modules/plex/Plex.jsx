@@ -181,6 +181,24 @@ export default function Plex() {
           </Link>
         </div>
       </section>
+
+      {/* Watch stats — who watched what, by viewer / type / period. */}
+      <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-sm font-medium text-slate-300">Watch stats</h3>
+            <p className="text-xs text-slate-400">
+              Plays &amp; hours by viewer and type — week / month / year / all-time.
+            </p>
+          </div>
+          <Link
+            to="/plex/watch-stats"
+            className="shrink-0 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-500"
+          >
+            View watch stats →
+          </Link>
+        </div>
+      </section>
     </div>
   )
 }

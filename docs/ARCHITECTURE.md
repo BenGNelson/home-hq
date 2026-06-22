@@ -157,6 +157,7 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/plex` | reachable? streams, transcodes, bandwidth | `PlexAPI` client |
 | `GET /api/plex/now-playing` | active streams: who/what/where, progress, transcode | `PlexAPI` sessions |
 | `GET /api/plex/insights?hours=` | activity trends (streams/transcodes/bandwidth) + stats | SQLite (in-app sampler) |
+| `GET /api/plex/watch-stats` | per-viewer + per-type watch stats (plays + hours) over week/month/year/all | `PlexAPI` view history; item runtimes cached in SQLite (`plex_item_durations`) |
 | `GET /api/plex/recently-added` | newest items across libraries (poster strip) | `PlexAPI` |
 | `GET /api/plex/libraries` | each library + item counts (+ key) | `PlexAPI` |
 | `GET /api/plex/export` | full title manifest (on-demand backup) | `PlexAPI` (heavy) |

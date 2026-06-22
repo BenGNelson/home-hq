@@ -6,6 +6,7 @@ import LibraryBrowser from './modules/plex/LibraryBrowser.jsx'
 import ShowBrowser from './modules/plex/ShowBrowser.jsx'
 import MovieDetail from './modules/plex/MovieDetail.jsx'
 import PlexInsights from './modules/plex/Insights.jsx'
+import PlexWatchStats from './modules/plex/WatchStats.jsx'
 import Library from './modules/library/Library.jsx'
 import LibraryLayout from './modules/library/LibraryLayout.jsx'
 import GamesList from './modules/library/GamesList.jsx'
@@ -102,6 +103,7 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/plex" element={<Plex />} />
         <Route path="/plex/insights" element={<PlexInsights />} />
+        <Route path="/plex/watch-stats" element={<PlexWatchStats />} />
         <Route path="/plex/library/:key" element={<LibraryBrowser />} />
         <Route path="/plex/show/:key" element={<ShowBrowser />} />
         <Route path="/plex/movie/:key" element={<MovieDetail />} />

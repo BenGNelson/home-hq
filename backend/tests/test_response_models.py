@@ -43,6 +43,7 @@ MODELED_ENDPOINTS = [
     "/api/plex/now-playing",
     "/api/plex/recently-added",
     "/api/plex/libraries",
+    "/api/plex/watch-stats",
     "/api/alerts",
     "/api/readme",
     "/api/server-guide",

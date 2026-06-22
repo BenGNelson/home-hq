@@ -120,6 +120,15 @@ CREATE TABLE IF NOT EXISTS plex_samples (
 );
 CREATE INDEX IF NOT EXISTS idx_plex_samples_ts ON plex_samples (ts);
 
+-- Cached item runtimes for the watch-stats endpoint. A Plex history entry omits
+-- duration, so to total hours-watched we look it up once per item via fetchItem
+-- and remember it here (it never changes). A row with duration_ms = 0 is a
+-- sentinel for "couldn't fetch" (deleted media) so we don't refetch every time.
+CREATE TABLE IF NOT EXISTS plex_item_durations (
+    rating_key  INTEGER PRIMARY KEY,  -- Plex's stable item id
+    duration_ms INTEGER               -- runtime in ms (0 = unfetchable sentinel)
+);
+
 -- Reading progress: where you are in a Library reading item. PDFs bookmark by
 -- page/total; ebooks (EPUB/MOBI via foliate-js) have no stable pages, so they
 -- bookmark by a location string (`locator`, a foliate CFI) + a 0..1 `fraction`
@@ -378,6 +387,29 @@ def prune_plex_samples(before_ts):
     """Drop Plex activity samples older than a cutoff (retention)."""
     with get_conn() as conn:
         conn.execute("DELETE FROM plex_samples WHERE ts < ?", (before_ts,))
+
+
+def get_item_duration(rating_key):
+    """The cached runtime (ms) for an item, or None if we've never fetched it.
+    A stored 0 is the 'unfetchable' sentinel and comes back as 0 (not None) so
+    the caller can tell 'known-bad' from 'unknown'."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT duration_ms FROM plex_item_durations WHERE rating_key = ?",
+            (int(rating_key),),
+        ).fetchone()
+        return row["duration_ms"] if row else None
+
+
+def set_item_duration(rating_key, duration_ms):
+    """Remember an item's runtime (ms). Store 0 for media we couldn't fetch so we
+    don't re-hit Plex for it on every request."""
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO plex_item_durations (rating_key, duration_ms) VALUES (?, ?)"
+            " ON CONFLICT(rating_key) DO UPDATE SET duration_ms = excluded.duration_ms",
+            (int(rating_key), int(duration_ms or 0)),
+        )
 
 
 def _cap_table(conn, table):
