@@ -30,6 +30,7 @@ export default function WatchStats() {
             <button
               key={p.key}
               onClick={() => setPeriod(p.key)}
+              aria-pressed={period === p.key}
               className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
                 period === p.key
                   ? 'bg-slate-700 text-white'
@@ -83,6 +84,7 @@ function Stats({ p, metric, setMetric }) {
                 <button
                   key={m}
                   onClick={() => setMetric(m)}
+                  aria-pressed={metric === m}
                   className={`rounded-md px-2 py-0.5 text-xs font-medium transition ${
                     metric === m
                       ? 'bg-slate-700 text-white'
