@@ -1,0 +1,56 @@
+# Fully-pinned dependency resolution actually installed in the image, so rebuilds
+# (incl. the documented bare-metal restore) are reproducible instead of resolving
+# the loose floors in requirements.txt against whatever is current on PyPI.
+#
+# requirements.txt is the human-readable source of intent (commented, loose
+# floors). To regenerate this lock after intentionally bumping a dep there:
+#   docker compose run --rm --no-deps backend pip freeze > backend/requirements.lock
+aiohappyeyeballs==2.6.2
+aiohttp==3.14.1
+aiosignal==1.4.0
+annotated-doc==0.0.4
+annotated-types==0.7.0
+anyio==4.14.0
+attrs==26.1.0
+awesomeversion==25.8.0
+certifi==2026.6.17
+charset-normalizer==3.4.7
+click==8.4.1
+docker==7.1.0
+envoy-utils==0.0.1
+fastapi==0.138.0
+frozenlist==1.8.0
+h11==0.16.0
+httptools==0.8.0
+idna==3.18
+ifaddr==0.2.0
+libarchive-c==5.3
+lxml==6.1.1
+multidict==6.7.1
+mutagen==1.47.0
+orjson==3.11.9
+paho-mqtt==2.1.0
+pillow==12.2.0
+PlexAPI==4.18.1
+propcache==0.5.2
+psutil==7.2.2
+pydantic==2.13.4
+pydantic-settings==2.14.2
+pydantic_core==2.46.4
+pyenphase==2.4.9
+PyJWT==2.13.0
+python-dotenv==1.2.2
+python-multipart==0.0.32
+PyYAML==6.0.3
+requests==2.34.2
+starlette==1.3.1
+tenacity==9.1.4
+typing-inspection==0.4.2
+typing_extensions==4.15.0
+urllib3==2.7.0
+uvicorn==0.49.0
+uvloop==0.22.1
+watchfiles==1.2.0
+websockets==16.0
+yarl==1.24.2
+zeroconf==0.149.17

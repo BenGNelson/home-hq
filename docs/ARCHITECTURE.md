@@ -700,10 +700,12 @@ background thread (a module-level lock means the sampler and the manual run neve
 overlap, and the `running` flag is polled by the UI — like the Plex-sync job). A
 `_check_speedtest` alert rule fires when the latest download drops below
 `SPEEDTEST_MIN_DOWNLOAD` (0 = off). The pure `parse_result` is unit-tested without
-the CLI. **Data cost is real** — each gigabit test moves ~3.5 GB — so the default
-cadence is conservative (6 h), `SPEEDTEST_INTERVAL=0` makes it manual-only, and
-the sampler **skips a scheduled run when a recent sample already covers the
-interval** so a restart/redeploy doesn't fire a fresh test.
+the CLI. **Data cost is real** — each gigabit test moves ~3.5 GB — so the
+scheduler is **off by default** (`SPEEDTEST_ENABLED=true` opts in; the manual
+"Run test" button works either way). When enabled, a conservative cadence is
+typical (6 h), `SPEEDTEST_INTERVAL=0` keeps it manual-only, and the sampler
+**skips a scheduled run when a recent sample already covers the interval** so a
+restart/redeploy doesn't fire a fresh test.
 
 ## Database growth guardrails
 
@@ -820,6 +822,20 @@ Frontend + backend each in a container, wired by one `docker-compose.yml`.
   note below — it does not touch the raw socket) and mounts the **storage mount**
   read-only for disk status.
 - Run everything with `docker compose up --build -d`.
+
+### Backend: reproducible image
+
+The backend image rebuilds deterministically so a future rebuild (including the
+bare-metal restore) can't silently drift:
+
+- **Base image is digest-pinned** (`python:3.12-slim@sha256:…`), like the
+  socket-proxy in compose — bump the digest deliberately.
+- **Python deps install from a fully-pinned `requirements.lock`** (`==` for every
+  direct + transitive package). `requirements.txt` stays as the commented,
+  loose-floor *source of intent*; after bumping a floor there, regenerate the lock
+  with `docker compose run --rm --no-deps backend pip freeze > backend/requirements.lock`.
+- The baked-in **Ookla speedtest CLI tarball is SHA256-verified** before extraction
+  (supply-chain guard).
 
 ### Frontend: production vs. dev
 

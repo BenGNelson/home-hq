@@ -1,3 +1,8 @@
+# Source of intent for the backend's Python deps: human-readable, commented,
+# loose floors. The image actually installs the fully-pinned resolution in
+# requirements.lock (reproducible rebuilds). After bumping a floor here,
+# regenerate the lock: docker compose run --rm --no-deps backend pip freeze > requirements.lock
+
 # Web framework + ASGI server that runs it
 fastapi>=0.110
 uvicorn[standard]>=0.29
