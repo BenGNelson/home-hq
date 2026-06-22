@@ -18,6 +18,7 @@ from app.config import settings
 from app.db import init_db
 from app.printer import init_client
 from app.plex_history import init_sampler as init_plex_sampler
+from app.speedtest import init_sampler as init_speedtest_sampler
 from app.storage_history import init_sampler
 from app.space_usage import init_scanner
 from app.book_sync import init_indexer
@@ -37,6 +38,7 @@ from app.routers import (
     readme,
     smart,
     solar,
+    speedtest,
     storage,
     system,
     tailscale,
@@ -85,6 +87,13 @@ async def lifespan(app: FastAPI):
     # while Plex is reachable, powering the Plex insights page's trend charts.
     plex_sampler = init_plex_sampler(settings.plex_history_interval, settings.plex_history_days)
     plex_sampler.start()
+    # Speedtest / ISP monitor: runs the Ookla CLI on a schedule (no-op when
+    # SPEEDTEST_INTERVAL=0 = manual-only) and stores each result for the trend.
+    speedtest_sampler = init_speedtest_sampler(
+        settings.speedtest_interval if settings.speedtest_enabled else 0,
+        settings.speedtest_retention_days,
+    )
+    speedtest_sampler.start()
     # What's-eating-space: a background thread runs a niced daily `du` of the
     # storage mount (cached in SQLite); /api/storage/space reads the cache.
     scanner = init_scanner(
@@ -106,6 +115,7 @@ async def lifespan(app: FastAPI):
         alerter.stop()
         sampler.stop()
         plex_sampler.stop()
+        speedtest_sampler.stop()
         scanner.stop()
         book_indexer.stop()
 
@@ -177,6 +187,7 @@ app.include_router(containers.router, prefix="/api", tags=["System"])
 app.include_router(network.router, prefix="/api", tags=["Network"])
 app.include_router(vpn.router, prefix="/api", tags=["Network"])
 app.include_router(tailscale.router, prefix="/api", tags=["Network"])
+app.include_router(speedtest.router, prefix="/api", tags=["Network"])
 app.include_router(backups.router, prefix="/api", tags=["System"])
 app.include_router(plex.router, prefix="/api", tags=["Plex"])
 app.include_router(library.router, prefix="/api", tags=["Library"])

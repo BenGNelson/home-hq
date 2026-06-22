@@ -53,6 +53,7 @@ backend/app/
     network.py       # /api/network  (host interface counters)
     vpn.py           # /api/vpn      (VPN egress leak check, from a host timer's JSON)
     tailscale.py     # /api/tailscale (tailnet device list, from a host timer's JSON)
+    speedtest.py     # /api/speedtest (ISP down/up/ping history, in-app sampler)
     uptime.py        # /api/uptime   (service availability, from a host prober's JSON)
     ha.py            # /api/ha       (curated Home Assistant entities, from a host timer's JSON)
     diskio.py        # /api/diskio   (per-disk I/O counters from /proc/diskstats)
@@ -132,6 +133,8 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/network` | per-interface byte counters | reads host `/proc/1/net/dev` |
 | `GET /api/vpn` | VPN egress leak check (exit IP vs home IP) | reads a host timer's `vpn.json` |
 | `GET /api/tailscale` | tailnet devices (online state, exit node, last seen) | reads a host timer's `tailscale.json` |
+| `GET /api/speedtest` | latest ISP down/up/ping + history + stats, self-hides until a test runs | in-app sampler runs the Ookla CLI → SQLite |
+| `POST /api/speedtest/run` | trigger an on-demand test (async; `running` flag polled) | spawns a background `speedtest` run |
 | `GET /api/uptime` | per-service availability — status, uptime % (24h/7d), latency | reads a host prober's `uptime.json` |
 | `GET /api/ha` | curated Home Assistant entities (glance + deep-link), self-hides when unconfigured | reads a host timer's `ha.json` |
 | `GET /api/solar` | live Enphase solar (production, consumption + net on metered systems, today/7-day/lifetime), self-hides when unconfigured | `pyenphase` reads the Envoy's local API; authenticated client + short TTL cached |
@@ -683,6 +686,24 @@ Lucide icons with day/night variants). **Current conditions are deliberately kep
 behind a seam** (`_current()` separate from `_forecast()`): today both read
 Open-Meteo, but if a personal weather station is ever added it becomes the
 hyperlocal *current* source while Open-Meteo stays the *forecaster*.
+
+## Speedtest / ISP monitor
+
+Adds the *time* dimension to internet speed: an in-app sampler (same
+background-thread + SQLite pattern as the storage/plex history samplers) runs the
+official **Ookla `speedtest` CLI** — baked into the backend image in the
+Dockerfile — every `SPEEDTEST_INTERVAL` seconds, parses the JSON
+(`bandwidth` bytes/s → Mbps), and appends a row to `speedtest_samples` (pruned by
+retention). `/api/speedtest` serves the latest reading + recent history (for the
+chart) + avg/min stats; `POST /api/speedtest/run` triggers an on-demand test in a
+background thread (a module-level lock means the sampler and the manual run never
+overlap, and the `running` flag is polled by the UI — like the Plex-sync job). A
+`_check_speedtest` alert rule fires when the latest download drops below
+`SPEEDTEST_MIN_DOWNLOAD` (0 = off). The pure `parse_result` is unit-tested without
+the CLI. **Data cost is real** — each gigabit test moves ~3.5 GB — so the default
+cadence is conservative (6 h), `SPEEDTEST_INTERVAL=0` makes it manual-only, and
+the sampler **skips a scheduled run when a recent sample already covers the
+interval** so a restart/redeploy doesn't fire a fresh test.
 
 ## Database growth guardrails
 

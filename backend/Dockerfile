@@ -5,8 +5,14 @@ WORKDIR /app
 
 # System library for reading comic archives (CBZ/CBR/CB7 = zip/rar/7z) via the
 # libarchive-c binding — one lib covers every format (see app/comics.py).
+# Also installs the Ookla speedtest CLI (the ISP monitor shells out to it; see
+# app/speedtest.py). The base has no curl, so we add curl + ca-certificates,
+# pull the pinned 1.2.0 linux-x86_64 binary into /usr/local/bin, and verify it.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libarchive13 \
+    && apt-get install -y --no-install-recommends libarchive13 curl ca-certificates \
+    && curl -fsSL https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-x86_64.tgz \
+        | tar xz -C /usr/local/bin speedtest \
+    && speedtest --version \
     && rm -rf /var/lib/apt/lists/*
 
 # Install deps first (in their own layer) so Docker caches them and only

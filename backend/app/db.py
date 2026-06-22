@@ -120,6 +120,23 @@ CREATE TABLE IF NOT EXISTS plex_samples (
 );
 CREATE INDEX IF NOT EXISTS idx_plex_samples_ts ON plex_samples (ts);
 
+-- Speedtest / ISP monitor samples: one row per completed Ookla speedtest run,
+-- recorded by the in-app sampler (speedtest.py) and the manual /run endpoint.
+-- Powers the Speedtest page's down/up/ping trend. Pruned by retention. Nothing
+-- secret — only the public result url, the ISP name, and the chosen server.
+CREATE TABLE IF NOT EXISTS speedtest_samples (
+    ts            INTEGER NOT NULL,   -- when recorded (epoch seconds)
+    download_mbps REAL,
+    upload_mbps   REAL,
+    ping_ms       REAL,
+    jitter_ms     REAL,
+    packet_loss   REAL,
+    server        TEXT,               -- "name - location"
+    isp           TEXT,
+    result_url    TEXT                -- shareable Ookla result link
+);
+CREATE INDEX IF NOT EXISTS idx_speedtest_samples_ts ON speedtest_samples (ts);
+
 -- Cached item runtimes for the watch-stats endpoint. A Plex history entry omits
 -- duration, so to total hours-watched we look it up once per item via fetchItem
 -- and remember it here (it never changes). A row with duration_ms = 0 is a
@@ -206,6 +223,7 @@ CREATE INDEX IF NOT EXISTS idx_listen_progress_updated ON listen_progress (updat
 # generous — far above the steady-state row count at normal sampling cadence.
 _SAMPLE_TABLE_CAPS = {
     "plex_samples": 100_000,
+    "speedtest_samples": 100_000,
     "alert_log": 20_000,
 }
 
@@ -389,6 +407,85 @@ def prune_plex_samples(before_ts):
         conn.execute("DELETE FROM plex_samples WHERE ts < ?", (before_ts,))
 
 
+# --- speedtest / ISP monitor samples ---------------------------------------
+
+# The columns a speedtest record carries, in insert order. parse_result()
+# returns exactly these keys (see speedtest.py).
+_SPEEDTEST_COLS = (
+    "ts", "download_mbps", "upload_mbps", "ping_ms", "jitter_ms",
+    "packet_loss", "server", "isp", "result_url",
+)
+
+
+def insert_speedtest_sample(record):
+    """Append one completed speedtest result (a dict from parse_result)."""
+    with get_conn() as conn:
+        placeholders = ",".join("?" for _ in _SPEEDTEST_COLS)
+        conn.execute(
+            f"INSERT INTO speedtest_samples ({','.join(_SPEEDTEST_COLS)}) "
+            f"VALUES ({placeholders})",
+            tuple(record.get(c) for c in _SPEEDTEST_COLS),
+        )
+        _cap_table(conn, "speedtest_samples")
+
+
+def recent_speedtest_samples(limit=30, since_ts=None):
+    """The most recent speedtest samples, returned OLDEST-FIRST for charting
+    (we pull the newest `limit` rows, then reverse so a line chart reads left to
+    right in time). Optionally restrict to rows at/after `since_ts`."""
+    with get_conn() as conn:
+        if since_ts is not None:
+            rows = conn.execute(
+                f"SELECT {','.join(_SPEEDTEST_COLS)} FROM speedtest_samples "
+                "WHERE ts >= ? ORDER BY ts DESC LIMIT ?",
+                (since_ts, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                f"SELECT {','.join(_SPEEDTEST_COLS)} FROM speedtest_samples "
+                "ORDER BY ts DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in reversed(rows)]
+
+
+def latest_speedtest_sample():
+    """The newest speedtest sample, or None if none recorded yet."""
+    with get_conn() as conn:
+        row = conn.execute(
+            f"SELECT {','.join(_SPEEDTEST_COLS)} FROM speedtest_samples "
+            "ORDER BY ts DESC LIMIT 1"
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def speedtest_stats(since_ts=None):
+    """Headline aggregates across stored speedtest samples (optionally only since
+    a cutoff): avg/min download, avg upload, and the sample count."""
+    where = "WHERE ts >= ?" if since_ts is not None else ""
+    params = (since_ts,) if since_ts is not None else ()
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) AS samples, "
+            "AVG(download_mbps) AS avg_download, MIN(download_mbps) AS min_download, "
+            f"AVG(upload_mbps) AS avg_upload FROM speedtest_samples {where}",
+            params,
+        ).fetchone()
+    n = row["samples"] or 0
+    return {
+        "samples": n,
+        "avg_download": round(row["avg_download"], 1) if row["avg_download"] is not None else None,
+        "min_download": round(row["min_download"], 1) if row["min_download"] is not None else None,
+        "avg_upload": round(row["avg_upload"], 1) if row["avg_upload"] is not None else None,
+    }
+
+
+def prune_speedtest_samples(before_ts):
+    """Drop speedtest samples older than a cutoff (retention)."""
+    with get_conn() as conn:
+        conn.execute("DELETE FROM speedtest_samples WHERE ts < ?", (before_ts,))
+
+
 def get_item_duration(rating_key):
     """The cached runtime (ms) for an item, or None if we've never fetched it.
     A stored 0 is the 'unfetchable' sentinel and comes back as 0 (not None) so
@@ -430,7 +527,7 @@ def _cap_table(conn, table):
 
 # Tables surfaced in the DB-size view + row-count breakdown (the ones that grow).
 _TRACKED_TABLES = (
-    "media_items", "storage_samples", "plex_samples",
+    "media_items", "storage_samples", "plex_samples", "speedtest_samples",
     "print_history", "alert_log", "space_usage", "book_meta",
 )
 

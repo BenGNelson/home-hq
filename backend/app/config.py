@@ -157,6 +157,17 @@ class Settings(BaseSettings):
     plex_history_interval: int = 300  # seconds between activity samples
     plex_history_days: int = 30  # retention window (days)
 
+    # --- Speedtest / ISP monitor (in-app sampler → SQLite, runs the Ookla CLI) ---
+    # All optional. The backend shells out to the Ookla `speedtest` binary (baked
+    # into the image) on a schedule, stores each result, and serves the trend.
+    # !! DATA COST: each gigabit test moves ~3.5 GB of traffic. Mind a metered/
+    # capped connection — the default 6h interval = 4 tests/day ≈ 14 GB/day. Set
+    # SPEEDTEST_INTERVAL=0 to disable the schedule entirely (manual /run only).
+    speedtest_enabled: bool = True
+    speedtest_interval: int = 21600  # seconds between scheduled tests (0 = manual-only)
+    speedtest_retention_days: int = 90  # retention window (days)
+    speedtest_min_download: float = 0  # Mbps; >0 → alert when latest download is below it (0 = no alert)
+
     # --- Uptime monitoring (host prober → JSON, powers the Uptime page) ---
     # The probing itself is done by a host script (scripts/uptime-probe.py) so it
     # can reach LAN-restricted services the firewalled backend can't; it writes

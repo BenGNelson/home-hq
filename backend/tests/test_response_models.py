@@ -34,6 +34,7 @@ MODELED_ENDPOINTS = [
     "/api/drive-watchdog",
     "/api/vpn",
     "/api/tailscale",
+    "/api/speedtest",
     "/api/containers",
     "/api/smart",
     "/api/smart/sda/attributes",
