@@ -385,6 +385,8 @@ def _recent_item(it):
 @router.get("/plex/recently-added", response_model=RecentlyAddedModel, response_model_exclude_none=True)
 def plex_recently_added(limit: int = 12):
     """Newest items across all libraries, for the dashboard poster strip."""
+    limit = max(1, min(limit, 50))  # clamp like the sibling endpoints — an
+    # unbounded limit fans recentlyAdded() out across every library section.
     if not settings.plex_token:
         return {"configured": False, "items": []}
     try:

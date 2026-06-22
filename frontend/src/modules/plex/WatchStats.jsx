@@ -2,24 +2,18 @@ import { useState } from 'react'
 import { useApi } from '../../lib/useApi.js'
 import BackLink from '../../components/BackLink.jsx'
 import { Donut } from '../../components/Donut.jsx'
+import { watchPeriodView, fmtHours, cap } from '../../lib/watchStats.js'
 
 // Plex watch stats: who watched what, over week / month / year / all-time.
 // Computed live from Plex's own view history (the endpoint returns all four
-// periods at once, so switching is instant — no refetch).
+// periods at once, so switching is instant — no refetch). The per-period
+// shaping (and its null-guards) lives in lib/watchStats.js so it's unit-tested.
 const PERIODS = [
   { key: 'week', label: 'Week' },
   { key: 'month', label: 'Month' },
   { key: 'year', label: 'Year' },
   { key: 'all', label: 'All time' },
 ]
-
-// Distinct, theme-friendly palette (Tailwind *-400 hexes) cycled per viewer.
-const USER_COLORS = ['#38bdf8', '#a78bfa', '#34d399', '#fbbf24', '#fb7185', '#22d3ee', '#fb923c', '#a3e635', '#e879f9', '#2dd4bf']
-const TYPE_COLORS = { movie: '#38bdf8', episode: '#a78bfa' }
-const OTHER_COLOR = '#94a3b8'
-
-const fmtHours = (h) => (h == null ? '—' : `${h.toFixed(1)} h`)
-const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s)
 
 export default function WatchStats() {
   const [period, setPeriod] = useState('all')
@@ -60,13 +54,14 @@ export default function WatchStats() {
         </div>
       )}
 
-      {data && data.available && <Stats p={data.periods[period]} metric={metric} setMetric={setMetric} />}
+      {data && data.available && <Stats p={data.periods?.[period]} metric={metric} setMetric={setMetric} />}
     </div>
   )
 }
 
 function Stats({ p, metric, setMetric }) {
-  if (!p || p.total_plays === 0) {
+  const view = watchPeriodView(p, metric)
+  if (!view) {
     return (
       <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6 text-sm text-slate-400">
         No plays in this period yet.
@@ -74,21 +69,7 @@ function Stats({ p, metric, setMetric }) {
     )
   }
 
-  const userSegments = p.by_user.map((u, i) => ({
-    label: u.user,
-    value: metric === 'hours' ? u.hours : u.plays,
-    color: USER_COLORS[i % USER_COLORS.length],
-  }))
-  const typeSegments = Object.entries(p.by_type).map(([type, count]) => ({
-    label: cap(type),
-    value: count,
-    color: TYPE_COLORS[type] || OTHER_COLOR,
-  }))
-
-  const centerTotal =
-    metric === 'hours'
-      ? { big: p.total_hours.toFixed(0), small: 'hours' }
-      : { big: p.total_plays, small: 'plays' }
+  const { users, userSegments, typeSegments, centerTotal, totalPlays, top } = view
 
   return (
     <div className="space-y-4">
@@ -134,7 +115,7 @@ function Stats({ p, metric, setMetric }) {
             thickness={30}
             centerLabel={
               <div>
-                <div className="text-2xl font-semibold text-slate-100">{p.total_plays}</div>
+                <div className="text-2xl font-semibold text-slate-100">{totalPlays}</div>
                 <div className="text-xs text-slate-400">plays</div>
               </div>
             }
@@ -146,11 +127,11 @@ function Stats({ p, metric, setMetric }) {
       <Card>
         <h3 className="mb-3 text-sm font-medium text-slate-300">Leaderboard</h3>
         <ul className="space-y-1 text-sm">
-          {p.by_user.map((u, i) => (
+          {users.map((u) => (
             <li key={u.user} className="flex items-center gap-3 border-b border-slate-800/60 py-1.5 last:border-0">
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ background: USER_COLORS[i % USER_COLORS.length] }}
+                style={{ background: u.color }}
               />
               <span className="min-w-0 flex-1 truncate text-slate-200">{u.user}</span>
               <span className="shrink-0 tabular-nums text-slate-300">{u.plays} plays</span>
@@ -161,11 +142,11 @@ function Stats({ p, metric, setMetric }) {
       </Card>
 
       {/* Most-watched titles */}
-      {p.top?.length > 0 && (
+      {top.length > 0 && (
         <Card>
           <h3 className="mb-3 text-sm font-medium text-slate-300">Most watched</h3>
           <ul className="space-y-1 text-sm">
-            {p.top.map((t, i) => (
+            {top.map((t, i) => (
               <li key={`${t.title}-${i}`} className="flex items-center gap-3 py-1">
                 <span className="w-5 shrink-0 text-right tabular-nums text-slate-500">{i + 1}</span>
                 <span className="min-w-0 flex-1 truncate text-slate-200" title={t.title}>
