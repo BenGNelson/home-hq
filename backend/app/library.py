@@ -36,6 +36,13 @@ SECTIONS = [
         "icon": "🎮",
         "kind": "play",
         "dir_setting": "games_rom_dir",
+        # `core` is the EmulatorJS system name (it auto-selects the libretro core
+        # — see src/emulator.js's default-core table; the frontend's LIBRETRO_CORE
+        # mirrors the defaults for offline asset caching). All of these are 8/16-bit
+        # 2D systems: the cores run full-speed in WASM on a phone and map cleanly
+        # to the dpad + face-button touch overlay. Emulation is entirely client-
+        # side — the backend only lists + range-streams the ROM bytes, so adding a
+        # system adds zero server load.
         "formats": {
             ".gb": {"label": "Game Boy", "core": "gb"},
             # GBC routed through mGBA (the `gba` core) instead of gambatte: the
@@ -44,6 +51,20 @@ SECTIONS = [
             # device. mGBA auto-detects the GBC ROM.
             ".gbc": {"label": "Game Boy Color", "core": "gba"},
             ".gba": {"label": "Game Boy Advance", "core": "gba"},
+            ".nes": {"label": "NES", "core": "nes"},
+            # SNES: both .sfc (the native ext) and the older .smc dumper format.
+            ".sfc": {"label": "Super Nintendo", "core": "snes"},
+            ".smc": {"label": "Super Nintendo", "core": "snes"},
+            # Sega Genesis / Mega Drive — the common cartridge dump extensions.
+            # NOT .bin: it's ambiguous (Atari 2600, PS1 disc tracks also use it),
+            # and the scan maps one extension to exactly one system.
+            ".md": {"label": "Sega Genesis", "core": "segaMD"},
+            ".gen": {"label": "Sega Genesis", "core": "segaMD"},
+            ".smd": {"label": "Sega Genesis", "core": "segaMD"},
+            ".sms": {"label": "Sega Master System", "core": "segaMS"},
+            # Game Gear shares the Master System era + the genesis_plus_gx core;
+            # essentially free to include alongside the Master System.
+            ".gg": {"label": "Sega Game Gear", "core": "segaGG"},
         },
     },
     {
@@ -193,6 +214,14 @@ _THUMBNAIL_REPO_BY_EXT = {
     ".gb": "Nintendo_-_Game_Boy",
     ".gbc": "Nintendo_-_Game_Boy_Color",
     ".gba": "Nintendo_-_Game_Boy_Advance",
+    ".nes": "Nintendo_-_Nintendo_Entertainment_System",
+    ".sfc": "Nintendo_-_Super_Nintendo_Entertainment_System",
+    ".smc": "Nintendo_-_Super_Nintendo_Entertainment_System",
+    ".md": "Sega_-_Mega_Drive_-_Genesis",
+    ".gen": "Sega_-_Mega_Drive_-_Genesis",
+    ".smd": "Sega_-_Mega_Drive_-_Genesis",
+    ".sms": "Sega_-_Master_System_-_Mark_III",
+    ".gg": "Sega_-_Game_Gear",
 }
 # libretro replaces these characters in thumbnail filenames with '_'.
 _THUMB_ILLEGAL = set('&*/:`<>?\\|')
