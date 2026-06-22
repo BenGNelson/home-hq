@@ -8,8 +8,36 @@ here so it's unit-tested without the HTTP/Plex machinery.
 """
 
 import io
+import os
+import tempfile
 
 from PIL import Image
+
+# Cap the decoded pixel count so a crafted/huge source image (the least-trusted
+# input we decode — comic pages from archives, embedded ebook covers) can't
+# decompress into enough RAM to OOM the box. Real covers/pages are a few MP;
+# 50 MP is generous. Pillow raises DecompressionBombError past 2x this, which the
+# to_thumbnail try/except turns into a clean None (caller falls back).
+Image.MAX_IMAGE_PIXELS = 50_000_000
+
+
+def write_atomic(path: str, data: bytes) -> None:
+    """Write bytes to `path` atomically: a temp file in the same dir, then
+    os.replace() into place. Without this, two near-simultaneous requests for the
+    same uncached image (e.g. a comic pre-fetching the next page) can interleave
+    their writes, and a reader that opens the file mid-write sees — and then
+    caches forever — a truncated image."""
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 # WebP is supported by every browser we target (incl. iOS Safari). 400px wide
 # covers the grid thumbnails and the larger detail-page poster (~2.5x at the

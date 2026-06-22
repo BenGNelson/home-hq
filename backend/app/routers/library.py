@@ -177,8 +177,7 @@ def get_game_cover(id: str = Query(description="Game id from the section listing
             thumb = None
         if thumb and owebp:
             os.makedirs(cache_dir, exist_ok=True)
-            with open(owebp, "wb") as fh:
-                fh.write(thumb)
+            images.write_atomic(owebp, thumb)
             return FileResponse(owebp, media_type="image/webp", headers=_ART_CACHE_HEADERS)
 
     url = library.thumbnail_url(id)
@@ -198,8 +197,7 @@ def get_game_cover(id: str = Query(description="Game id from the section listing
             with open(png, "rb") as fh:
                 thumb = images.to_thumbnail(fh.read())
             if thumb:
-                with open(webp, "wb") as fh:
-                    fh.write(thumb)
+                images.write_atomic(webp, thumb)
                 return FileResponse(webp, media_type="image/webp", headers=_ART_CACHE_HEADERS)
         except OSError:
             pass
@@ -217,12 +215,10 @@ def get_game_cover(id: str = Query(description="Game id from the section listing
     if resp.status_code == 200 and resp.content:
         thumb = images.to_thumbnail(resp.content)
         if thumb:
-            with open(webp, "wb") as fh:
-                fh.write(thumb)
+            images.write_atomic(webp, thumb)
             return FileResponse(webp, media_type="image/webp", headers=_ART_CACHE_HEADERS)
         # Not a decodable image — cache the raw bytes so we don't refetch.
-        with open(png, "wb") as fh:
-            fh.write(resp.content)
+        images.write_atomic(png, resp.content)
         return FileResponse(png, media_type="image/png", headers=_ART_CACHE_HEADERS)
     open(miss, "w").close()  # remember the no-match
     return Response(status_code=404)
@@ -239,27 +235,29 @@ class SaveStatesModel(BaseModel):
 
 
 @router.post("/library/games/save-states")
-async def create_save_state(
+def create_save_state(
     id: str = Form(description="Game id from the section listing"),
     state: UploadFile = File(description="The emulator save-state blob"),
     screenshot: UploadFile | None = File(default=None, description="Optional PNG screenshot"),
 ):
     """Store a new save state (server-side, so it roams across devices and rides
     the off-site backup). The slot id is a backend-assigned ms timestamp — never
-    client-supplied — so it can't traverse. Capped in size."""
+    client-supplied — so it can't traverse. Capped in size. A plain (sync) handler
+    so Starlette runs it in a threadpool — the disk write to the RAID mount stays
+    off the event loop."""
     saves_root = settings.games_saves_dir
     slot = str(int(time.time() * 1000))
     state_path, shot_path = library.save_state_files(saves_root, id, slot)
     if not state_path:
         return Response(status_code=400)
-    data = await state.read()
+    data = state.file.read()
     if not data or len(data) > _MAX_STATE_BYTES:
         return Response(status_code=413)
     os.makedirs(os.path.dirname(state_path), exist_ok=True)
     with open(state_path, "wb") as fh:
         fh.write(data)
     if screenshot is not None:
-        shot = await screenshot.read()
+        shot = screenshot.file.read()
         if shot and len(shot) <= _MAX_SHOT_BYTES:
             with open(shot_path, "wb") as fh:
                 fh.write(shot)
@@ -285,15 +283,16 @@ def list_save_states(id: str = Query(description="Game id from the section listi
 
 
 @router.post("/library/games/sram")
-async def put_sram(
+def put_sram(
     id: str = Form(description="Game id from the section listing"),
     sram: UploadFile = File(description="The game's .sav battery save"),
 ):
-    """Store/overwrite a game's in-game battery save (SRAM)."""
+    """Store/overwrite a game's in-game battery save (SRAM). Sync handler →
+    threadpool, so the write stays off the event loop."""
     path = library.sram_file(settings.games_saves_dir, id)
     if not path:
         return Response(status_code=400)
-    data = await sram.read()
+    data = sram.file.read()
     if not data or len(data) > _MAX_STATE_BYTES:
         return Response(status_code=413)
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -655,8 +654,7 @@ def audiobook_cover(path: str = Query(description="The book folder path")):
     thumb = images.to_thumbnail(raw) if raw else None
     os.makedirs(cache_dir, exist_ok=True)
     if thumb:
-        with open(webp, "wb") as fh:
-            fh.write(thumb)
+        images.write_atomic(webp, thumb)
         return FileResponse(webp, media_type="image/webp", headers=_EXTRACTED_ART_HEADERS)
     open(miss, "w").close()
     return Response(status_code=404)
@@ -737,8 +735,7 @@ def get_book_cover(id: str = Query(description="Book item id from the search/lis
     thumb = images.to_thumbnail(raw) if raw else None
     os.makedirs(cache_dir, exist_ok=True)
     if thumb:
-        with open(webp, "wb") as fh:
-            fh.write(thumb)
+        images.write_atomic(webp, thumb)
         return FileResponse(webp, media_type="image/webp", headers=_EXTRACTED_ART_HEADERS)
     open(miss, "w").close()  # no cover (or unreadable) — remember it
     return Response(status_code=404)
@@ -773,8 +770,7 @@ def _serve_comic_page(id: str, path: str, index: int, width: int, cache_name: st
     if not thumb:
         return Response(status_code=404)
     os.makedirs(cache_dir, exist_ok=True)
-    with open(webp, "wb") as fh:
-        fh.write(thumb)
+    images.write_atomic(webp, thumb)
     return FileResponse(webp, media_type="image/webp", headers=_EXTRACTED_ART_HEADERS)
 
 
