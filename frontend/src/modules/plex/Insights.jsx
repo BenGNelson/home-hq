@@ -58,8 +58,8 @@ function Body({ data }) {
     )
   }
 
-  const streams = samples.map((s) => s.streams)
-  const transcodes = samples.map((s) => s.transcodes)
+  const streams = samples.map((s) => s.streams ?? 0)
+  const transcodes = samples.map((s) => s.transcodes ?? 0)
   const bandwidth = samples.map((s) => s.bandwidth_kbps || 0)
 
   return (

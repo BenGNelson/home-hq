@@ -6,10 +6,12 @@ import { SkeletonLine } from '../../components/ui.jsx'
 export default function RecentlyAdded() {
   const { data, error } = useApi('/plex/recently-added', 60000)
   const items = data?.items ?? []
-  // Loaded-and-empty (or errored) → render nothing. While still loading (no data
-  // yet) → show a poster-strip skeleton so the row reserves its space instead of
-  // popping in (rather than showing the skeleton forever on an error).
-  if (error || (data && items.length === 0)) return null
+  // Loaded-and-empty → render nothing. While still loading (no data yet) → show a
+  // poster-strip skeleton so the row reserves its space instead of popping in
+  // (rather than showing the skeleton forever on an error). A transient poll
+  // error AFTER a good load keeps the last-good strip (useApi retains data), so
+  // only hide on error when there's nothing to show yet.
+  if ((error && !data) || (data && items.length === 0)) return null
 
   return (
     <section className="mt-6">

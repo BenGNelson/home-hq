@@ -54,3 +54,26 @@ def test_single_sample_has_no_hours():
     s = summarize_insights([{"ts": 0, "streams": 2, "transcodes": 0, "bandwidth_kbps": None}])
     assert s["stream_hours"] == 0.0  # no gaps → median dt 0
     assert s["peak_streams"] == 2
+
+
+def test_missing_ts_does_not_raise():
+    # The docstring promises this never raises; a hand-built / partial sample
+    # missing `ts` is read defensively (.get) and simply skipped for the
+    # gap/busiest-hour math instead of throwing a KeyError.
+    samples = [
+        {"streams": 1, "transcodes": 0, "bandwidth_kbps": None},  # no ts
+        {"ts": 300, "streams": 2, "transcodes": 0, "bandwidth_kbps": None},
+    ]
+    s = summarize_insights(samples)
+    assert s["samples"] == 2
+    assert s["peak_streams"] == 2
+    assert s["stream_hours"] == 0.0  # only one usable ts → no gaps
+    assert s["busiest_hour"] == 0   # the ts=300 sample lands in UTC hour 0
+
+
+def test_active_but_no_usable_ts_does_not_raise():
+    # Degenerate: a sample is active (streams > 0) but has no ts, so by_hour ends
+    # up empty while active > 0 — busiest_hour must fall back to None, not crash.
+    s = summarize_insights([{"streams": 1, "transcodes": 0, "bandwidth_kbps": None}])
+    assert s["peak_streams"] == 1
+    assert s["busiest_hour"] is None

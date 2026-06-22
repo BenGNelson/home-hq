@@ -55,10 +55,13 @@ def summarize_insights(samples, now=None):
 
     # Approximate each sample as covering the median gap between samples, so the
     # hours figure is robust to an uneven cadence (restarts, retention pruning).
+    # `ts` is read defensively (.get) like the other fields so a hand-built or
+    # partial sample can't raise — the docstring promises this never throws.
+    ts = [s.get("ts") for s in samples]
     gaps = [
-        samples[i]["ts"] - samples[i - 1]["ts"]
+        ts[i] - ts[i - 1]
         for i in range(1, n)
-        if samples[i]["ts"] - samples[i - 1]["ts"] > 0
+        if ts[i] is not None and ts[i - 1] is not None and ts[i] - ts[i - 1] > 0
     ]
     dt = statistics.median(gaps) if gaps else 0.0
     stream_hours = sum(streams) * dt / 3600.0
@@ -66,10 +69,16 @@ def summarize_insights(samples, now=None):
     # Busiest hour of day: the UTC hour whose samples average the most streams.
     by_hour: dict[int, list[int]] = {}
     for s, v in zip(samples, streams):
-        hour = datetime.fromtimestamp(s["ts"], tz=timezone.utc).hour
+        t = s.get("ts")
+        if t is None:
+            continue
+        hour = datetime.fromtimestamp(t, tz=timezone.utc).hour
         by_hour.setdefault(hour, []).append(v)
     busiest_hour = None
-    if active:
+    # `active` counts streams across all samples, but by_hour only holds samples
+    # with a usable ts — guard on by_hour too so an all-active-but-ts-less set
+    # can't hit max() on an empty dict.
+    if active and by_hour:
         busiest_hour = max(by_hour, key=lambda h: sum(by_hour[h]) / len(by_hour[h]))
 
     return {
