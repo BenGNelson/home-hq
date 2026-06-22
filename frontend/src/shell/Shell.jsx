@@ -5,7 +5,7 @@ import { useOnline } from '../lib/online.jsx'
 import { groupModules, activeModule, FOOTER_GROUP } from '../lib/nav.js'
 import ThemePicker from './ThemePicker.jsx'
 import ErrorBoundary from '../components/ErrorBoundary.jsx'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, Plane } from 'lucide-react'
 
 // A nav glyph. A Lucide icon (the norm) renders in a small `tint`-colored
 // rounded tile so each module has a pop of color on the sidebar; without a tint
@@ -195,9 +195,9 @@ export default function Shell({ modules, children }) {
         {!online && (
           <NavLink
             to="/library/downloads"
-            className="block bg-amber-900/40 px-4 py-1.5 text-center text-xs text-amber-200 active:bg-amber-900/60"
+            className="flex items-center justify-center gap-1.5 bg-amber-900/40 px-4 py-1.5 text-center text-xs text-amber-200 active:bg-amber-900/60"
           >
-            ✈️ Offline — live server data is unavailable. View your downloads ›
+            <Plane className="h-3.5 w-3.5" aria-hidden="true" /> Offline — live server data is unavailable. View your downloads ›
           </NavLink>
         )}
 

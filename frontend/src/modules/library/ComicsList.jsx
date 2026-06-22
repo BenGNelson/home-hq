@@ -15,6 +15,7 @@ import {
 import ComicCover from './ComicCover.jsx'
 import OfflineSection from './OfflineSection.jsx'
 import SavedBadge from './SavedBadge.jsx'
+import { Star, X, BookImage } from 'lucide-react'
 
 const PAGE = 60 // issues rendered per "page" — keeps a big folder from choking
 
@@ -73,7 +74,7 @@ export default function ComicsList() {
 
   // Offline, the folder browser + covers can't load — show the comics you've
   // downloaded instead, so the section never dead-ends.
-  if (!online) return <OfflineSection section="comics" label="Comics" icon="🦸" />
+  if (!online) return <OfflineSection section="comics" label="Comics" />
 
   return (
     <div className="space-y-4">
@@ -133,7 +134,7 @@ function PinnedShelf({ pins, items, onUnpin }) {
                 onClick={() => navigate(`/library/comics?path=${encodeURIComponent(p.path)}`)}
                 className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left active:bg-slate-800"
               >
-                <span className="text-amber-400">★</span>
+                <Star className="h-4 w-4 shrink-0 text-amber-400" fill="currentColor" aria-hidden="true" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-slate-100">{name}</span>
                   {parent && <span className="block truncate text-xs text-slate-500">{parent}</span>}
@@ -143,9 +144,9 @@ function PinnedShelf({ pins, items, onUnpin }) {
               <button
                 onClick={() => onUnpin(p.path)}
                 aria-label={`Unpin ${name}`}
-                className="px-3 py-3 text-slate-500 active:text-slate-300"
+                className="flex items-center px-3 py-3 text-slate-500 active:text-slate-300"
               >
-                ✕
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </li>
           )
@@ -189,7 +190,7 @@ function FolderView({ items, path, crumbs, pinnedSet, onTogglePin }) {
                   onClick={() => navigate(`/library/comics?path=${encodeURIComponent(f.path)}`)}
                   className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left active:bg-slate-800"
                 >
-                  <span className="text-xl">🦸</span>
+                  <BookImage className="h-6 w-6 shrink-0 text-slate-400" aria-hidden="true" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-slate-100">{f.name}</span>
                     <span className="block text-xs text-slate-500">
@@ -202,11 +203,15 @@ function FolderView({ items, path, crumbs, pinnedSet, onTogglePin }) {
                   onClick={() => onTogglePin(f.path)}
                   aria-label={pinned ? `Unpin ${f.name}` : `Pin ${f.name}`}
                   aria-pressed={pinned}
-                  className={`px-3 py-3 text-lg active:scale-90 ${
+                  className={`flex items-center px-3 py-3 active:scale-90 ${
                     pinned ? 'text-amber-400' : 'text-slate-600'
                   }`}
                 >
-                  {pinned ? '★' : '☆'}
+                  {pinned ? (
+                    <Star className="h-5 w-5" fill="currentColor" aria-hidden="true" />
+                  ) : (
+                    <Star className="h-5 w-5" aria-hidden="true" />
+                  )}
                 </button>
               </li>
             )

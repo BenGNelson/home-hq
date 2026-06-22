@@ -1,3 +1,4 @@
+import { Waypoints, TriangleAlert } from 'lucide-react'
 import { useApi } from '../../lib/useApi.js'
 import { formatAgo } from '../../lib/format.js'
 import { tailscaleVerdict, tailscaleExplanation, osIcon } from '../../lib/tailscale.js'
@@ -44,9 +45,13 @@ function Detail({ t }) {
       {/* Headline verdict */}
       <div className={`rounded-xl border p-5 ${TONE[verdict.tone]}`}>
         <div className="flex items-center gap-3">
-          <span className="text-2xl leading-none">
-            {verdict.tone === 'good' ? '🔗' : verdict.tone === 'bad' ? '⚠️' : '○'}
-          </span>
+          {verdict.tone === 'good' ? (
+            <Waypoints className="h-6 w-6" aria-hidden="true" />
+          ) : verdict.tone === 'bad' ? (
+            <TriangleAlert className="h-6 w-6" aria-hidden="true" />
+          ) : (
+            <span className="text-2xl leading-none">○</span>
+          )}
           <span className="text-lg font-semibold">{verdict.label}</span>
           {t.stale && (
             <span className="ml-auto rounded bg-slate-800 px-2 py-0.5 text-xs text-amber-300">
@@ -89,11 +94,12 @@ function Detail({ t }) {
 }
 
 function Row({ d }) {
+  const OsIcon = osIcon(d.os)
   return (
     <tr className="bg-slate-900/40">
       <td className="px-4 py-2">
         <div className="flex items-center gap-2">
-          <span className="text-base leading-none">{osIcon(d.os)}</span>
+          <OsIcon className="h-4 w-4 text-slate-400" aria-hidden="true" />
           <span className="font-medium text-slate-100">{d.hostname}</span>
           {d.self && (
             <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase text-slate-400">

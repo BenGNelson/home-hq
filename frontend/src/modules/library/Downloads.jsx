@@ -10,7 +10,8 @@ import {
   auditStorage,
   summarizeStorage,
 } from '../../lib/offlineStore.js'
-import { downloadHref } from '../../lib/library.js'
+import { Check, TriangleAlert, Download, X } from 'lucide-react'
+import { downloadHref, sectionIcon } from '../../lib/library.js'
 import { formatSize } from '../../lib/format.js'
 import BackLink from '../../components/BackLink.jsx'
 
@@ -20,11 +21,6 @@ import BackLink from '../../components/BackLink.jsx'
 // fully offline and is the trustworthy answer to "what's taking up space?":
 // every byte is shown as either the app shell or a download you can open/delete,
 // and "Verify storage" scans the real cache to prove nothing is unaccounted-for.
-const ICONS = { pdf: '📄', epub: '📖', comic: '🦸', listen: '🎧' }
-
-// Audiobooks/games have no `reader`; key their icon off the section instead.
-const itemIcon = (e) =>
-  e.section === 'audiobooks' ? '🎧' : e.section === 'games' ? '🎮' : ICONS[e.reader] || '📄'
 
 export default function Downloads() {
   const [entries, setEntries] = useState(null)
@@ -126,10 +122,21 @@ export default function Downloads() {
             {verifying ? 'Verifying…' : 'Verify storage'}
           </button>
           {audit && (
-            <span className={`text-sm ${audit.clean ? 'text-emerald-400' : 'text-amber-400'}`}>
-              {audit.clean
-                ? '✓ No unaccounted data — every byte is listed here'
-                : `⚠ ${audit.orphans.length} stray, ${audit.missing.length} missing (tap a download to re-save)`}
+            <span className={`flex items-center gap-1.5 text-sm ${audit.clean ? 'text-emerald-400' : 'text-amber-400'}`}>
+              {audit.clean ? (
+                <>
+                  <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>No unaccounted data — every byte is listed here</span>
+                </>
+              ) : (
+                <>
+                  <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>
+                    {audit.orphans.length} stray, {audit.missing.length} missing (tap a download to
+                    re-save)
+                  </span>
+                </>
+              )}
             </span>
           )}
         </div>
@@ -139,19 +146,22 @@ export default function Downloads() {
           above, not listed as a content download). */}
       {s.items.length === 0 ? (
         <p className="text-sm text-slate-400">
-          No downloads yet. Open a book or paper and tap <span className="text-slate-200">⬇</span> in the
-          reader to save it for offline.
+          No downloads yet. Open a book or paper and tap{' '}
+          <Download className="inline h-4 w-4 align-text-bottom text-slate-200" aria-hidden="true" />{' '}
+          in the reader to save it for offline.
         </p>
       ) : (
         <>
           <ul className="divide-y divide-slate-800 overflow-hidden rounded-xl border border-slate-800 bg-slate-900/40">
-            {s.items.map((e) => (
+            {s.items.map((e) => {
+              const ItemIcon = sectionIcon(e.section)
+              return (
               <li key={e.key} className="flex items-center">
                 <Link
                   to={downloadHref(e)}
                   className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 active:bg-slate-800"
                 >
-                  <span className="text-xl">{itemIcon(e)}</span>
+                  <ItemIcon className="h-5 w-5 shrink-0 text-slate-400" aria-hidden="true" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-slate-100">{e.name}</span>
                     <span className="block text-xs text-slate-500">{formatSize(e.bytes)}</span>
@@ -162,10 +172,11 @@ export default function Downloads() {
                   aria-label={`Remove ${e.name}`}
                   className="px-4 py-3 text-slate-500 active:text-rose-300"
                 >
-                  ✕
+                  <X className="h-5 w-5" aria-hidden="true" />
                 </button>
               </li>
-            ))}
+              )
+            })}
           </ul>
           <button
             onClick={clearAll}

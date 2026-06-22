@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { Monitor, Smartphone, MonitorDot } from 'lucide-react'
 import { tailscaleVerdict, tailscaleExplanation, osIcon } from './tailscale.js'
 
 const UP = { available: true, status: 'up', stale: false, online_count: 2, peer_count: 3 }
@@ -37,12 +38,12 @@ describe('tailscaleExplanation', () => {
 })
 
 describe('osIcon', () => {
-  it('maps known platforms', () => {
-    expect(osIcon('linux')).toBe('🐧')
-    expect(osIcon('iOS')).toBe('📱')
+  it('maps known platforms to a generic device-type Lucide component', () => {
+    expect(osIcon('linux')).toBe(Monitor)
+    expect(osIcon('iOS')).toBe(Smartphone)
   })
-  it('falls back for unknown/empty', () => {
-    expect(osIcon('plan9')).toBe('💻')
-    expect(osIcon(undefined)).toBe('💻')
+  it('falls back to MonitorDot for unknown/empty', () => {
+    expect(osIcon('plan9')).toBe(MonitorDot)
+    expect(osIcon(undefined)).toBe(MonitorDot)
   })
 })

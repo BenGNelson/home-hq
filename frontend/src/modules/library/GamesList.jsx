@@ -20,7 +20,7 @@ export default function GamesList() {
   const [recent] = useState(() => getRecent())
 
   // Offline, the library can't load — show the games you've downloaded.
-  if (!online) return <OfflineSection section="games" label="Games" icon="🎮" />
+  if (!online) return <OfflineSection section="games" label="Games" />
 
   return (
     <div className="space-y-5">

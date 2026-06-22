@@ -41,7 +41,7 @@ export default function AudiobooksList() {
         </div>
       )
     }
-    return <OfflineSection section="audiobooks" label="Audiobooks" icon="🎧" />
+    return <OfflineSection section="audiobooks" label="Audiobooks" />
   }
 
   const items = data?.items ?? []
