@@ -295,9 +295,20 @@ audiobooks, and the PDFs from newspaper/magazine subscriptions — read/played/h
 **Section framework.** `app/library.py` (pure, unit-tested) defines an ordered
 list of **sections**, each with a content dir (a `.env` path under `RAID_MOUNT`,
 so the existing read-only RAID mount serves it — no extra mount), recognized file
-extensions, and per-item metadata. Sections so far: **games**
-(`.gb` → the `gb` core, `.gbc`/`.gba` → `gba`/mGBA — GBC uses mGBA because
-gambatte crashes GBC games on iOS Safari), **papers** (Magazines &
+extensions, and per-item metadata. Sections so far: **games** — each ROM
+extension maps to an EmulatorJS system (`core`): Game Boy (`.gb`), Game Boy
+Color/Advance (`.gbc`/`.gba` → mGBA — GBC uses mGBA because gambatte crashes GBC
+games on iOS Safari), plus the 8/16-bit consoles NES (`.nes`), Super Nintendo
+(`.sfc`/`.smc`), Sega Genesis (`.md`/`.gen`/`.smd`), Master System (`.sms`), and
+Game Gear (`.gg`). All are lightweight cores that run full-speed in WASM on a
+phone and fit the dpad + face-button touch overlay; emulation is entirely
+client-side, so a new system adds no server load (the backend only lists +
+range-streams ROM bytes). `.bin` is deliberately *not* recognized — it's
+ambiguous across Genesis/Atari/PS1, and the scan maps one extension to exactly
+one system. The frontend's `LIBRETRO_CORE` map mirrors EmulatorJS's default-core
+table (`src/emulator.js`) so the offline cache fetches the same `.data` the
+online loader does (note Master System defaults to `smsplus`, while
+Genesis/Game Gear use `genesis_plus_gx`). **papers** (Magazines &
 Papers — `.pdf`, read in-browser via PDF.js), **books** (EPUB/MOBI/AZW3 read
 via foliate-js, plus `.pdf` falling back to PDF.js), and **comics**
 (CBZ/CBR/CB7 read page-by-page). A section also carries a

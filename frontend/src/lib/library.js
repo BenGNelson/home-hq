@@ -227,8 +227,20 @@ export const EMULATOR_ENGINE_URLS = [
   `${EMULATORJS_DATA}compression/extract7z.js`,
 ]
 
-// EmulatorJS maps our system core name to a libretro core file.
-const LIBRETRO_CORE = { gb: 'gambatte', gbc: 'mgba', gba: 'mgba' }
+// EmulatorJS maps our system core name to the libretro core file it loads by
+// DEFAULT (the first entry in its per-system core table, src/emulator.js) — so
+// the offline cache fetches the same .data the online loader does. Note segaMS
+// defaults to smsplus (not genesis_plus_gx, which Genesis/Game Gear use).
+const LIBRETRO_CORE = {
+  gb: 'gambatte',
+  gbc: 'mgba',
+  gba: 'mgba',
+  nes: 'fceumm',
+  snes: 'snes9x',
+  segaMD: 'genesis_plus_gx',
+  segaMS: 'smsplus',
+  segaGG: 'genesis_plus_gx',
+}
 
 // The per-game offline URLs: the ROM + its core (both non-thread variants, since
 // iOS may pick either) + the core's report. The shared engine is separate.

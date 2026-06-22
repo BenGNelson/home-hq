@@ -477,6 +477,37 @@ def test_thumbnail_url_per_system_and_sanitization():
     assert library.thumbnail_url("song.mp3") is None
 
 
+def test_classic_console_formats():
+    """The added 8/16-bit systems map each extension to its EmulatorJS core +
+    display label (the frontend groups the list by label and boots `core`)."""
+    fmt = GAMES["formats"]
+    cases = {
+        ".nes": ("NES", "nes"),
+        ".sfc": ("Super Nintendo", "snes"),
+        ".smc": ("Super Nintendo", "snes"),
+        ".md": ("Sega Genesis", "segaMD"),
+        ".gen": ("Sega Genesis", "segaMD"),
+        ".smd": ("Sega Genesis", "segaMD"),
+        ".sms": ("Sega Master System", "segaMS"),
+        ".gg": ("Sega Game Gear", "segaGG"),
+    }
+    for ext, (label, core) in cases.items():
+        assert fmt[ext] == {"label": label, "core": core}, ext
+    # .bin stays unrecognized — it's ambiguous across Genesis/Atari/PS1, and the
+    # scan maps one extension to exactly one system.
+    assert ".bin" not in fmt
+
+
+def test_classic_console_box_art_repos():
+    """Each new extension resolves to its libretro-thumbnails system repo."""
+    assert "Nintendo_-_Nintendo_Entertainment_System/" in library.thumbnail_url("Contra.nes")
+    assert "Nintendo_-_Super_Nintendo_Entertainment_System/" in library.thumbnail_url("Mario.sfc")
+    assert "Nintendo_-_Super_Nintendo_Entertainment_System/" in library.thumbnail_url("Mario.smc")
+    assert "Sega_-_Mega_Drive_-_Genesis/" in library.thumbnail_url("Sonic.md")
+    assert "Sega_-_Master_System_-_Mark_III/" in library.thumbnail_url("Wonder Boy.sms")
+    assert "Sega_-_Game_Gear/" in library.thumbnail_url("Sonic.gg")
+
+
 def test_cover_unknown_ext_404(client, rom_dir):
     assert client.get("/api/library/games/cover", params={"id": "song.mp3"}).status_code == 404
 

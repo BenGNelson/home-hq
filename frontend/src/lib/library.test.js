@@ -20,6 +20,7 @@ import {
   libraryHeadline,
   bookSubtitle,
   libraryNavSections,
+  gameOfflineUrls,
 } from './library.js'
 
 describe('bookSubtitle', () => {
@@ -145,6 +146,32 @@ describe('groupByLabel', () => {
   })
   it('handles empty/undefined', () => {
     expect(groupByLabel(undefined)).toEqual([])
+  })
+})
+
+describe('gameOfflineUrls', () => {
+  // The offline cache must fetch the SAME libretro core file the online loader
+  // picks by default for each EmulatorJS system (src/emulator.js's core table).
+  const coreFile = (core) => {
+    const u = gameOfflineUrls('X', core).find((url) => url.includes('/cores/') && url.endsWith('-wasm.data'))
+    return u.split('/cores/')[1].replace('-wasm.data', '')
+  }
+  it('maps each system to its default libretro core', () => {
+    expect(coreFile('gb')).toBe('gambatte')
+    expect(coreFile('gba')).toBe('mgba')
+    expect(coreFile('nes')).toBe('fceumm')
+    expect(coreFile('snes')).toBe('snes9x')
+    expect(coreFile('segaMD')).toBe('genesis_plus_gx')
+    expect(coreFile('segaGG')).toBe('genesis_plus_gx')
+    // Master System defaults to smsplus, NOT genesis_plus_gx
+    expect(coreFile('segaMS')).toBe('smsplus')
+  })
+  it('includes the ROM, both wasm variants, and the core report', () => {
+    const urls = gameOfflineUrls('Sonic.md', 'segaMD')
+    expect(urls.some((u) => u.includes('library/file') && u.includes('Sonic.md'))).toBe(true)
+    expect(urls).toContain('/emulatorjs/cores/genesis_plus_gx-wasm.data')
+    expect(urls).toContain('/emulatorjs/cores/genesis_plus_gx-legacy-wasm.data')
+    expect(urls).toContain('/emulatorjs/cores/reports/genesis_plus_gx.json')
   })
 })
 
