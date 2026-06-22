@@ -1,5 +1,5 @@
 import { useApi } from '../../../lib/useApi.js'
-import { entityIcon, entityLabel, entityValue, lowBattery } from '../../../lib/ha.js'
+import { entityIcon, entityColor, entityLabel, entityValue, lowBattery } from '../../../lib/ha.js'
 import { homeAssistantUrl } from '../../../lib/hostLocal.js'
 import Widget from './Widget.jsx'
 
@@ -48,11 +48,12 @@ function Row({ e }) {
   const href = homeAssistantUrl(`/history?entity_id=${encodeURIComponent(e.entity_id)}`)
   const low = lowBattery(e)
   const Icon = entityIcon(e)
+  const color = entityColor(e)
   const body = (
     <div className="flex items-center justify-between gap-3">
       <span className="flex min-w-0 items-center gap-2">
         {Icon ? (
-          <Icon className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+          <Icon className={`h-4 w-4 shrink-0 ${color}`} aria-hidden="true" />
         ) : (
           <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-slate-600" aria-hidden="true" />
         )}

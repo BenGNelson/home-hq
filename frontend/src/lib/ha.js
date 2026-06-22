@@ -20,31 +20,45 @@ import {
   Bell,
 } from 'lucide-react'
 
-// A Lucide icon component for an entity, chosen by device_class first (most
-// specific), then domain, then a keyword in the id. Returns null when nothing
-// matches (the widget shows a neutral dot). Monochrome — inherits the text
-// color, so it themes/dims cleanly (the old emoji were fixed full-color).
-export function entityIcon(e) {
+// Resolve an entity to a Lucide icon + an accent color (a literal Tailwind text
+// class so the JIT keeps it), chosen by device_class first (most specific), then
+// domain, then a keyword in the id. `{ Icon: null }` when nothing matches (the
+// widget shows a neutral dot). The color gives the glance a bit of flair without
+// the fixed-full-color emoji it replaced.
+function resolve(e) {
   const dc = e?.device_class || ''
   const domain = e?.domain || ''
   const id = e?.entity_id || ''
-  if (dc === 'battery') return Battery
-  if (dc === 'battery_charging') return Zap
-  if (dc === 'humidity') return Droplet
-  if (dc === 'temperature') return Thermometer
-  if (dc === 'distance') return Route
-  if (dc === 'motion' || dc === 'occupancy' || dc === 'presence') return Footprints
-  if (dc === 'door' || dc === 'garage_door' || dc === 'opening') return DoorClosed
-  if (/washer|dryer|laundry/.test(id)) return WashingMachine
-  if (/dehumidif|humidif/.test(id)) return Droplet
-  if (/tesla|car|vehicle/.test(id)) return Car
-  if (domain === 'lock') return Lock
-  if (domain === 'light') return Lightbulb
-  if (domain === 'switch') return Plug
-  if (domain === 'climate') return Thermometer
-  if (domain === 'device_tracker' || domain === 'person') return MapPin
-  if (domain === 'binary_sensor') return Bell
-  return null
+  if (dc === 'battery') return { Icon: Battery, color: 'text-emerald-400' }
+  if (dc === 'battery_charging') return { Icon: Zap, color: 'text-yellow-400' }
+  if (dc === 'humidity') return { Icon: Droplet, color: 'text-sky-400' }
+  if (dc === 'temperature') return { Icon: Thermometer, color: 'text-orange-400' }
+  if (dc === 'distance') return { Icon: Route, color: 'text-violet-400' }
+  if (dc === 'motion' || dc === 'occupancy' || dc === 'presence')
+    return { Icon: Footprints, color: 'text-cyan-400' }
+  if (dc === 'door' || dc === 'garage_door' || dc === 'opening')
+    return { Icon: DoorClosed, color: 'text-amber-400' }
+  if (/washer|dryer|laundry/.test(id)) return { Icon: WashingMachine, color: 'text-sky-400' }
+  if (/dehumidif|humidif/.test(id)) return { Icon: Droplet, color: 'text-sky-400' }
+  if (/tesla|car|vehicle/.test(id)) return { Icon: Car, color: 'text-rose-400' }
+  if (domain === 'lock') return { Icon: Lock, color: 'text-emerald-400' }
+  if (domain === 'light') return { Icon: Lightbulb, color: 'text-amber-400' }
+  if (domain === 'switch') return { Icon: Plug, color: 'text-lime-400' }
+  if (domain === 'climate') return { Icon: Thermometer, color: 'text-orange-400' }
+  if (domain === 'device_tracker' || domain === 'person')
+    return { Icon: MapPin, color: 'text-violet-400' }
+  if (domain === 'binary_sensor') return { Icon: Bell, color: 'text-slate-400' }
+  return { Icon: null, color: 'text-slate-400' }
+}
+
+// The Lucide icon component for an entity (or null). See resolve().
+export function entityIcon(e) {
+  return resolve(e).Icon
+}
+
+// The accent color (Tailwind text class) for an entity's icon.
+export function entityColor(e) {
+  return resolve(e).color
 }
 
 // A human label for a row: the friendly name when present, else a prettified id.

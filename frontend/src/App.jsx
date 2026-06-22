@@ -56,20 +56,24 @@ import {
 // material, not functional modules — Shell pins it to the bottom of the sidebar.
 // This is the seam the whole platform grows along.
 // Icons are Lucide components (monochrome line icons that inherit the theme's
-// text color, unlike the old fixed-color emoji). Shell renders them as <Icon/>.
+// text color, unlike the old fixed-color emoji). Shell renders each in a small
+// `tint`-colored rounded tile so the sidebar reads with a bit of colorful flair
+// instead of blending into the text. Docs (footer) have no tint — they stay a
+// muted, secondary slate. Tints are literal Tailwind classes so the JIT keeps
+// them.
 const builtinModules = [
-  { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: Home, group: 'Overview' },
-  { id: 'plex', label: 'Plex', path: '/plex', icon: Clapperboard, group: 'Media' },
-  { id: 'library', label: 'Library', path: '/library', icon: LibraryIcon, group: 'Media' },
-  { id: 'containers', label: 'Containers', path: '/containers', icon: Container, group: 'System' },
-  { id: 'storage', label: 'Storage', path: '/storage', icon: HardDrive, group: 'System' },
-  { id: 'backups', label: 'Backups', path: '/backups', icon: Archive, group: 'System' },
-  { id: 'network', label: 'Network', path: '/network', icon: Globe, group: 'Network' },
-  { id: 'vpn', label: 'VPN', path: '/vpn', icon: ShieldCheck, group: 'Network' },
-  { id: 'tailscale', label: 'Tailscale', path: '/tailscale', icon: Waypoints, group: 'Network' },
-  { id: 'printer', label: '3D Printer', path: '/printer', icon: PrinterIcon, group: 'Devices' },
-  { id: 'alerts', label: 'Alerts', path: '/alerts', icon: Bell, group: 'Monitoring' },
-  { id: 'uptime', label: 'Uptime', path: '/uptime', icon: Activity, group: 'Monitoring' },
+  { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: Home, group: 'Overview', tint: 'bg-emerald-500/15 text-emerald-400' },
+  { id: 'plex', label: 'Plex', path: '/plex', icon: Clapperboard, group: 'Media', tint: 'bg-rose-500/15 text-rose-400' },
+  { id: 'library', label: 'Library', path: '/library', icon: LibraryIcon, group: 'Media', tint: 'bg-amber-500/15 text-amber-400' },
+  { id: 'containers', label: 'Containers', path: '/containers', icon: Container, group: 'System', tint: 'bg-sky-500/15 text-sky-400' },
+  { id: 'storage', label: 'Storage', path: '/storage', icon: HardDrive, group: 'System', tint: 'bg-indigo-500/15 text-indigo-400' },
+  { id: 'backups', label: 'Backups', path: '/backups', icon: Archive, group: 'System', tint: 'bg-violet-500/15 text-violet-400' },
+  { id: 'network', label: 'Network', path: '/network', icon: Globe, group: 'Network', tint: 'bg-cyan-500/15 text-cyan-400' },
+  { id: 'vpn', label: 'VPN', path: '/vpn', icon: ShieldCheck, group: 'Network', tint: 'bg-green-500/15 text-green-400' },
+  { id: 'tailscale', label: 'Tailscale', path: '/tailscale', icon: Waypoints, group: 'Network', tint: 'bg-teal-500/15 text-teal-400' },
+  { id: 'printer', label: '3D Printer', path: '/printer', icon: PrinterIcon, group: 'Devices', tint: 'bg-orange-500/15 text-orange-400' },
+  { id: 'alerts', label: 'Alerts', path: '/alerts', icon: Bell, group: 'Monitoring', tint: 'bg-red-500/15 text-red-400' },
+  { id: 'uptime', label: 'Uptime', path: '/uptime', icon: Activity, group: 'Monitoring', tint: 'bg-lime-500/15 text-lime-400' },
   { id: 'guide', label: 'Under the Hood', path: '/guide', icon: Wrench, group: 'Docs' },
   { id: 'server-guide', label: 'Your Server Guide', path: '/server-guide', icon: BookText, group: 'Docs' },
   // External: the backend's own interactive OpenAPI docs (Swagger UI), served

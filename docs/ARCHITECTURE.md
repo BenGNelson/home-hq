@@ -1174,6 +1174,9 @@ Short record of *why* things are the way they are, so future changes have contex
   ship). The icon for a module/section/entity is a component reference resolved
   by a small mapping (`lib/ha.js` `entityIcon`, `lib/library.js` `sectionIcon`,
   the `App.jsx` registry); a `NavIcon` helper still accepts a plain string so a
-  host-local nav link can supply its own glyph. (A few low-traffic surfaces —
+  host-local nav link can supply its own glyph. For flair, each gets an accent
+  color: nav modules carry a `tint` (literal Tailwind classes for a small
+  colored rounded tile behind the icon; Docs stay muted), and the HA glance
+  widget colors each device icon via `entityColor`. (A few low-traffic surfaces —
   the offline section headers, the Alerts page, Tailscale OS glyphs — still use
   emoji; a later pass finishes them.)

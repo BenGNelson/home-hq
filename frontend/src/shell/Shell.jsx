@@ -7,15 +7,23 @@ import ThemePicker from './ThemePicker.jsx'
 import ErrorBoundary from '../components/ErrorBoundary.jsx'
 import { ExternalLink } from 'lucide-react'
 
-// A nav glyph: a Lucide icon component (the norm — monochrome, inherits the
-// text color so it themes + dims cleanly) or, for a host-local link that still
-// supplies an emoji/text string, that string. Lucide icons are forwardRef
-// objects (not functions), so we branch on string, not `typeof === 'function'`.
-function NavIcon({ icon, muted }) {
+// A nav glyph. A Lucide icon (the norm) renders in a small `tint`-colored
+// rounded tile so each module has a pop of color on the sidebar; without a tint
+// (the Docs footer) it's a plain muted icon. A host-local link may still pass an
+// emoji/text string. (Lucide icons are forwardRef objects, not functions, so we
+// branch on string.)
+function NavIcon({ icon, muted, tint }) {
   if (typeof icon === 'string') {
     return <span className={`text-base leading-none${muted ? ' opacity-70' : ''}`}>{icon}</span>
   }
   const Icon = icon
+  if (tint) {
+    return (
+      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${tint}`}>
+        <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
+      </span>
+    )
+  }
   return <Icon className={`h-4 w-4 shrink-0${muted ? ' opacity-70' : ''}`} aria-hidden="true" />
 }
 
@@ -39,8 +47,8 @@ function StatusDot() {
 // reference docs read as secondary to the functional modules above them.
 // `external` links (e.g. the backend's OpenAPI docs) render as a plain <a> that
 // opens in a new tab, since they're not client-side routes.
-function NavItem({ to, icon, label, muted, external, dimmed }) {
-  const layout = 'flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition'
+function NavItem({ to, icon, label, muted, external, dimmed, tint }) {
+  const layout = 'flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-sm transition'
   const idle = muted
     ? 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300'
     : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
@@ -51,7 +59,7 @@ function NavItem({ to, icon, label, muted, external, dimmed }) {
   if (external) {
     return (
       <a href={to} target="_blank" rel="noreferrer" title={title} className={`${layout} ${idle} ${dimCls}`}>
-        <NavIcon icon={icon} muted={muted} />
+        <NavIcon icon={icon} muted={muted} tint={tint} />
         <span>{label}</span>
         <ExternalLink className="ml-auto h-3.5 w-3.5 text-slate-600" aria-hidden="true" />
       </a>
@@ -65,7 +73,7 @@ function NavItem({ to, icon, label, muted, external, dimmed }) {
         `${layout} ${isActive ? 'bg-slate-800 text-white' : idle} ${dimCls}`
       }
     >
-      <NavIcon icon={icon} muted={muted} />
+      <NavIcon icon={icon} muted={muted} tint={tint} />
       <span>{label}</span>
     </NavLink>
   )
@@ -87,6 +95,7 @@ function NavSection({ group, items, muted, online }) {
             icon={m.icon}
             label={m.label}
             muted={muted}
+            tint={m.tint}
             external={m.external}
             dimmed={!online && !m.path?.startsWith('/library')}
           />
