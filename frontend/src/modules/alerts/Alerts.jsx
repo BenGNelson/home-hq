@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import { BellOff, Bell, Check, X } from 'lucide-react'
 import { useApi, API_BASE } from '../../lib/useApi.js'
 import { formatAgo } from '../../lib/format.js'
-import { alertEmoji } from '../../lib/alerts.js'
+import { alertIcon } from '../../lib/alerts.js'
 
 // The Alerts module: shows the push-notification status, every rule's current
 // state (firing or OK), and a recent history — plus a button to fire a test
@@ -40,7 +41,19 @@ export default function Alerts() {
   }
 
   const testLabel =
-    test === 'sending' ? 'Sending…' : test === 'ok' ? 'Sent ✓' : test === 'fail' ? 'Failed ✗' : 'Send test'
+    test === 'sending' ? (
+      'Sending…'
+    ) : test === 'ok' ? (
+      <span className="flex items-center gap-1">
+        Sent <Check className="h-4 w-4" aria-hidden="true" />
+      </span>
+    ) : test === 'fail' ? (
+      <span className="flex items-center gap-1">
+        Failed <X className="h-4 w-4" aria-hidden="true" />
+      </span>
+    ) : (
+      'Send test'
+    )
 
   return (
     <div>
@@ -102,13 +115,14 @@ function Conditions({ rules = [], overrides = {}, onToggleMute }) {
       <div className="space-y-2 text-sm">
         {rules.map((r) => {
           const muted = isMuted(r)
+          const Icon = alertIcon(r.emoji)
           return (
             <div
               key={r.id}
               className="flex items-center justify-between gap-3 border-b border-slate-800 pb-2 last:border-0 last:pb-0"
             >
               <span className={`flex items-center gap-2 ${muted ? 'opacity-50' : ''}`}>
-                <span aria-hidden>{alertEmoji(r.emoji)}</span>
+                <Icon className="h-4 w-4 text-slate-400" aria-hidden="true" />
                 <span className="text-slate-200">{r.title}</span>
                 {muted && (
                   <span className="rounded bg-slate-700/60 px-1.5 py-0.5 text-xs text-slate-400">
@@ -133,9 +147,13 @@ function Conditions({ rules = [], overrides = {}, onToggleMute }) {
                   onClick={() => onToggleMute(r.id, !muted)}
                   title={muted ? 'Unmute — resume pushes' : 'Mute — silence pushes'}
                   aria-label={muted ? `Unmute ${r.title}` : `Mute ${r.title}`}
-                  className="rounded px-1.5 py-0.5 text-base leading-none text-slate-400 transition-colors hover:bg-slate-700/50 hover:text-slate-200"
+                  className="rounded px-1.5 py-0.5 leading-none text-slate-400 transition-colors hover:bg-slate-700/50 hover:text-slate-200"
                 >
-                  {muted ? '🔕' : '🔔'}
+                  {muted ? (
+                    <BellOff className="h-4 w-4" aria-hidden="true" />
+                  ) : (
+                    <Bell className="h-4 w-4" aria-hidden="true" />
+                  )}
                 </button>
               </span>
             </div>
@@ -147,7 +165,7 @@ function Conditions({ rules = [], overrides = {}, onToggleMute }) {
 }
 
 function History({ recent = [], rules = [] }) {
-  const emojiFor = (id) => alertEmoji(rules.find((r) => r.id === id)?.emoji)
+  const iconFor = (id) => alertIcon(rules.find((r) => r.id === id)?.emoji)
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
       <h3 className="mb-3 text-sm font-medium text-slate-300">Recent</h3>
@@ -155,17 +173,20 @@ function History({ recent = [], rules = [] }) {
         <p className="text-sm text-slate-500">No alerts yet.</p>
       ) : (
         <ul className="space-y-2 text-sm">
-          {recent.map((e, i) => (
+          {recent.map((e, i) => {
+            const Icon = iconFor(e.rule_id)
+            return (
             <li key={i} className="flex items-start justify-between gap-3">
               <span className="flex items-start gap-2">
-                <span aria-hidden>{emojiFor(e.rule_id)}</span>
+                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
                 <span className={e.kind === 'clear' ? 'text-emerald-300' : 'text-slate-200'}>
                   {e.message}
                 </span>
               </span>
               <span className="shrink-0 text-xs text-slate-500">{formatAgo(e.ts)}</span>
             </li>
-          ))}
+            )
+          })}
         </ul>
       )}
     </div>

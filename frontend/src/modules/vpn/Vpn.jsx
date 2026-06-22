@@ -1,3 +1,4 @@
+import { ShieldCheck, ShieldAlert, Shield } from 'lucide-react'
 import { useApi } from '../../lib/useApi.js'
 import { formatAgo } from '../../lib/format.js'
 import { vpnVerdict, vpnExplanation } from '../../lib/vpn.js'
@@ -42,9 +43,13 @@ function Detail({ v }) {
       {/* Headline verdict */}
       <div className={`rounded-xl border p-5 ${TONE[verdict.tone]}`}>
         <div className="flex items-center gap-3">
-          <span className="text-2xl leading-none">
-            {verdict.tone === 'good' ? '🔒' : verdict.tone === 'bad' ? '⚠️' : '○'}
-          </span>
+          {verdict.tone === 'good' ? (
+            <ShieldCheck className="h-7 w-7 shrink-0" aria-hidden="true" />
+          ) : verdict.tone === 'bad' ? (
+            <ShieldAlert className="h-7 w-7 shrink-0" aria-hidden="true" />
+          ) : (
+            <Shield className="h-7 w-7 shrink-0" aria-hidden="true" />
+          )}
           <span className="text-lg font-semibold">{verdict.label}</span>
           {v.stale && (
             <span className="ml-auto rounded bg-slate-800 px-2 py-0.5 text-xs text-amber-300">

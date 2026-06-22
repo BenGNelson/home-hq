@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { X } from 'lucide-react'
 import { useApi, API_BASE } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
 import { allEntries } from '../../lib/offlineStore.js'
@@ -274,9 +275,9 @@ function ContinueCard({ entry, onResume, onRemove }) {
           onRemove()
         }}
         aria-label="Remove from Jump back in"
-        className="absolute right-1 top-1 flex h-9 w-9 items-center justify-center rounded-full bg-black/70 text-base leading-none text-slate-100 shadow active:bg-black/90"
+        className="absolute right-1 top-1 flex h-9 w-9 items-center justify-center rounded-full bg-black/70 text-slate-100 shadow active:bg-black/90"
       >
-        ✕
+        <X className="h-4 w-4" aria-hidden="true" />
       </button>
     </div>
   )

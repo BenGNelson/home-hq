@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Check, RotateCw, X } from 'lucide-react'
 import { useApi, API_BASE } from '../../lib/useApi.js'
 import { useDiskRates } from '../../lib/useRates.js'
 import { formatBytes, formatAgo, formatRate } from '../../lib/format.js'
@@ -570,9 +571,9 @@ function WatchedDrive({ d }) {
 
 // Recent wedge/recovery events from the watchdog's append-only log.
 const EVENT_STYLE = {
-  recovered: { cls: 'text-emerald-400', glyph: '✓' },
-  remounted: { cls: 'text-sky-400', glyph: '↻' },
-  'recovery-failed': { cls: 'text-rose-400', glyph: '✗' },
+  recovered: { cls: 'text-emerald-400', Icon: Check },
+  remounted: { cls: 'text-sky-400', Icon: RotateCw },
+  'recovery-failed': { cls: 'text-rose-400', Icon: X },
 }
 
 function RecoveryLog({ events }) {
@@ -584,10 +585,16 @@ function RecoveryLog({ events }) {
       </p>
       <ul className="space-y-1">
         {events.map((e, i) => {
-          const s = EVENT_STYLE[e.event] || { cls: 'text-slate-400', glyph: '•' }
+          const s = EVENT_STYLE[e.event] || { cls: 'text-slate-400', Icon: null }
           return (
-            <li key={i} className="flex items-baseline gap-2 text-xs">
-              <span className={`${s.cls} shrink-0`}>{s.glyph}</span>
+            <li key={i} className="flex items-center gap-2 text-xs">
+              <span className={`${s.cls} flex shrink-0`}>
+                {s.Icon ? (
+                  <s.Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                )}
+              </span>
               <span className="shrink-0 tabular-nums text-slate-500">{formatAgo(e.ts)}</span>
               <span className="text-slate-400">{e.detail || e.event}</span>
             </li>

@@ -312,7 +312,7 @@ export default function Guide() {
         </p>
         <p>
           Any item can be <strong>downloaded for offline</strong> — tap the{' '}
-          <Code>⬇</Code> in a reader/player and it’s saved to the device, so it
+          <strong>download</strong> button in a reader/player and it’s saved to the device, so it
           reads or plays with <strong>no connection</strong> (on a plane). A{' '}
           <strong>service worker</strong> we own serves the saved copy from a cache:
           a book/PDF is one file; a comic caches every rendered page; an audiobook
@@ -321,8 +321,8 @@ export default function Guide() {
           rule is that <strong>only an explicit download writes content</strong> —
           nothing is cached behind your back — so the <strong>Downloads</strong>{' '}
           page can show exactly what’s on the device, with a <em>Verify storage</em>{' '}
-          check that proves nothing is unaccounted-for. Browse rows show a{' '}
-          <Code>✓ offline</Code> badge for what you’ve saved, and when the server is
+          check that proves nothing is unaccounted-for. Browse rows show an{' '}
+          <strong>offline</strong> badge for what you’ve saved, and when the server is
           unreachable the app falls back to your downloads.
         </p>
         <p>

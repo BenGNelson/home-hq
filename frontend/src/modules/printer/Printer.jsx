@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Check, X } from 'lucide-react'
 import { useApi, API_BASE } from '../../lib/useApi.js'
 import { formatMinutes, formatUptime, formatAgo } from '../../lib/format.js'
 import { printerUnavailableMessage } from '../../lib/printer.js'
@@ -66,12 +67,14 @@ function PrintHistory() {
             className="flex items-baseline gap-2 border-b border-slate-800/60 py-1 last:border-0"
           >
             <span
-              className={`shrink-0 text-xs ${
-                p.result === 'success' ? 'text-emerald-400' : 'text-rose-400'
-              }`}
+              className={`shrink-0 ${p.result === 'success' ? 'text-emerald-400' : 'text-rose-400'}`}
               title={p.result}
             >
-              {p.result === 'success' ? '✓' : '✗'}
+              {p.result === 'success' ? (
+                <Check className="h-3.5 w-3.5" aria-hidden="true" />
+              ) : (
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
+              )}
             </span>
             <span className="min-w-0 flex-1 truncate text-slate-300" title={p.file || ''}>
               {p.file || '(unnamed)'}

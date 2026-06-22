@@ -7,6 +7,7 @@ import { goBack } from '../../lib/nav.js'
 import { saveProgress, resolveResume, readingKey } from '../../lib/progressOutbox.js'
 import { useSaveOnExit } from '../../lib/useSaveOnExit.js'
 import DownloadButton from './DownloadButton.jsx'
+import { X } from 'lucide-react'
 // The worker is referenced by URL (emitted as its own asset, fetched only when
 // the reader runs). The heavy pdf.js library itself is dynamically imported in
 // the effect below so it stays out of the main bundle — the PWA shell stays
@@ -191,9 +192,9 @@ export default function PdfReader() {
       >
         <button
           onClick={exit}
-          className="shrink-0 whitespace-nowrap rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 active:bg-slate-700"
+          className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 active:bg-slate-700"
         >
-          ✕ Close
+          <X className="h-4 w-4" aria-hidden="true" /> Close
         </button>
         <span className="min-w-0 flex-1 truncate text-center text-sm text-slate-300">{filename}</span>
         <DownloadButton

@@ -1177,6 +1177,8 @@ Short record of *why* things are the way they are, so future changes have contex
   host-local nav link can supply its own glyph. For flair, each gets an accent
   color: nav modules carry a `tint` (literal Tailwind classes for a small
   colored rounded tile behind the icon; Docs stay muted), and the HA glance
-  widget colors each device icon via `entityColor`. (A few low-traffic surfaces —
-  the offline section headers, the Alerts page, Tailscale OS glyphs — still use
-  emoji; a later pass finishes them.)
+  widget colors each device icon via `entityColor`. The migration is complete
+  across the app (nav, readers/players, the Library, Alerts, Tailscale, VPN,
+  Storage/Printer status, etc.). The one place emoji deliberately remain is the
+  **ntfy push notifications** the backend sends (`alerting.py` emoji tags) —
+  those render as emoji on the phone, which is what we want there.

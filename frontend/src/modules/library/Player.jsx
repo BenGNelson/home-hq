@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { X, Maximize, Minimize } from 'lucide-react'
 import { playerSrc, saveStateUrl } from '../../lib/library.js'
 import { useOnline } from '../../lib/online.jsx'
 import { goBack } from '../../lib/nav.js'
@@ -83,25 +84,25 @@ export default function Player() {
         <div className="flex items-center px-2 pb-1">
           <button
             onClick={() => setImmersive(false)}
-            className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-slate-800/90 px-3 py-1.5 text-sm font-medium text-slate-100 ring-1 ring-white/30 active:bg-slate-700"
+            className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-slate-800/90 px-3 py-1.5 text-sm font-medium text-slate-100 ring-1 ring-white/30 active:bg-slate-700"
           >
-            ⤡ Exit Fullscreen
+            <Minimize className="h-4 w-4" aria-hidden="true" /> Exit Fullscreen
           </button>
         </div>
       ) : (
         <div className="flex items-center gap-2 bg-slate-900 px-3 py-2" style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>
           <button
             onClick={exitToDetail}
-            className="shrink-0 whitespace-nowrap rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 active:bg-slate-700"
+            className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 active:bg-slate-700"
           >
-            ✕ Exit
+            <X className="h-4 w-4" aria-hidden="true" /> Exit
           </button>
           <span className="min-w-0 flex-1 truncate text-center font-medium text-slate-100">{name}</span>
           <button
             onClick={goFullscreen}
-            className="shrink-0 whitespace-nowrap rounded bg-slate-800 px-3 py-1.5 text-sm text-slate-200 active:bg-slate-700"
+            className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded bg-slate-800 px-3 py-1.5 text-sm text-slate-200 active:bg-slate-700"
           >
-            ⛶ Fullscreen
+            <Maximize className="h-4 w-4" aria-hidden="true" /> Fullscreen
           </button>
         </div>
       )}

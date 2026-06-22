@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Newspaper, FileText } from 'lucide-react'
 import { useApi } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
 import { useDownloaded } from '../../lib/useDownloaded.js'
@@ -26,7 +27,7 @@ export default function PapersList() {
 
   // Offline the live list can't load — show the downloaded papers instead so the
   // section never dead-ends (e.g. closing a reader back onto this page).
-  if (!online) return <OfflineSection section="papers" label="Magazines & Papers" icon="📄" />
+  if (!online) return <OfflineSection section="papers" label="Magazines & Papers" />
 
   const items = data?.items ?? []
   const crumbs = folderCrumbs(path)
@@ -99,7 +100,7 @@ function FolderView({ items, path, crumbs }) {
                 onClick={() => navigate(`/library/papers?path=${encodeURIComponent(f.path)}`)}
                 className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-slate-800"
               >
-                <span className="text-xl">📰</span>
+                <Newspaper className="h-5 w-5 shrink-0 text-slate-400" aria-hidden="true" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-slate-100">{f.name}</span>
                   <span className="block text-xs text-slate-500">
@@ -144,7 +145,7 @@ function PaperRows({ items }) {
             onClick={() => navigate(readerHref('papers', it))}
             className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-slate-800"
           >
-            <span className="text-xl">📄</span>
+            <FileText className="h-5 w-5 shrink-0 text-slate-400" aria-hidden="true" />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-slate-100">{it.name}</span>
               {it.size != null && (

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Check } from 'lucide-react'
 
 // Dark themes. `bg`/`accent` are fixed preview colours so each tile shows its
 // own palette regardless of the active theme. Applying a theme sets data-theme
@@ -136,10 +137,10 @@ export default function ThemePicker() {
                     </span>
                     {active && (
                       <span
-                        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
+                        className="inline-flex h-4 w-4 items-center justify-center rounded-full"
                         style={{ background: t.accent, color: '#0b0b0b' }}
                       >
-                        ✓
+                        <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
                       </span>
                     )}
                   </div>

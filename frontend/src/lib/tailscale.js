@@ -1,6 +1,8 @@
 // Pure helpers for the /api/tailscale payload, so the page just renders. Kept
 // here (not in the component) to stay unit-tested.
 
+import { Monitor, Smartphone, Laptop, MonitorDot } from 'lucide-react'
+
 // A single headline verdict for the mesh, driving color + label.
 export function tailscaleVerdict(t) {
   if (!t || t.available === false) return { tone: 'idle', label: 'Not configured' }
@@ -26,15 +28,21 @@ export function tailscaleExplanation(t) {
   return `Connected to the tailnet — ${n} of ${total} other device${total === 1 ? '' : 's'} online.`
 }
 
-// Map a Tailscale OS string to a small glyph for the device list.
+// Map a Tailscale OS string to a Lucide icon component for the device list.
+// Lucide has no OS-brand logos, so OS strings map to generic device types — the
+// OS name text stays on screen, so the icon is just a device hint. Returns a
+// component (render as <Icon/>), never a raw string.
 const OS_ICONS = {
-  linux: '🐧',
-  ios: '📱',
-  iphone: '📱',
-  android: '🤖',
-  macos: '🍎',
-  windows: '🪟',
+  linux: Monitor,
+  macos: Monitor,
+  windows: Monitor,
+  desktop: Monitor,
+  ios: Smartphone,
+  iphone: Smartphone,
+  android: Smartphone,
+  phone: Smartphone,
+  laptop: Laptop,
 }
 export function osIcon(os) {
-  return OS_ICONS[String(os || '').toLowerCase()] ?? '💻'
+  return OS_ICONS[String(os || '').toLowerCase()] ?? MonitorDot
 }

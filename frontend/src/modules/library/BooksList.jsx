@@ -69,7 +69,7 @@ export default function BooksList() {
 
   // Offline, search can't reach the server — show your downloaded books instead,
   // so the section never dead-ends (e.g. closing a reader back onto this page).
-  if (!online) return <OfflineSection section="books" label="Books" icon="📖" />
+  if (!online) return <OfflineSection section="books" label="Books" />
 
   return (
     <div className="space-y-4">

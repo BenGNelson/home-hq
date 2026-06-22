@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Star } from 'lucide-react'
 import { API_BASE } from '../lib/useApi.js'
 import { Spinner } from './ui.jsx'
 import { formatBytes, formatDate, formatDuration, formatResolution } from '../lib/format.js'
@@ -55,7 +56,11 @@ export default function MediaDetail({ ratingKey, fallbackTitle, onLoaded }) {
   const facts = [
     d.year,
     d.content_rating,
-    d.rating ? `★ ${d.rating}` : null,
+    d.rating ? (
+      <span className="flex items-center gap-1">
+        <Star className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true" /> {d.rating}
+      </span>
+    ) : null,
     d.type === 'show'
       ? [d.seasons && `${d.seasons} seasons`, d.episodes && `${d.episodes} eps`]
           .filter(Boolean)
