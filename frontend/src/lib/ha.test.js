@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { Battery, Droplet, Zap, Route, Lock, WashingMachine } from 'lucide-react'
-import { entityIcon, entityLabel, entityValue, lowBattery } from './ha.js'
+import { entityIcon, entityColor, entityLabel, entityValue, lowBattery } from './ha.js'
 
 describe('entityIcon', () => {
   it('prefers device_class over domain', () => {
@@ -19,6 +19,18 @@ describe('entityIcon', () => {
     expect(entityIcon({ domain: 'lock' })).toBe(Lock)
     expect(entityIcon({ domain: 'sensor', entity_id: 'sensor.dryer_time_remaining' })).toBe(WashingMachine)
     expect(entityIcon({ domain: 'sensor', entity_id: 'sensor.mystery' })).toBe(null)
+  })
+})
+
+describe('entityColor', () => {
+  it('gives each device type an accent color (a Tailwind text class)', () => {
+    expect(entityColor({ device_class: 'battery' })).toBe('text-emerald-400')
+    expect(entityColor({ domain: 'lock' })).toBe('text-emerald-400')
+    expect(entityColor({ device_class: 'humidity' })).toMatch(/^text-\w+-400$/)
+  })
+
+  it('falls back to a neutral slate for unknown entities', () => {
+    expect(entityColor({ domain: 'sensor', entity_id: 'sensor.mystery' })).toBe('text-slate-400')
   })
 })
 
