@@ -61,6 +61,7 @@ backend/app/
     storage.py       # /api/storage/trends  (SMART + capacity history)
     printer.py       # /api/printer  (cached snapshot from the MQTT client)
     solar.py         # /api/solar    (live Enphase Envoy production via pyenphase)
+    weather.py       # /api/weather  (current + 5-day forecast from Open-Meteo)
     plex.py          # /api/plex + library browser endpoints
     library.py       # /api/library  (owned-content hub: list + range-stream files)
   library.py         # pure: section framework, listing, the path-traversal guard
@@ -134,6 +135,7 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/uptime` | per-service availability — status, uptime % (24h/7d), latency | reads a host prober's `uptime.json` |
 | `GET /api/ha` | curated Home Assistant entities (glance + deep-link), self-hides when unconfigured | reads a host timer's `ha.json` |
 | `GET /api/solar` | live Enphase solar (production, consumption + net on metered systems, today/7-day/lifetime), self-hides when unconfigured | `pyenphase` reads the Envoy's local API; authenticated client + short TTL cached |
+| `GET /api/weather` | current conditions + 5-day forecast, self-hides when no location set | Open-Meteo (free, no API key); 10-min TTL cached |
 | `GET /api/storage/db` | SQLite file size + per-table row counts (growth visibility) | stats the DB file + `COUNT(*)` per table |
 | `GET /api/diskio` | per-disk cumulative read/write bytes (rates computed client-side) | parses host `/proc/diskstats` |
 | `GET /api/raid` | software-RAID array state (healthy/degraded, rebuild %) | parses host `/proc/mdstat` |
@@ -665,6 +667,22 @@ secondary router/NAT (a common home setup with a second AP), it needs a
 port-forward of TCP 443 to it, and `ENVOY_HOST` is then the forward's WAN-side IP.
 Token minting is a separate *outbound* call to the Enlighten cloud, so it's
 unaffected by that NAT.
+
+## Weather (Open-Meteo)
+
+A simple glance: current conditions + a 5-day forecast from **Open-Meteo** —
+free, **no API key**, good-quality national models, and (a bonus that pairs with
+Solar) it offers solar-radiation forecasts for a future production estimate.
+`app/weather.py` does a single `requests.get` to the forecast API (location +
+units from `.env`: `WEATHER_LAT`/`WEATHER_LON`/`WEATHER_UNITS`), shapes it in a
+pure unit-tested `shape()`, and caches the result for `WEATHER_CACHE_TTL` (10 min
+default — weather moves slowly, and the fetch is a few seconds). Degrades to
+`available:false` (`not_configured` without a location, `unreachable` on error).
+The WMO `weather_code` → label+icon mapping lives in the frontend (`lib/weather.js`,
+Lucide icons with day/night variants). **Current conditions are deliberately kept
+behind a seam** (`_current()` separate from `_forecast()`): today both read
+Open-Meteo, but if a personal weather station is ever added it becomes the
+hyperlocal *current* source while Open-Meteo stays the *forecaster*.
 
 ## Database growth guardrails
 

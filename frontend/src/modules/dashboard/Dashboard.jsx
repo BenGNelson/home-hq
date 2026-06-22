@@ -4,6 +4,7 @@ import DrivesWidget from './widgets/DrivesWidget.jsx'
 import ContainersWidget from './widgets/ContainersWidget.jsx'
 import PrinterWidget from './widgets/PrinterWidget.jsx'
 import SolarWidget from './widgets/SolarWidget.jsx'
+import WeatherWidget from './widgets/WeatherWidget.jsx'
 import HomeWidget from './widgets/HomeWidget.jsx'
 import PlexWidget from './widgets/PlexWidget.jsx'
 import TailscaleWidget from './widgets/TailscaleWidget.jsx'
@@ -26,6 +27,7 @@ export default function Dashboard() {
         <ContainersWidget />
         <PrinterWidget />
         <SolarWidget />
+        <WeatherWidget />
         <HomeWidget />
         <TailscaleWidget />
       </div>

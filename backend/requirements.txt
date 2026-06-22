@@ -42,3 +42,8 @@ mutagen>=1.47
 # self-signed local HTTPS, and the metered/non-metered data model. Same library
 # Home Assistant's official Envoy integration is built on. See app/solar.py.
 pyenphase>=1.20
+
+# HTTP client used directly by /api/weather (Open-Meteo) and the Plex art proxy.
+# It already arrives transitively via PlexAPI/docker, but weather.py depends on it
+# directly so we pin it explicitly.
+requests>=2.31
