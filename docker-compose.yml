@@ -15,6 +15,8 @@ services:
   backend:
     build: ./backend
     container_name: home-hq-backend
+    security_opt:
+      - no-new-privileges:true  # defense-in-depth — the most attack-reachable service
     # Inject all the .env values as environment variables in the container,
     # so config.py (pydantic-settings) reads them at startup.
     env_file: .env
@@ -94,6 +96,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: home-hq-frontend
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "${FRONTEND_PORT:-5173}:80"
     depends_on:

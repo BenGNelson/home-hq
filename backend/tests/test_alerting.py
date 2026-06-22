@@ -14,6 +14,7 @@ from app.alerting import (
     _check_printer_paused,
     _check_raid,
     _check_smart,
+    _check_vpn,
     _check_watchdog,
     _click_url,
 )
@@ -39,6 +40,23 @@ def test_backup_stale_and_missing():
 
 def test_backup_ignored_when_unconfigured():
     assert _check_backup({"now": NOW, "backups": {"configured": False}}) == (None, "")
+
+
+def test_vpn_fires_only_on_a_real_leak():
+    # A leak (protected traffic exiting via the home IP) is the one thing to alert.
+    key, msg = _check_vpn({"vpn": {"available": True, "status": "leak"}})
+    assert key == "leak"
+    assert "LEAK" in msg
+    # Protected / down are benign (down = kill-switch dropped traffic, not a leak).
+    assert _check_vpn({"vpn": {"available": True, "status": "protected"}}) == (None, "")
+    assert _check_vpn({"vpn": {"available": True, "status": "down"}}) == (None, "")
+
+
+def test_vpn_silent_when_unavailable_or_stale():
+    # Stale = the checker isn't running, so the state is unknown — don't cry leak.
+    assert _check_vpn({"vpn": {"available": True, "status": "leak", "stale": True}}) == (None, "")
+    assert _check_vpn({"vpn": {"available": False, "status": "leak"}}) == (None, "")
+    assert _check_vpn({}) == (None, "")
 
 
 def test_raid_degraded_vs_healthy():

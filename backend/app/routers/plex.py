@@ -661,8 +661,7 @@ def plex_art(rating_key: str):
     if thumb:
         try:
             os.makedirs(cache_dir, exist_ok=True)
-            with open(cached, "wb") as fh:
-                fh.write(thumb)
+            images.write_atomic(cached, thumb)
         except OSError:
             pass
         return Response(
