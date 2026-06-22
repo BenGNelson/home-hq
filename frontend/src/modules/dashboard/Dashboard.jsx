@@ -8,6 +8,7 @@ import WeatherWidget from './widgets/WeatherWidget.jsx'
 import HomeWidget from './widgets/HomeWidget.jsx'
 import PlexWidget from './widgets/PlexWidget.jsx'
 import TailscaleWidget from './widgets/TailscaleWidget.jsx'
+import SpeedtestWidget from './widgets/SpeedtestWidget.jsx'
 
 // The Dashboard module: a responsive grid of independent widgets. Each widget
 // fetches its own endpoint, so one failing source never blanks the others.
@@ -30,6 +31,7 @@ export default function Dashboard() {
         <WeatherWidget />
         <HomeWidget />
         <TailscaleWidget />
+        <SpeedtestWidget />
       </div>
     </div>
   )

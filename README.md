@@ -32,6 +32,7 @@ the surface area grows without the core getting messier.
 | **Network** | Live per-interface throughput graphs, with rates computed client-side from cumulative counters (the backend stays stateless). |
 | **VPN** | Egress **leak check** for a VPN-routed container — compares its public exit IP against the host's own and flags a leak if they match (exit vs home shown side by side, with the forwarded port). A host timer does the lookup the unprivileged app can't; a leak raises an urgent alert. |
 | **Tailscale** | Lists every device on your tailnet — this host plus each peer — with online state, OS, Tailscale IP, last-seen, and which device (if any) is the **exit node**. Fed by a host timer running `tailscale status --json`; the module hides itself until that data exists. |
+| **Speed** | ISP speed monitor — current **download / upload / ping** plus a **history chart** over time, with a **Run test** button and an alert when download drops below a threshold. Runs the official Ookla CLI (baked into the image) on a schedule; configurable cadence (heads-up: each gigabit test moves ~3.5 GB), or set the interval to `0` for manual-only. |
 | **Storage** | The disk deep-dive: capacity with a growth projection ("full in ~N weeks") and a **what's-using-space breakdown**, RAID array health in plain language, **live per-disk I/O graphs**, and per-drive SMART with temperature/wear **trend charts** from daily samples kept in SQLite. |
 | **Backups** | Lists the host's `age`-encrypted config backups (the encrypt step is a privileged host script; the app only reads the output). |
 | **Alerts** | A background rule engine that watches the same data the dashboard shows and pushes a phone notification (via **ntfy**) when something crosses into a bad state — RAID degraded, a SMART warning, a container down, a print finished/failed, a VPN leak, and more. Edge-triggered (no spam), with a deep-link straight to the relevant page on tap, a per-rule **mute** toggle to silence a known-noisy condition, and a dead-man's-switch heartbeat. |
@@ -185,6 +186,7 @@ every value with placeholders only. Nothing secret is ever committed.
 | `HA_URL` / `HA_TOKEN` / `HA_ENTITIES` | Home Assistant glance: base URL, a Long-Lived Access Token, and the comma-separated entity allowlist to surface (optional; widget hides if unset). The token stays in `.env` only. |
 | `ENVOY_HOST` / `ENPHASE_USERNAME` / `ENPHASE_PASSWORD` | Enphase solar: the Envoy's host/IP + your Enlighten login (`pyenphase` mints + auto-refreshes the local token). Optional; module hides if unset. Creds stay in `.env` only. |
 | `WEATHER_LAT` / `WEATHER_LON` / `WEATHER_UNITS` | Weather location (decimal coordinates) + units (`us`/`metric`). Optional; module hides if unset. Open-Meteo — no API key. |
+| `SPEEDTEST_INTERVAL` / `SPEEDTEST_MIN_DOWNLOAD` | Speedtest cadence in seconds (`0` = manual-only; ~3.5 GB/gigabit test) + the Mbps threshold below which a slow-internet alert fires (`0` = off). |
 | `VITE_API_BASE` | Base path the frontend uses to call the API |
 
 `.env.example` documents the full set (printer camera, alert thresholds, VPN

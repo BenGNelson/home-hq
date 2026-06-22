@@ -176,6 +176,22 @@ def _check_vpn(ctx):
     return None, ""
 
 
+def _check_speedtest(ctx):
+    """Fire when the latest measured download is below the configured floor —
+    an early read on the ISP under-delivering. Disabled (no alert) when
+    SPEEDTEST_MIN_DOWNLOAD is 0; quiet when there's no sample yet."""
+    floor = settings.speedtest_min_download
+    if floor <= 0:
+        return None, ""
+    s = ctx.get("speedtest") or {}
+    down = s.get("download_mbps")
+    if down is None:
+        return None, ""
+    if down < floor:
+        return f"slow:{down}", f"Internet slow: {down:.0f} Mbps down (below {floor:.0f})"
+    return None, ""
+
+
 def _check_db(ctx):
     """Warn if the local SQLite DB has grown past the configured ceiling — an
     early signal that a sampler/log is writing more than expected."""
@@ -212,6 +228,7 @@ RULES = [
     Rule("printer_hms", "Printer fault (HMS)", "warning", "high", True, _check_printer_hms, path="/printer"),
     Rule("printer_offline", "Printer telemetry", "satellite", "urgent", True, _check_printer_offline, path="/printer"),
     Rule("vpn", "VPN egress", "lock", "urgent", True, _check_vpn, path="/vpn"),
+    Rule("speedtest", "Internet speed", "snail", "high", True, _check_speedtest, path="/speedtest"),
     Rule("db", "Database size", "card_index_dividers", "high", True, _check_db, path="/storage"),
 ]
 
@@ -286,6 +303,9 @@ class AlertManager:
             "backups": backups.list_backups,
             "vpn": vpn.get_vpn,
             "db": db.db_stats,
+            # The latest stored speedtest result (or {} when none yet). Reads
+            # SQLite, not the CLI — _check_speedtest just compares the last number.
+            "speedtest": lambda: db.latest_speedtest_sample() or {},
         }
         for name, fn in sources.items():
             try:
