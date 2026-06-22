@@ -26,6 +26,7 @@ import Tailscale from './modules/tailscale/Tailscale.jsx'
 import Storage from './modules/storage/Storage.jsx'
 import Backups from './modules/backups/Backups.jsx'
 import Solar from './modules/solar/Solar.jsx'
+import Weather from './modules/weather/Weather.jsx'
 import Alerts from './modules/alerts/Alerts.jsx'
 import Uptime from './modules/uptime/Uptime.jsx'
 import Guide from './modules/guide/Guide.jsx'
@@ -46,6 +47,7 @@ import {
   Bell,
   Activity,
   Sun,
+  CloudSun,
   Wrench,
   BookText,
   Braces,
@@ -66,6 +68,7 @@ import {
 // them.
 const builtinModules = [
   { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: Home, group: 'Overview', tint: 'bg-emerald-500/15 text-emerald-400' },
+  { id: 'weather', label: 'Weather', path: '/weather', icon: CloudSun, group: 'Overview', tint: 'bg-sky-500/15 text-sky-400' },
   { id: 'plex', label: 'Plex', path: '/plex', icon: Clapperboard, group: 'Media', tint: 'bg-rose-500/15 text-rose-400' },
   { id: 'library', label: 'Library', path: '/library', icon: LibraryIcon, group: 'Media', tint: 'bg-amber-500/15 text-amber-400' },
   { id: 'containers', label: 'Containers', path: '/containers', icon: Container, group: 'System', tint: 'bg-sky-500/15 text-sky-400' },
@@ -126,6 +129,7 @@ export default function App() {
         <Route path="/containers" element={<Containers />} />
         <Route path="/printer" element={<Printer />} />
         <Route path="/solar" element={<Solar />} />
+        <Route path="/weather" element={<Weather />} />
         <Route path="/network" element={<Network />} />
         <Route path="/vpn" element={<Vpn />} />
         <Route path="/tailscale" element={<Tailscale />} />

@@ -200,6 +200,17 @@ class Settings(BaseSettings):
     enphase_token: str = ""  # optional: a pre-minted token used instead of user/pass
     solar_cache_ttl: int = 10  # seconds to reuse the last Envoy poll (smooths widget polling)
 
+    # --- Weather (Open-Meteo — free, NO API key) ---
+    # All optional: absent lat/lon => /api/weather reports available:false
+    # ("not_configured"). We hit Open-Meteo's free public forecast API directly
+    # (no key, no account) for current conditions + a 5-day forecast. The fetch is
+    # ~4.5s from the container, so the result is cached aggressively — weather
+    # changes slowly. units = "us" (°F / mph / inch) | "metric" (°C / km/h / mm).
+    weather_lat: str = ""
+    weather_lon: str = ""
+    weather_units: str = "us"
+    weather_cache_ttl: int = 600  # seconds to reuse the last Open-Meteo poll
+
     # --- In-app doc viewers (files mounted read-only into the container) ---
     # Under /readme & /srv-guide, not /app — see the mount note in
     # docker-compose.yml (the test runner bind-mounts ./backend over /app).
