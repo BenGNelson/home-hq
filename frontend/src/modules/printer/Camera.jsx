@@ -34,35 +34,60 @@ export default function CameraView({ className = '' }) {
 
   // Snapshot polling: preload the next frame off-screen and only swap the
   // visible src once it actually loads; keep the last good frame on a miss.
+  // Pause the loop while the tab is backgrounded — iOS always takes this path,
+  // so an unguarded 1fps re-fetch drains battery/data with nothing on screen.
+  // Mirrors lib/online.jsx's visibility-gated probe.
   useEffect(() => {
     if (mode !== 'snapshot') return
     let cancelled = false
     let timer
     let gotFrame = false
     let seq = 0
+    // Bumped on every (re)start. A probe captures the runId it began under; if a
+    // newer run has started by the time it resolves (e.g. it was in flight across
+    // a hide→show), its callback is stale and must NOT schedule — otherwise the
+    // old + new chains both re-arm and the fetch rate doubles on every flap.
+    let runId = 0
+    const schedule = () => {
+      timer = setTimeout(tick, SNAPSHOT_INTERVAL_MS)
+    }
     const tick = () => {
+      if (cancelled || document.visibilityState !== 'visible') return
+      const myRun = runId
       const url = `${SNAPSHOT_URL}?t=${seq++}`
       const probe = new Image()
       probe.onload = () => {
-        if (cancelled) return
+        if (cancelled || myRun !== runId) return
         gotFrame = true
         setFrameSrc(url)
         setStatus('live')
-        timer = setTimeout(tick, SNAPSHOT_INTERVAL_MS)
+        schedule()
       }
       probe.onerror = () => {
-        if (cancelled) return
+        if (cancelled || myRun !== runId) return
         // 503 while the camera wakes, or a dropped frame — keep the last good
         // frame up (if any) and retry; only show "connecting" if none yet.
         if (!gotFrame) setStatus('connecting')
-        timer = setTimeout(tick, SNAPSHOT_INTERVAL_MS)
+        schedule()
       }
       probe.src = url
     }
+    // Resume the loop the moment the tab comes back; while hidden, tick() is a
+    // no-op so any in-flight timer just stops re-arming. Bump runId so a probe
+    // still in flight from before the hide can't start a second parallel chain.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        clearTimeout(timer)
+        runId++
+        tick()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
     tick()
     return () => {
       cancelled = true
       clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisible)
     }
   }, [mode])
 

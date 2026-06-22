@@ -118,6 +118,28 @@ export default function ComicReader() {
     })
   }
 
+  // Keyboard paging on desktop (arrows / page keys to turn, Esc to close). A
+  // window-level listener pages regardless of focus; a fresh listener per
+  // status/numPages change keeps the latest go/exit closures.
+  useEffect(() => {
+    if (status !== 'ready') return
+    const onKey = (e) => {
+      if (e.target.closest('input, textarea, select')) return
+      if (['ArrowRight', 'PageDown', 'ArrowDown'].includes(e.key)) {
+        e.preventDefault()
+        go(1)
+      } else if (['ArrowLeft', 'PageUp', 'ArrowUp'].includes(e.key)) {
+        e.preventDefault()
+        go(-1)
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        exit()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [status, numPages, online])
+
   // Swipe left/right to page.
   const touchX = useRef(null)
   const onTouchStart = (e) => {

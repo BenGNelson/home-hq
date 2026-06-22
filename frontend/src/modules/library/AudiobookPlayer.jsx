@@ -225,6 +225,8 @@ export default function AudiobookPlayer({ bookPath, bookName, chapters }) {
           max={duration || 0}
           step="1"
           value={Math.min(time, duration || 0)}
+          aria-label="Seek"
+          aria-valuetext={formatTime(time)}
           onChange={(e) => {
             const a = audioRef.current
             if (a) {

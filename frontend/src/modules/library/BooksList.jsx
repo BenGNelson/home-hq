@@ -24,10 +24,21 @@ export default function BooksList() {
   const downloaded = useDownloaded()
 
   // Indexer status — gives the library size + the "not configured"/"indexing…" UI.
-  const status = useApi('/library/books/index-status', 5000).data
+  // Poll fast (5s) only while indexing is actually running; otherwise back off to
+  // 30s. useApi re-subscribes when intervalMs changes, so once a poll reports
+  // running=true the next render speeds it up (and slows back down when it ends).
+  const [pollFast, setPollFast] = useState(false)
+  const status = useApi('/library/books/index-status', pollFast ? 5000 : 30000).data
   const total = status?.indexed ?? 0
   const notConfigured = status && status.configured === false
   const indexing = status && status.running
+
+  // Flip the poll cadence to match the indexer's state (5s while it runs, 30s
+  // when idle). Kept in sync here rather than read inline above to avoid the
+  // useApi self-reference.
+  useEffect(() => {
+    setPollFast(!!indexing)
+  }, [indexing])
 
   // Search only when there's a term — keep previous results visible while the
   // next query is in flight (no flicker) and abort stale calls. An empty box

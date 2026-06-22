@@ -100,8 +100,12 @@ services:
       - no-new-privileges:true
     ports:
       - "${FRONTEND_PORT:-5173}:80"
+    # Wait for the backend to be HEALTHY (not just started) before nginx comes
+    # up, so the first request can't hit a backend that's still booting. Relies
+    # on the backend's HEALTHCHECK (see backend/Dockerfile).
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
     logging: *default-logging
 
