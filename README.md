@@ -242,16 +242,23 @@ Use the shared `useApi(path, interval)` hook to poll your endpoint and get
 
 ## Testing
 
-Tests run in the project's containers — no host Python/Node toolchain needed.
+Tests run in the project's containers — no host Python/Node/browser toolchain
+needed. Two layers:
 
 ```bash
-scripts/test.sh   # runs backend (pytest) + frontend (Vitest) suites
+scripts/test.sh     # unit: backend (pytest) + frontend (Vitest)
+scripts/verify.sh   # e2e smoke: drive the running app in a real browser (needs the stack up)
+scripts/deploy.sh   # one-shot: test.sh -> build + deploy prod -> verify.sh
 ```
 
-Backend tests use an isolated temp SQLite DB per test and cover the cache logic,
-graceful-degradation paths, and the library-query/search/sort logic. Frontend
-tests cover the pure helpers (formatting, the table sorter). See the Testing
-section of [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for details.
+**Unit** tests use an isolated temp SQLite DB per test and cover the cache logic,
+graceful-degradation paths, and the library-query/search/sort logic; frontend
+unit tests cover the pure helpers (formatting, the table sorter). **E2e smoke**
+(`e2e/smoke.py`, via the Playwright image) loads every module page in a headless
+browser and asserts it renders with no console errors — catching the wired-
+together bugs unit tests can't (imports, API shapes, the nginx proxy, build
+errors). See the Testing section of
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for details.
 
 ---
 
