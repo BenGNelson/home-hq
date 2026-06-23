@@ -508,6 +508,76 @@ def test_classic_console_box_art_repos():
     assert "Sega_-_Game_Gear/" in library.thumbnail_url("Sonic.gg")
 
 
+def test_base_title_strips_tags_and_alt():
+    assert library.base_title("Golden Axe (USA, Europe, Brazil) (En)") == "golden axe"
+    assert library.base_title("Sonic The Hedgehog 2 (Europe, Brazil)") == "sonic the hedgehog 2"
+    # No-Intro '~' alternate title → keep the primary name
+    assert library.base_title("Aztec Adventure ~ Nazca '88 (World)") == "aztec adventure"
+    assert library.base_title("Phantasy Star [T-En by X]") == "phantasy star"
+
+
+def test_pick_boxart_base_match_and_region_pref():
+    names = [
+        "Golden Axe (USA, Europe, Brazil) (En)",
+        "Golden Axe Warrior (USA, Europe, Brazil) (En)",  # different base — must not match
+        "Phantasy Star (Brazil)",
+        "Phantasy Star (Japan)",
+        "Phantasy Star (USA, Europe)",
+    ]
+    # tag mismatch on the same base resolves to the libretro variant
+    assert library.pick_boxart("Golden Axe (USA, Europe, Brazil)", names) == "Golden Axe (USA, Europe, Brazil) (En)"
+    # 'Golden Axe' must NOT grab 'Golden Axe Warrior'
+    assert library.pick_boxart("Golden Axe (World)", names) != "Golden Axe Warrior (USA, Europe, Brazil) (En)"
+    # region preference: USA/Europe variant beats Brazil/Japan
+    assert library.pick_boxart("Phantasy Star (World) (Sega Ages)", names) == "Phantasy Star (USA, Europe)"
+    # no base match at all → None (caller falls back to a placeholder)
+    assert library.pick_boxart("Some Unlisted Game (USA)", names) is None
+
+
+def test_boxart_url_and_repo_helpers():
+    assert library.thumbnail_repo("Sonic.md") == "Sega_-_Mega_Drive_-_Genesis"
+    assert library.thumbnail_repo("song.mp3") is None
+    url = library.boxart_url("Sega_-_Game_Gear", "Sonic (USA)")
+    assert "/Sega_-_Game_Gear/master/Named_Boxarts/" in url and url.endswith("Sonic%20%28USA%29.png")
+
+
+def test_cover_fuzzy_fallback_on_exact_miss(client, rom_dir, tmp_path, monkeypatch):
+    """When the exact No-Intro name 404s, the cover endpoint matches by base title
+    against the system's libretro listing and serves the chosen variant."""
+    monkeypatch.setattr(settings, "covers_dir", str(tmp_path / "covers"))
+    (rom_dir / "Golden Axe (USA, Europe, Brazil).sms").write_bytes(b"SMSROM")
+    tree = {"tree": [
+        {"path": "Named_Boxarts/Golden Axe (USA, Europe, Brazil) (En).png"},
+        {"path": "Named_Boxarts/Some Other Game (USA).png"},
+        {"path": "Named_Titles/Golden Axe (USA, Europe, Brazil) (En).png"},  # wrong kind — ignored
+    ]}
+    calls = []
+
+    class Resp:
+        def __init__(self, status, content=b"", payload=None):
+            self.status_code, self.content, self._payload = status, content, payload
+
+        def json(self):
+            return self._payload
+
+    def fake_get(url, timeout=0, headers=None):
+        calls.append(url)
+        if "api.github.com" in url:
+            return Resp(200, payload=tree)
+        if "Golden%20Axe%20%28USA%2C%20Europe%2C%20Brazil%29%20%28En%29" in url:
+            return Resp(200, content=b"\x89PNG-art")  # the fuzzy-matched variant
+        return Resp(404)  # the exact-name match misses
+
+    monkeypatch.setattr("app.routers.library.requests.get", fake_get)
+    r = client.get("/api/library/games/cover", params={"id": "Golden Axe (USA, Europe, Brazil).sms"})
+    assert r.status_code == 200 and r.content == b"\x89PNG-art"
+    assert any("api.github.com" in u for u in calls)  # the index was fetched
+    # Second request is served from the cache — no exact fetch, no re-fuzzy.
+    before = len(calls)
+    r2 = client.get("/api/library/games/cover", params={"id": "Golden Axe (USA, Europe, Brazil).sms"})
+    assert r2.status_code == 200 and len(calls) == before
+
+
 def test_cover_unknown_ext_404(client, rom_dir):
     assert client.get("/api/library/games/cover", params={"id": "song.mp3"}).status_code == 404
 
@@ -618,21 +688,58 @@ def test_cover_no_match_remembers_miss(client, rom_dir, tmp_path, monkeypatch):
     covers = tmp_path / "covers"
     monkeypatch.setattr(settings, "covers_dir", str(covers))
 
+    # The listing IS reachable (200) but doesn't contain this ROM hack → a genuine,
+    # cacheable no-match. The exact-name boxart fetch 404s.
+    tree = {"tree": [{"path": "Named_Boxarts/Some Unrelated Game (USA).png"}]}
+
     class FakeResp:
-        status_code = 404
-        content = b""
+        def __init__(self, status, payload=None):
+            self.status_code, self.content, self._payload = status, b"", payload
+
+        def json(self):
+            return self._payload
 
     calls = []
 
-    def fake_get(url, timeout=0):
+    def fake_get(url, timeout=0, headers=None):
         calls.append(url)
-        return FakeResp()
+        return FakeResp(200, tree) if "api.github.com" in url else FakeResp(404)
 
     monkeypatch.setattr("app.routers.library.requests.get", fake_get)
     p = {"id": "Pokemon Ultra Violet (1.22) LSA (Fire Red Hack).gba"}
     assert client.get("/api/library/games/cover", params=p).status_code == 404
+    # First request: exact-name fetch misses, then the base-title fallback consults
+    # the (reachable) listing, finds no match → a definitive miss is remembered.
+    after_first = len(calls)
+    assert after_first >= 1
     assert client.get("/api/library/games/cover", params=p).status_code == 404
-    assert len(calls) == 1  # miss remembered; not refetched
+    assert len(calls) == after_first  # miss remembered; nothing refetched
+
+
+def test_cover_transient_index_failure_does_not_cache_miss(client, rom_dir, tmp_path, monkeypatch):
+    """If the libretro listing can't be fetched (network/rate-limit), the cover is a
+    404 but NOT cached as a miss — so it recovers once the listing is reachable
+    again, instead of being pinned to a placeholder forever."""
+    monkeypatch.setattr(settings, "covers_dir", str(tmp_path / "covers"))
+    (rom_dir / "Sonic The Hedgehog (USA, Europe, Brazil).sms").write_bytes(b"SMSROM")
+
+    class FakeResp:
+        def __init__(self, status):
+            self.status_code, self.content = status, b""
+
+        def json(self):
+            return {}
+
+    def fail_get(url, timeout=0, headers=None):
+        # exact boxart 404s (real miss); the index API is rate-limited (403)
+        return FakeResp(403 if "api.github.com" in url else 404)
+
+    monkeypatch.setattr("app.routers.library.requests.get", fail_get)
+    p = {"id": "Sonic The Hedgehog (USA, Europe, Brazil).sms"}
+    assert client.get("/api/library/games/cover", params=p).status_code == 404
+    # No .miss sentinel was written — the transient failure stays retryable.
+    misses = list((tmp_path / "covers").glob("*.miss")) if (tmp_path / "covers").is_dir() else []
+    assert misses == []
 
 
 # --- book cover proxy -----------------------------------------------------

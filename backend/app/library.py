@@ -227,19 +227,77 @@ _THUMBNAIL_REPO_BY_EXT = {
 _THUMB_ILLEGAL = set('&*/:`<>?\\|')
 
 
-def thumbnail_url(item_id, kind="Named_Boxarts"):
-    """The libretro-thumbnails URL for an item's art (boxart by default), or None
-    if the extension has no known system repo. kind ∈ {Named_Boxarts,
-    Named_Titles, Named_Snaps}."""
-    repo = _THUMBNAIL_REPO_BY_EXT.get(_ext(item_id))
-    if not repo:
-        return None
-    stem = os.path.splitext(os.path.basename(item_id))[0]
-    safe = "".join("_" if c in _THUMB_ILLEGAL else c for c in stem)
+def thumbnail_repo(item_id):
+    """The libretro-thumbnails system repo for an item, or None if its extension
+    has no known system."""
+    return _THUMBNAIL_REPO_BY_EXT.get(_ext(item_id))
+
+
+def boxart_url(repo, name, kind="Named_Boxarts"):
+    """The libretro-thumbnails URL for an explicit boxart `name` (no extension) in
+    a system `repo`. kind ∈ {Named_Boxarts, Named_Titles, Named_Snaps}."""
+    safe = "".join("_" if c in _THUMB_ILLEGAL else c for c in name)
     return (
         f"https://raw.githubusercontent.com/libretro-thumbnails/{repo}"
         f"/master/{kind}/{urllib.parse.quote(safe)}.png"
     )
+
+
+def thumbnail_url(item_id, kind="Named_Boxarts"):
+    """The libretro-thumbnails URL for an item's art by its EXACT No-Intro name, or
+    None if the extension has no known system repo."""
+    repo = thumbnail_repo(item_id)
+    if not repo:
+        return None
+    stem = os.path.splitext(os.path.basename(item_id))[0]
+    return boxart_url(repo, stem, kind)
+
+
+def boxart_tree_url(repo):
+    """The GitHub API URL listing a system repo's file tree (used to build the
+    base-title fallback index when an exact-name match misses)."""
+    return f"https://api.github.com/repos/libretro-thumbnails/{repo}/git/trees/master?recursive=1"
+
+
+# --- base-title fallback (No-Intro tags ↔ libretro variants) ----------------
+# A ROM's No-Intro name often differs from libretro-thumbnails only in its
+# trailing (region)/(version) tags — e.g. our "Golden Axe (USA, Europe, Brazil)"
+# is filed by libretro as "Golden Axe (USA, Europe, Brazil) (En)". The base title
+# (everything before the first " (" or " [" tag) matches, so when the exact name
+# 404s we fall back to matching on the base title and picking the best regional
+# variant from the system's boxart listing.
+_BASE_TITLE_RE = re.compile(r"\s*[\(\[].*$")  # strip from the first ( or [ tag
+# region/version preference when several variants share a base title
+_BOXART_REGION_PREF = ("usa", "world", "europe", "japan")
+
+
+def base_title(name):
+    """The tag-free base of a ROM/boxart name, lowercased, for fuzzy matching:
+    'Golden Axe (USA, Europe, Brazil) (En)' → 'golden axe'. Also drops a No-Intro
+    '~' alternate title ('A ~ B' → 'a') so an alt-named ROM still matches."""
+    stripped = _BASE_TITLE_RE.sub("", name).strip()
+    return stripped.split(" ~ ")[0].strip().lower()
+
+
+def pick_boxart(stem, names):
+    """From libretro boxart `names` (bare, no extension), pick the best match for a
+    ROM `stem` by base title — preferring USA → World → Europe → Japan, then the
+    shortest name. Returns the chosen name, or None if no base title matches."""
+    want = base_title(stem)
+    if not want:
+        return None
+    candidates = [n for n in names if base_title(n) == want]
+    if not candidates:
+        return None
+
+    def rank(n):
+        low = n.lower()
+        for i, region in enumerate(_BOXART_REGION_PREF):
+            if region in low:
+                return i
+        return len(_BOXART_REGION_PREF)
+
+    return min(candidates, key=lambda n: (rank(n), len(n)))
 
 
 def list_items(section, settings):

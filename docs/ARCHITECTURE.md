@@ -181,7 +181,7 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/library/comics/cover?id=` | a comic's cover = page 0 (cached) | extracts the first page, downscales small for the browse grid |
 | `GET /api/library/comics/page?id=&n=` | one comic page (cached) | extracts page `n` from the archive, downscales to a reading-size WebP, serves locally thereafter |
 | `GET /api/library/file?section=&id=` | stream one item's bytes (range-capable) | `FileResponse` from the section dir, traversal-guarded |
-| `GET /api/library/games/cover?id=` | a game's box art (cached) | prefers a custom image dropped beside the ROM, else libretro-thumbnails by No-Intro name (following libretro's text-pointer pseudo-symlinks); downscaled to a cached WebP (404 → placeholder) |
+| `GET /api/library/games/cover?id=` | a game's box art (cached) | prefers a custom image dropped beside the ROM, else libretro-thumbnails by exact No-Intro name (following libretro's text-pointer pseudo-symlinks), else a base-title fallback against the system's full boxart listing (cached) for region/version-tag mismatches; downscaled to a cached WebP (404 → placeholder) |
 | `POST /api/library/games/save-states` | upload a save state (blob + screenshot) | multipart; backend-assigned ms slot id; size-capped; stored under `/data/saves` |
 | `GET /api/library/games/save-states?id=` | a game's save states, newest first | lists the slots in the game's saves dir |
 | `GET /api/library/games/save-state?id=&slot=` | a save state's bytes | `FileResponse` — the `EJS_loadStateURL` target for resuming |
@@ -471,12 +471,24 @@ per system: `/api/library/games/cover` matches, fetches once, downscales to a
 small **WebP** thumbnail in a covers cache (a writable volume), and serves it
 locally thereafter — same "cache + proxy" shape as Plex artwork (which gets the
 same WebP-thumbnail treatment, see `app/images.py`); a no-match (e.g. a ROM hack)
-is remembered as a miss and the UI shows a titled placeholder. Two refinements
+is remembered as a miss and the UI shows a titled placeholder. Three refinements
 make matching robust: libretro stores some boxarts as a tiny **text-pointer**
 file naming the canonical `.png` (a pseudo-symlink for alternate ROM names), which
-the proxy now **follows**; and a **custom cover dropped beside the ROM** (same
-basename, e.g. `My Hack.png`) takes precedence over libretro — the durable
-override for hacks or name mismatches. Each game gets a **detail page** (cover +
+the proxy now **follows**; a **base-title fallback** handles the common case where
+a ROM's No-Intro name differs from libretro's only in its trailing
+region/version tags (our `Golden Axe (USA, Europe, Brazil)` vs libretro's
+`Golden Axe (USA, Europe, Brazil) (En)`, or `Phantasy Star (World) (Sega Ages)`
+vs `Phantasy Star (USA, Europe)`) — when the exact name 404s, the proxy fetches
+the system's full boxart listing **once** (GitHub API tree → cached on disk for a
+month, in the same covers volume), matches on the **base title** (everything
+before the first `(`/`[` tag, with a No-Intro `~`-alternate split) and picks the
+best variant by region preference (USA → World → Europe → Japan → shortest), then
+caches the result under the exact-name key so later loads skip the fallback (it
+recovered 33 of 34 unmatched Sega titles in testing); and a **custom cover dropped
+beside the ROM** (same basename, e.g. `My Hack.png`) takes precedence over
+libretro — the durable override for hacks or the rare name with no listing match
+(e.g. a Japanese-only title filed under its Japanese name). Each game gets a
+**detail page** (cover +
 title + Play). **Recently played** is tracked **client-side** (localStorage, this
 device) for now — consistent with in-browser saves; it graduates to the backend
 with save roaming.

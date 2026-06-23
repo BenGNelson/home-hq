@@ -13,6 +13,7 @@ reports configured=False instead of erroring, so the hub renders a hint.
 """
 
 import hashlib
+import json
 import os
 import time
 import urllib.parse
@@ -147,6 +148,80 @@ def _follow_libretro_pointer(resp, url):
     return follow if follow.status_code == 200 and follow.content else resp
 
 
+# The system's full boxart listing, fetched once from the GitHub API and cached
+# on disk (it changes rarely), so the base-title fallback can match a ROM whose
+# exact No-Intro name isn't filed under that name in libretro-thumbnails. Lazily
+# fetched only when an exact match misses for that system.
+_BOXIDX_TTL = 30 * 86400  # refresh the listing monthly
+
+
+def _boxart_names(repo):
+    """The list of Named_Boxarts names (no extension) for a libretro system repo,
+    cached on disk. Returns None on any fetch/parse failure (so the caller just
+    degrades to a placeholder, like the rest of the cover path)."""
+    cache_dir = settings.covers_dir
+    idx = os.path.join(cache_dir, f"boxidx_{repo}.json")
+    try:
+        if os.path.isfile(idx) and (time.time() - os.path.getmtime(idx)) < _BOXIDX_TTL:
+            with open(idx) as fh:
+                return json.load(fh)
+    except (OSError, ValueError):
+        pass  # unreadable/corrupt cache → refetch
+    try:
+        resp = requests.get(
+            library.boxart_tree_url(repo), timeout=15, headers={"User-Agent": "home-hq"}
+        )
+        tree = resp.json().get("tree", []) if resp.status_code == 200 else []
+    except (requests.RequestException, ValueError):
+        return None
+    prefix, suffix = "Named_Boxarts/", ".png"
+    names = [
+        e["path"][len(prefix):-len(suffix)]
+        for e in tree
+        if isinstance(e, dict)
+        and e.get("path", "").startswith(prefix)
+        and e["path"].endswith(suffix)
+    ]
+    if not names:
+        return None
+    try:
+        os.makedirs(cache_dir, exist_ok=True)
+        images.write_atomic(idx, json.dumps(names).encode())
+    except OSError:
+        pass  # cache write is best-effort
+    return names
+
+
+def _fuzzy_cover_bytes(item_id):
+    """Resolve box art for a ROM whose exact name missed, via base-title matching.
+    Returns (art_bytes, definitive):
+      - art_bytes: the matched variant's bytes, or None if none were obtained.
+      - definitive: True when we actually consulted the system's listing, so a
+        None result is a genuine no-match the caller may cache as a miss; False on
+        a TRANSIENT failure (couldn't fetch the listing, or the matched art's
+        request errored) — the caller must NOT cache a permanent miss then, mirror-
+        ing the exact-fetch path's 'transient → don't cache as a miss' guard."""
+    repo = library.thumbnail_repo(item_id)
+    if not repo:
+        return None, True  # unreachable in practice (exact path needs a repo too)
+    names = _boxart_names(repo)
+    if not names:
+        return None, False  # no usable listing (network/rate-limit/empty) → transient
+    chosen = library.pick_boxart(os.path.basename(item_id), names)
+    if not chosen:
+        return None, True  # consulted a real listing, no base-title match → cacheable
+    url = library.boxart_url(repo, chosen)
+    try:
+        resp = requests.get(url, timeout=10)
+    except requests.RequestException:
+        return None, False  # transient art-fetch failure
+    if resp.status_code == 200:
+        resp = _follow_libretro_pointer(resp, url)
+    if resp.status_code == 200 and resp.content:
+        return resp.content, True
+    return None, False  # listing named it but the art GET failed → transient
+
+
 @router.get("/library/games/cover")
 def get_game_cover(id: str = Query(description="Game id from the section listing")):
     """Box art for a game, proxied + cached as a small WebP. Precedence: a custom
@@ -220,8 +295,23 @@ def get_game_cover(id: str = Query(description="Game id from the section listing
         # Not a decodable image — cache the raw bytes so we don't refetch.
         images.write_atomic(png, resp.content)
         return FileResponse(png, media_type="image/png", headers=_ART_CACHE_HEADERS)
-    open(miss, "w").close()  # remember the no-match
-    return Response(status_code=404)
+
+    # Exact No-Intro name missed — fall back to base-title matching against the
+    # system's libretro listing (handles region/version-tag mismatches like our
+    # "Golden Axe (USA, Europe, Brazil)" vs libretro's "... (En)" variant). Cache
+    # the result under the exact-name key so future loads skip the fallback.
+    fuzzy, definitive = _fuzzy_cover_bytes(id)
+    if fuzzy:
+        thumb = images.to_thumbnail(fuzzy)
+        if thumb:
+            images.write_atomic(webp, thumb)
+            return FileResponse(webp, media_type="image/webp", headers=_ART_CACHE_HEADERS)
+        images.write_atomic(png, fuzzy)  # not decodable — cache raw, like the exact path
+        return FileResponse(png, media_type="image/png", headers=_ART_CACHE_HEADERS)
+
+    if definitive:
+        open(miss, "w").close()  # genuinely no art for this game — remember it
+    return Response(status_code=404)  # transient failure → no miss cached, retry later
 
 
 class SaveStateModel(BaseModel):
