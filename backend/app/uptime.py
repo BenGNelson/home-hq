@@ -3,7 +3,7 @@ Service-availability summarizing for the Uptime page.
 
 The actual probing is done by a host script (scripts/uptime-probe.py, run by a
 systemd timer) — NOT in this container. The backend is firewalled away from the
-host's LAN-restricted services (HA, qBittorrent, etc.) by design, but the host
+host's LAN-restricted services (e.g. HA, a download client) by design, but the host
 can reach them all via localhost, so this follows the same privileged-host /
 unprivileged-app split as the SMART, VPN, and Tailscale checks. The host script
 probes each target, keeps a small rolling history + hourly up/down buckets, and

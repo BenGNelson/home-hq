@@ -90,7 +90,7 @@ class Settings(BaseSettings):
     # Container log viewer: a comma-separated list of container names whose logs
     # the /api/containers/{name}/logs endpoint refuses to return. Logs can carry
     # secrets/activity an app prints to stdout, so list the sensitive ones here
-    # (e.g. a VPN or torrent client). Empty = every container's logs are readable
+    # (e.g. a VPN gateway or a download client). Empty = every container's logs are readable
     # (still only over the LAN/tailnet — never the public internet).
     container_logs_exclude: str = ""
 

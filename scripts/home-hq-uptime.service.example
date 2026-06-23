@@ -1,7 +1,7 @@
 # Home HQ — service-availability prober (oneshot, run by the timer).
 # Install: copy to /etc/systemd/system/home-hq-uptime.service and replace
 # /path/to/home-hq with the real checkout path. Runs on the host so it can reach
-# even LAN-restricted services (HA, qBittorrent, …) the backend container can't.
+# even LAN-restricted services (e.g. HA, a download client) the backend container can't.
 [Unit]
 Description=Home HQ — probe service availability
 After=network-online.target

@@ -625,7 +625,7 @@ The **Uptime** page shows each configured service's current status, uptime %
 (24h / 7d), latency, and a recent up/down sparkline. The probing is a **host
 script** (`scripts/uptime-probe.py`, a systemd timer) rather than in-app for a
 concrete reason: the backend container is firewalled away from LAN-restricted
-services (UFW limits Home Assistant, qBittorrent, etc. to the LAN subnet, and the
+services (UFW limits Home Assistant, a download client, etc. to the LAN subnet, and the
 container's source is the Docker subnet), so it can only reach internet-open
 ports. The host can reach everything via localhost — the same privileged-host /
 unprivileged-app split as SMART/VPN/Tailscale. Each run probes every target
@@ -1098,12 +1098,12 @@ detail endpoint still withholds env vars, mounts, and command args, but a
 separate `/containers/{name}/logs` endpoint serves recent stdout/stderr on
 demand. That's an informed reversal of the original "never expose logs" stance:
 logs can contain whatever an app prints (an accidentally-logged secret, or
-activity like torrent names), so it's only sound because the UI is reachable
+other sensitive activity), so it's only sound because the UI is reachable
 only over the LAN/tailnet (UFW drops public traffic; no funnel) and the tailnet
-is single-user. `CONTAINER_LOGS_EXCLUDE` withholds named containers (a VPN or
-torrent client — the most sensitive and the ones you'd `docker logs` over SSH
-anyway). The endpoint is read-only and tail-limited; it never streams full
-history.
+is single-user. `CONTAINER_LOGS_EXCLUDE` withholds named containers (a VPN
+gateway or download client — the most sensitive and the ones you'd `docker logs`
+over SSH anyway). The endpoint is read-only and tail-limited; it never streams
+full history.
 
 ---
 

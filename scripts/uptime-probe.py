@@ -5,7 +5,7 @@ page.
 
 Runs on the HOST via a systemd timer (see home-hq-uptime.{service,timer}.example)
 because the backend container is firewalled away from LAN-restricted services
-(Home Assistant, qBittorrent, etc.) — the host reaches them all via localhost.
+(e.g. Home Assistant, a download client) — the host reaches them all via localhost.
 Same privileged-host / unprivileged-app split as the SMART, VPN, and Tailscale
 checks: this gathers the facts, the backend just reads + shapes uptime.json.
 

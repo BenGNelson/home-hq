@@ -87,8 +87,8 @@ def test_clamp_tail_bounds_and_defaults():
 def test_excluded_log_names_parses_and_lowercases(monkeypatch):
     from app.config import settings
 
-    monkeypatch.setattr(settings, "container_logs_exclude", "Gluetun, qbittorrent ,")
-    assert C._excluded_log_names() == {"gluetun", "qbittorrent"}
+    monkeypatch.setattr(settings, "container_logs_exclude", "Gluetun, downloader ,")
+    assert C._excluded_log_names() == {"gluetun", "downloader"}
     monkeypatch.setattr(settings, "container_logs_exclude", "")
     assert C._excluded_log_names() == set()
 
@@ -150,7 +150,7 @@ def test_logs_endpoint_returns_tailed_lines(client, monkeypatch):
 def test_logs_endpoint_withholds_excluded_container(client, monkeypatch):
     from app.config import settings
 
-    monkeypatch.setattr(settings, "container_logs_exclude", "gluetun,qbittorrent")
+    monkeypatch.setattr(settings, "container_logs_exclude", "gluetun,downloader")
     # Excluded names short-circuit before Docker is even contacted.
     body = client.get("/api/containers/GLUETUN/logs").json()
     assert body["available"] is False and body["excluded"] is True
