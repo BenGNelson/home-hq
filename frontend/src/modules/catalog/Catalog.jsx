@@ -19,6 +19,8 @@ import {
   itemVisible,
   floorItemCount,
 } from '../../lib/catalog.js'
+import { entityValue, entityColor } from '../../lib/ha.js'
+import { homeAssistantUrl } from '../../lib/hostLocal.js'
 
 // The Home Catalog module: a floor-by-floor inventory of the house — smart
 // devices (cross-referenced to HA), appliances, AND non-HA physical things
@@ -115,6 +117,12 @@ function Live({ d, filter, setQ, setOnlyHa, setOnlyFlag }) {
         )
       })()}
 
+      {d.live_available && (
+        <p className="flex items-center gap-1.5 text-[11px] text-slate-600">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+          Live device state from Home Assistant{d.live_stale ? ' (may be stale)' : ''}.
+        </p>
+      )}
       {filtering && <p className="text-[11px] text-slate-600">Filtered view — clear search/filters to see the whole house.</p>}
       {d.meta?.last_updated && <p className="text-[11px] text-slate-600">Catalog last updated {d.meta.last_updated}.</p>}
     </div>
@@ -172,7 +180,8 @@ function ItemRow({ item }) {
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-sm text-slate-100">{item.name}</span>
-          {item.in_ha && (
+          <LiveChip item={item} />
+          {item.in_ha && !item.live && (
             <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">HA</span>
           )}
           {item.flag && (
@@ -189,6 +198,40 @@ function ItemRow({ item }) {
         {item.notes && <p className="mt-0.5 text-[11px] leading-snug text-slate-500">{item.notes}</p>}
       </div>
     </div>
+  )
+}
+
+// A small live-state chip for catalog items whose HA entity the collector
+// tracks. Reuses the HA glance's value/color helpers and deep-links into HA's
+// history for that entity; falls back to plain text when no HA link is
+// configured. Reference + handoff, not control — true to HA-is-the-brain.
+function LiveChip({ item }) {
+  if (!item.live) return null
+  const e = {
+    entity_id: item.entity,
+    domain: item.entity ? item.entity.split('.')[0] : '',
+    state: item.live.state,
+    unit: item.live.unit,
+    device_class: item.live.device_class,
+  }
+  const value = entityValue(e)
+  const color = entityColor(e)
+  const href = item.entity ? homeAssistantUrl(`/history?entity_id=${item.entity}`) : null
+  const cls = `inline-flex items-center gap-1 rounded bg-slate-800/70 px-1.5 py-0.5 text-[11px] font-medium ${color}`
+  const dot = <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" aria-hidden="true" />
+  if (href) {
+    return (
+      <a href={href} target="_blank" rel="noreferrer" className={`${cls} hover:bg-slate-700/70`} title="View in Home Assistant">
+        {dot}
+        {value}
+      </a>
+    )
+  }
+  return (
+    <span className={cls}>
+      {dot}
+      {value}
+    </span>
   )
 }
 
