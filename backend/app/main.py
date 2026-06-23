@@ -25,6 +25,7 @@ from app.book_sync import init_indexer
 from app.routers import (
     alerts,
     backups,
+    catalog,
     containers,
     disk,
     diskio,
@@ -133,6 +134,7 @@ tags_metadata = [
     {"name": "Alerts", "description": "Push-notification engine — rule status, history, and a test trigger."},
     {"name": "Monitoring", "description": "Service-availability probing — per-target uptime % and latency."},
     {"name": "Devices", "description": "Home Assistant bridge — a curated, read-only glance at home devices."},
+    {"name": "Catalog", "description": "The home catalog — a floor-by-floor inventory of devices, appliances, tools, and infrastructure."},
     {"name": "Solar", "description": "Solar / energy production read from the Enphase Envoy gateway."},
     {"name": "Weather", "description": "Current conditions and a multi-day forecast for the configured location."},
     {"name": "Docs", "description": "In-app document sources (project README) served as markdown."},
@@ -203,5 +205,6 @@ app.include_router(watchdog.router, prefix="/api", tags=["Storage"])
 app.include_router(alerts.router, prefix="/api", tags=["Alerts"])
 app.include_router(uptime.router, prefix="/api", tags=["Monitoring"])
 app.include_router(ha.router, prefix="/api", tags=["Devices"])
+app.include_router(catalog.router, prefix="/api", tags=["Catalog"])
 app.include_router(solar.router, prefix="/api", tags=["Solar"])
 app.include_router(weather.router, prefix="/api", tags=["Weather"])

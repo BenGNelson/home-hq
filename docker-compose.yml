@@ -59,6 +59,11 @@ services:
       # to point at your own (gitignored, host-specific) guide instead. No host
       # path is ever committed — only the generic default lives here.
       - "${SERVER_GUIDE_FILE:-./docs/SERVER_GUIDE.example.md}:/srv-guide/SERVER_GUIDE.md:ro"
+      # The home catalog (YAML), read-only — powers the Home Catalog module.
+      # Defaults to the committed generic example; set CATALOG_FILE in .env to
+      # point at your own (gitignored, host-specific) catalog instead. No host
+      # path is ever committed — only the generic default lives here.
+      - "${CATALOG_FILE:-./docs/home-catalog.example.yaml}:/catalog/home-catalog.yaml:ro"
     restart: unless-stopped
     logging: *default-logging
 

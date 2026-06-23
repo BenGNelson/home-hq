@@ -1,0 +1,102 @@
+# =============================================================================
+# Home Catalog — EXAMPLE / template
+# =============================================================================
+# This is the generic default the Home Catalog module shows until you point
+# CATALOG_FILE (in .env) at your own catalog. Copy it somewhere host-side
+# (e.g. ~/docs/home-catalog.yaml), edit it to match your home, and set
+# CATALOG_FILE to that path. Your real catalog stays OUT of git.
+#
+# A living, floor-by-floor inventory of the whole house: smart devices (cross-
+# referenced to Home Assistant), appliances, AND non-HA physical things — tools,
+# 3D printers, workbenches, computers, network gear.
+#
+# SCHEMA (per item):
+#   name:      (required) what it is
+#   category:  device | appliance | tool | equipment | furniture |
+#              infrastructure | network | vehicle
+#   brand:     (optional) manufacturer
+#   model:     (optional) model number
+#   in_ha:     (optional) true if integrated into Home Assistant
+#   entity:    (optional) HA entity id (when in_ha)
+#   qty:       (optional) quantity, when more than one
+#   notes:     (optional) anything useful (a ⚠️ marks something to confirm)
+# =============================================================================
+
+meta:
+  last_updated: 2026-01-01
+  scope: "devices, appliances, tools, equipment, infrastructure"
+  ha_summary: "example data — replace with your own catalog via CATALOG_FILE"
+
+floors:
+  basement:
+    utility_room:
+      items:
+        - name: Home server
+          category: infrastructure
+          notes: the host running this dashboard
+        - name: 3D printer
+          category: tool
+          brand: Example Brand
+          notes: on the workbench
+        - name: Workbench
+          category: furniture
+
+  first_floor:
+    living_room:
+      items:
+        - name: Smart TV
+          category: device
+          notes: streaming + casting
+        - name: Wi-Fi router
+          category: network
+    kitchen:
+      items:
+        - name: Smart thermostat
+          category: device
+          in_ha: true
+          entity: climate.kitchen
+        - name: Smart speaker
+          category: device
+          in_ha: true
+
+  second_floor:
+    bedroom:
+      items:
+        - name: Smart plug
+          category: device
+          in_ha: true
+          notes: bedside lamp
+    office:
+      items:
+        - name: Desktop computer
+          category: device
+        - name: Printer
+          category: device
+          notes: "⚠️ network or USB? — example of a to-confirm flag"
+
+outside:
+  items:
+    - name: Electric vehicle
+      category: vehicle
+      in_ha: true
+    - name: Doorbell camera
+      category: device
+      in_ha: true
+
+spares:
+  # Owned but not deployed/installed yet (worth tracking).
+  items:
+    - name: Smart plugs (spare)
+      category: device
+      qty: 2
+
+infrastructure:
+  network_topology: >
+    Describe how your network is laid out here — gateway, mesh nodes, any
+    VLANs or port-forwards, and where the smart-home coordinators live.
+  mobile_devices:
+    - name: Phone
+      category: device
+      in_ha: true
+      entity: device_tracker.phone
+      notes: presence; no fixed room

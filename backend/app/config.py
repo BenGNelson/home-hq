@@ -232,6 +232,12 @@ class Settings(BaseSettings):
     # The host's own server guide (markdown). Defaults to the committed example;
     # point SERVER_GUIDE_FILE at your real (gitignored) doc to show that instead.
     server_guide_path: str = "/srv-guide/SERVER_GUIDE.md"
+    # The home catalog (YAML): a floor-by-floor inventory of the house — smart
+    # devices (cross-referenced to HA), appliances, AND non-HA physical things
+    # (tools, 3D printer, computers, infra). Defaults to the committed generic
+    # example; point CATALOG_FILE at your real (gitignored, host-side) catalog to
+    # show that instead. Read-only — the backend only parses + serves it.
+    catalog_path: str = "/catalog/home-catalog.yaml"
 
     model_config = SettingsConfigDict(
         # In local (non-Docker) dev, also read a .env file sitting next to the repo.

@@ -56,6 +56,7 @@ backend/app/
     speedtest.py     # /api/speedtest (ISP down/up/ping history, in-app sampler)
     uptime.py        # /api/uptime   (service availability, from a host prober's JSON)
     ha.py            # /api/ha       (curated Home Assistant entities, from a host timer's JSON)
+    catalog.py       # /api/catalog  (home catalog — floors/rooms/items, from a host-side YAML)
     diskio.py        # /api/diskio   (per-disk I/O counters from /proc/diskstats)
     raid.py          # /api/raid     (software-RAID state from /proc/mdstat)
     smart.py         # /api/smart    (per-drive SMART, from a host timer's JSON)
@@ -137,6 +138,7 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `POST /api/speedtest/run` | trigger an on-demand test (async; `running` flag polled) | spawns a background `speedtest` run |
 | `GET /api/uptime` | per-service availability — status, uptime % (24h/7d), latency | reads a host prober's `uptime.json` |
 | `GET /api/ha` | curated Home Assistant entities (glance + deep-link), self-hides when unconfigured | reads a host timer's `ha.json` |
+| `GET /api/catalog` | the home catalog — floors → rooms → items (devices/appliances/tools/infra), with stats; self-hides when unconfigured | parses the `CATALOG_FILE` YAML mounted read-only (defaults to a committed example) |
 | `GET /api/solar` | live Enphase solar (production, consumption + net on metered systems, today/7-day/lifetime), self-hides when unconfigured | `pyenphase` reads the Envoy's local API; authenticated client + short TTL cached |
 | `GET /api/weather` | current conditions + 5-day forecast, self-hides when no location set | Open-Meteo (free, no API key); 10-min TTL cached |
 | `GET /api/storage/db` | SQLite file size + per-table row counts (growth visibility) | stats the DB file + `COUNT(*)` per table |
@@ -662,6 +664,28 @@ nothing here is committed with a real value: `HA_TOKEN` lives only in the
 gitignored `.env`, never in the repo or the container. Read-only by design: no
 service calls, no control proxying, and (per the notifications stance) no alert
 rules on HA entities. Control is HA's job — the deep-link hands off to it.
+
+## Home catalog (host-side YAML)
+
+A companion to the HA glance, and a deliberate counterpart to it: where the HA
+glance is a *live* view of the *connected* devices HA controls, the **Home
+Catalog** is a *static* inventory of the *whole house* — the smart devices (cross-
+referenced to HA by `entity`), but also everything HA will never know about: the
+3D printer, the workbench, TVs and consoles, computers, network gear. It stays
+true to the cockpit principle because it's **reference data, not a control
+surface** — nothing here toggles or arms anything.
+
+Same file-backed, no-secrets shape as the doc viewers: a host-side YAML
+(`CATALOG_FILE`, defaulting to the committed `docs/home-catalog.example.yaml`) is
+mounted read-only at `/catalog/home-catalog.yaml`; **`/api/catalog`** parses it in
+a pure, unit-tested `summarize()` that prettifies room/floor labels, normalizes
+each item, folds the `infrastructure` block (a free-text topology note + roaming
+devices), and computes stats (totals, in-HA count, ⚠️-to-confirm count, per-
+category counts). The real catalog has room/device names, so it lives **outside
+the repo** — only the generic example is committed. The YAML is also meant to be
+read directly (by a human or an assistant) as a plain-English map of the house;
+the module just renders it. The real catalog lives host-side (wherever
+`CATALOG_FILE` points), never in the repo.
 
 ## Solar (Enphase Envoy) — direct, not through HA
 

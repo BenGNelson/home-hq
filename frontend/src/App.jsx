@@ -30,6 +30,7 @@ import Speedtest from './modules/speedtest/Speedtest.jsx'
 import Weather from './modules/weather/Weather.jsx'
 import Alerts from './modules/alerts/Alerts.jsx'
 import Uptime from './modules/uptime/Uptime.jsx'
+import Catalog from './modules/catalog/Catalog.jsx'
 import Guide from './modules/guide/Guide.jsx'
 import Readme from './modules/readme/Readme.jsx'
 import ServerGuide from './modules/server-guide/ServerGuide.jsx'
@@ -54,6 +55,7 @@ import {
   BookText,
   Braces,
   FileText,
+  Boxes,
 } from 'lucide-react'
 
 // The module registry. Each module declares its nav entry here and a matching
@@ -80,6 +82,7 @@ const builtinModules = [
   { id: 'vpn', label: 'VPN', path: '/vpn', icon: ShieldCheck, group: 'Network', tint: 'bg-green-500/15 text-green-400' },
   { id: 'tailscale', label: 'Tailscale', path: '/tailscale', icon: Waypoints, group: 'Network', tint: 'bg-teal-500/15 text-teal-400' },
   { id: 'speedtest', label: 'Speed', path: '/speedtest', icon: Gauge, group: 'Network', tint: 'bg-fuchsia-500/15 text-fuchsia-400' },
+  { id: 'catalog', label: 'Home Catalog', path: '/catalog', icon: Boxes, group: 'Devices', tint: 'bg-purple-500/15 text-purple-400' },
   { id: 'printer', label: '3D Printer', path: '/printer', icon: PrinterIcon, group: 'Devices', tint: 'bg-orange-500/15 text-orange-400' },
   { id: 'solar', label: 'Solar', path: '/solar', icon: Sun, group: 'Devices', tint: 'bg-yellow-500/15 text-yellow-400' },
   { id: 'alerts', label: 'Alerts', path: '/alerts', icon: Bell, group: 'Monitoring', tint: 'bg-red-500/15 text-red-400' },
@@ -130,6 +133,7 @@ export default function App() {
         <Route path="/library/read" element={<Reader />} />
         <Route path="/library/downloads" element={<Downloads />} />
         <Route path="/containers" element={<Containers />} />
+        <Route path="/catalog" element={<Catalog />} />
         <Route path="/printer" element={<Printer />} />
         <Route path="/solar" element={<Solar />} />
         <Route path="/speedtest" element={<Speedtest />} />

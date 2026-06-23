@@ -48,6 +48,7 @@ MODELED_ENDPOINTS = [
     "/api/alerts",
     "/api/readme",
     "/api/server-guide",
+    "/api/catalog",
 ]
 
 
