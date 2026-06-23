@@ -131,6 +131,10 @@ class Settings(BaseSettings):
     # bridge is read-only (a glance + deep-link into HA), per the brain/cockpit
     # split. Absent file -> the Home widget simply hides itself.
     ha_json_path: str = "/smart/ha.json"
+    # Live HA state for the catalog's entities, written by the same collector
+    # (ha-state.py) as a second slice of its one /api/states fetch. Read via the
+    # same /smart mount; the Home Catalog overlays these onto matching items.
+    ha_catalog_state_path: str = "/smart/ha-catalog.json"
 
     # --- Alerting (push notifications via ntfy) ---
     # Push lands on the phone over normal internet (no tailnet needed). The topic

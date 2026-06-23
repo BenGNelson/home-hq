@@ -138,7 +138,7 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `POST /api/speedtest/run` | trigger an on-demand test (async; `running` flag polled) | spawns a background `speedtest` run |
 | `GET /api/uptime` | per-service availability — status, uptime % (24h/7d), latency | reads a host prober's `uptime.json` |
 | `GET /api/ha` | curated Home Assistant entities (glance + deep-link), self-hides when unconfigured | reads a host timer's `ha.json` |
-| `GET /api/catalog` | the home catalog — floors → rooms → items (devices/appliances/tools/infra), with stats; self-hides when unconfigured | parses the `CATALOG_FILE` YAML mounted read-only (defaults to a committed example) |
+| `GET /api/catalog` | the home catalog — floors → rooms → items (devices/appliances/tools/infra), with stats; **live HA state overlaid** on items that have an entity; self-hides when unconfigured | parses the `CATALOG_FILE` YAML mounted read-only (defaults to a committed example) + joins the collector's `ha-catalog.json` live states |
 | `GET /api/solar` | live Enphase solar (production, consumption + net on metered systems, today/7-day/lifetime), self-hides when unconfigured | `pyenphase` reads the Envoy's local API; authenticated client + short TTL cached |
 | `GET /api/weather` | current conditions + 5-day forecast, self-hides when no location set | Open-Meteo (free, no API key); 10-min TTL cached |
 | `GET /api/storage/db` | SQLite file size + per-table row counts (growth visibility) | stats the DB file + `COUNT(*)` per table |
@@ -648,8 +648,10 @@ The mechanism is the now-familiar privileged-host / unprivileged-app split. The
 backend container holds no HA URL or token, so a host timer
 (`scripts/ha-state.py`) calls HA's REST `GET /api/states` with a **Long-Lived
 Access Token**, keeps only the `HA_ENTITIES` allowlist (in display order), trims
-each to `{entity_id, name, state, unit, device_class}`, and writes `ha.json`. The
-backend reads it via the same `/smart` mount; **`/api/ha`** shapes it (domain
+each to `{entity_id, name, state, unit, device_class}`, and writes `ha.json`. (When
+`CATALOG_FILE` is set it ALSO writes `ha-catalog.json` — live states for the
+catalog's entities, a second slice of the same fetch; see the Home catalog
+section.) The backend reads it via the same `/smart` mount; **`/api/ha`** shapes it (domain
 split, entity normalization, stale check) in a pure, unit-tested `summarize()`.
 Each `HA_ENTITIES` item may be `entity_id` or `entity_id|Custom label` (same
 `Name|value` shape as `UPTIME_TARGETS`) — the label overrides HA's friendly name
@@ -686,6 +688,19 @@ the repo** — only the generic example is committed. The YAML is also meant to 
 read directly (by a human or an assistant) as a plain-English map of the house;
 the module just renders it. The real catalog lives host-side (wherever
 `CATALOG_FILE` points), never in the repo.
+
+**Live state overlay.** Catalog items that carry an HA `entity` get their current
+state shown in place (front door 🔒 Locked, dehumidifier 41%, thermostat 72°),
+turning the static map into a room-by-room live view that deep-links into HA for
+control — a glance + handoff, not a control surface. The state comes from the
+**same `ha-state.py` collector** as the Home glance: when `CATALOG_FILE` is set it
+writes a *second* slice of its one `/api/states` fetch — `ha-catalog.json`, a
+`{entity_id: {state, unit, device_class}}` map for every entity the catalog
+references — so this adds no extra HA load and the backend still holds no token.
+`summarize()` joins it (passing the states map through `_norm_item`) and flags the
+snapshot stale past the freshness window; a missing/unavailable snapshot simply
+omits the overlay. The frontend reuses the HA glance's `entityValue`/`entityColor`
+helpers for the chip.
 
 ## Solar (Enphase Envoy) — direct, not through HA
 

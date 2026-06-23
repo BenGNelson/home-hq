@@ -1,6 +1,14 @@
 """Tests for the Home Catalog summarizer (pure, no real file)."""
 
-from app.routers.catalog import _norm_item, _prettify, summarize
+from app.routers.catalog import (
+    _LIVE_STALE_SECONDS,
+    _live_for,
+    _norm_item,
+    _prettify,
+    summarize,
+)
+
+NOW = 1_000_000.0
 
 SAMPLE = {
     "meta": {"last_updated": "2026-06-23", "scope": "devices, tools", "ha_summary": "x"},
@@ -116,3 +124,75 @@ def test_unavailable_on_garbage():
 def test_prettify():
     assert _prettify("main_bedroom") == "Main Bedroom"
     assert _prettify("first_floor") == "First Floor"
+
+
+# --- live HA-state overlay ---
+
+LIVE = {
+    "available": True,
+    "updated": NOW - 60,
+    "states": {
+        "climate.kitchen": {"state": "72", "unit": "°F", "device_class": "temperature"},
+    },
+}
+
+
+def _kitchen_thermostat(out):
+    first = next(f for f in out["floors"] if f["id"] == "first_floor")
+    kitchen = next(r for r in first["rooms"] if r["id"] == "kitchen")
+    return next(i for i in kitchen["items"] if i["entity"] == "climate.kitchen")
+
+
+def test_live_overlay_attaches_state_to_matching_entity():
+    out = summarize(SAMPLE, LIVE, now=NOW)
+    assert out["live_available"] is True
+    assert out["live_stale"] is False
+    assert out["live_updated"] == NOW - 60
+    item = _kitchen_thermostat(out)
+    assert item["live"] == {"state": "72", "unit": "°F", "device_class": "temperature"}
+
+
+def test_items_without_a_tracked_entity_have_no_live():
+    out = summarize(SAMPLE, LIVE, now=NOW)
+    # The car is in_ha but has no entity in the catalog → no live overlay.
+    car = next(i for i in out["outside"]["items"] if i["name"] == "Car")
+    assert car["live"] is None
+
+
+def test_live_stale_when_snapshot_old():
+    old = {**LIVE, "updated": NOW - _LIVE_STALE_SECONDS - 1}
+    out = summarize(SAMPLE, old, now=NOW)
+    assert out["live_available"] is True
+    assert out["live_stale"] is True
+
+
+def test_unavailable_live_snapshot_is_ignored():
+    out = summarize(SAMPLE, {"available": False, "reason": "unreachable"}, now=NOW)
+    assert out["live_available"] is False
+    assert _kitchen_thermostat(out)["live"] is None
+
+
+def test_no_live_arg_means_no_overlay():
+    out = summarize(SAMPLE, now=NOW)
+    assert out["live_available"] is False
+    assert _kitchen_thermostat(out)["live"] is None
+
+
+def test_non_numeric_updated_degrades_to_stale_not_crash():
+    bad = {"available": True, "updated": "not-a-number", "states": LIVE["states"]}
+    out = summarize(SAMPLE, bad, now=NOW)
+    assert out["live_available"] is True
+    assert out["live_stale"] is True
+    assert out["live_updated"] is None
+    # state is still overlaid despite the bad timestamp
+    assert _kitchen_thermostat(out)["live"]["state"] == "72"
+
+
+def test_live_for_helper():
+    sm = {"lock.front": {"state": "locked", "unit": None, "device_class": None}}
+    assert _live_for("lock.front", sm) == {"state": "locked", "unit": None, "device_class": None}
+    assert _live_for("lock.front", {}) is None
+    assert _live_for(None, sm) is None
+    assert _live_for("x.y", "not a dict") is None
+    # state None coerces to ""
+    assert _live_for("a.b", {"a.b": {"state": None}})["state"] == ""
