@@ -1109,9 +1109,10 @@ full history.
 
 ## Testing
 
-Tests run in the project's containers — no host Python/Node toolchain needed.
-`scripts/test.sh` runs both suites; run it before committing, and add or update
-a test whenever you change a helper, query, parser, or endpoint.
+Two layers, both run in containers (no host Python/Node/browser toolchain): a
+broad base of fast **unit** tests, and a thin top layer of **e2e smoke** tests.
+`scripts/test.sh` runs the unit suites; run it before committing, and add or
+update a test whenever you change a helper, query, parser, or endpoint.
 
 - **Backend — pytest** (`backend/tests/`). Each test gets an isolated temp SQLite
   DB (autouse fixture monkeypatches `settings.db_path` to a tmp file, then
@@ -1126,6 +1127,18 @@ a test whenever you change a helper, query, parser, or endpoint.
   intentionally not tested — the value is in the helpers. Vitest is a dev
   dependency in the image, so after adding a frontend dev dep, rebuild the image
   (`docker compose build frontend`) before the runner can see it.
+- **E2e smoke — Playwright** (`e2e/smoke.py`, run by `scripts/verify.sh`). Drives
+  the **real running app** in a headless browser (the official Playwright image,
+  so no host browser) and asserts every module page renders — shell + non-empty
+  content + **zero console errors**. Deliberately shallow: it catches the class
+  of bug the unit tests can't — bad imports, API-shape mismatches, the nginx
+  proxy, build/runtime errors, white-screen crashes — the durable successor to
+  the one-off headless checks. Needs the stack up; gates `scripts/deploy.sh` and
+  CI. Add a page by appending a `(path, [expected text])` tuple to `PAGES`.
+
+`scripts/deploy.sh` chains it all: unit suites → build + deploy the prod images →
+e2e smoke, stopping at the first failure. CI (`.github/workflows/ci.yml`) runs
+the same sequence on every push so a clean clone is proven to build and pass.
 
 ---
 
