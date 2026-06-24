@@ -23,7 +23,7 @@ function Code({ children }) {
 
 const ENDPOINTS = [
   ['/api/health', 'Liveness + server name.'],
-  ['/api/system', 'CPU %, RAM used/total, uptime (psutil).'],
+  ['/api/system', 'CPU %, RAM used/total, OS/root disk used/total/%, uptime (psutil).'],
   ['/api/gpu', 'NVIDIA GPU load, VRAM, temp + active encode sessions, from a host timer running `nvidia-smi` (the System widget self-hides it with no GPU).'],
   ['/api/disk', 'Total / used / free for the storage array.'],
   ['/api/containers · /{name} · /{name}/logs', 'Container list, one container’s live CPU/mem/net, and its recent logs (tail-limited; sensitive ones excludable).'],
@@ -227,8 +227,10 @@ export default function Guide() {
           Data flow example: the browser polls <Code>/api/system</Code> →{' '}
           <Code>main.py</Code> → <Code>routers/system.py</Code> → <Code>psutil</Code>{' '}
           reads the host kernel → JSON back. Because containers share the host
-          kernel, CPU/RAM/uptime are the host’s; disk needs the storage path
-          mounted in.
+          kernel, CPU/RAM/uptime are the host’s; the OS/root disk comes from the
+          container’s own <Code>/</Code> (an overlay on the host OS disk, so no
+          mount needed), while the separate storage array needs its path mounted
+          in.
         </p>
       </Section>
 

@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     # --- Server / system ---
     server_name: str = "home-server"
     raid_mount: str = "/mnt/storage"
+    # The OS/root filesystem to report on the System widget. Defaults to "/",
+    # which inside the container is the overlay backed by the host's OS disk —
+    # so usage matches the host root without an extra mount (verified on this
+    # box). Override only if the container's root lives on a different device.
+    system_disk_mount: str = "/"
 
     # --- Plex ---
     plex_url: str = "http://localhost:32400"
