@@ -17,8 +17,8 @@ export default function Weather() {
 
   return (
     <div>
-      <h2 className="mb-4 text-xl font-semibold">Weather</h2>
-
+      {/* No page title here — the shell's top bar already shows the active
+          module's name ("Weather"), so an in-page heading would just repeat it. */}
       {loading && !data && <p className="text-sm text-slate-500">loading…</p>}
       {error && <p className="text-sm text-rose-400">unavailable — {error}</p>}
 
