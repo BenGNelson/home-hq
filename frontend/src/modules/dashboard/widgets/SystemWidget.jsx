@@ -25,10 +25,10 @@ export default function SystemWidget() {
       title="System"
       loading={loading}
       error={error}
-      // Match the real body height: 3 rows + CPU/Memory bars, plus GPU/VRAM when
-      // a GPU is present (/api/gpu resolves before /system, so `g` is known by
-      // the time the skeleton is revealed) — so the card doesn't grow on load.
-      skeleton={<WidgetSkeleton rows={3} bars={g ? 4 : 2} />}
+      // Match the real body height: 3 rows + CPU/Memory/Disk bars, plus GPU/VRAM
+      // when a GPU is present (/api/gpu resolves before /system, so `g` is known
+      // by the time the skeleton is revealed) — so the card doesn't grow on load.
+      skeleton={<WidgetSkeleton rows={3} bars={g ? 5 : 3} />}
     >
       {data && (
         <dl className="space-y-3 text-sm">
@@ -53,6 +53,15 @@ export default function SystemWidget() {
             percent={data.memory.percent}
             caption={`${formatBytes(data.memory.used_bytes)} / ${formatBytes(data.memory.total_bytes)}`}
           />
+          {/* Disk can be omitted if the OS mount can't be read (or on a stale
+              pre-deploy cached response), so guard before dereferencing. */}
+          {data.disk && (
+            <Bar
+              label="Disk"
+              percent={data.disk.percent}
+              caption={`${formatBytes(data.disk.used_bytes)} / ${formatBytes(data.disk.total_bytes)}`}
+            />
+          )}
           {g && (
             <>
               <Bar label="GPU" percent={g.utilization_percent ?? 0} caption={gpuCaption(g)} />

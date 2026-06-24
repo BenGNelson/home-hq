@@ -126,7 +126,7 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | Endpoint | Returns | How |
 |---|---|---|
 | `GET /api/health` | liveness + server name | trivial |
-| `GET /api/system` | CPU %, RAM used/total, uptime | `psutil` |
+| `GET /api/system` | CPU %, RAM used/total, OS/root disk used/total/%, uptime | `psutil` |
 | `GET /api/disk` | total/used/free/% for the storage mount | `psutil.disk_usage` |
 | `GET /api/containers` | name, status, image, uptime per container | Docker SDK → read-only socket proxy |
 | `GET /api/containers/{name}` | one container's live stats (cpu/mem/net) | Docker SDK → read-only socket proxy |
@@ -1166,12 +1166,14 @@ browser ──GET /api/system──▶ main.py ──▶ routers/system.py
                                      │
                           psutil reads the host kernel
                                      │
-                          ◀── JSON: cpu/ram/uptime ──
+                          ◀── JSON: cpu/ram/disk/uptime ──
 ```
 
 Because containers share the host kernel, `psutil` already reports the host's
-CPU/RAM/uptime. Disk is the exception — it needs the host path mounted in, which
-is why compose mounts the storage path.
+CPU/RAM/uptime. The OS/root disk in `/api/system` reads the container's own `/`,
+which is an overlay backed by the host OS disk — so it matches the host root
+with no extra mount. The *storage*-mount usage (`/api/disk`) is the exception:
+that path isn't the container's own filesystem, so compose mounts it in.
 
 ---
 
