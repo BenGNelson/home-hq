@@ -37,7 +37,8 @@ export default function Catalog() {
 
   return (
     <div>
-      <h2 className="mb-1 text-xl font-semibold">Home Catalog</h2>
+      {/* Title omitted — the shell's top bar already shows "Home Catalog"; the
+          scope line below is kept as it adds context the bar doesn't. */}
       {data?.meta?.scope && <p className="mb-4 text-sm text-slate-500">{data.meta.scope}</p>}
 
       {loading && !data && <p className="text-sm text-slate-500">loading…</p>}

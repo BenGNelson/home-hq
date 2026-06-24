@@ -9,8 +9,7 @@ export default function Solar() {
 
   return (
     <div>
-      <h2 className="mb-4 text-xl font-semibold">Solar</h2>
-
+      {/* Title omitted — the shell's top bar already shows "Solar". */}
       {loading && !data && <p className="text-sm text-slate-500">loading…</p>}
       {error && <p className="text-sm text-rose-400">unavailable — {error}</p>}
 
