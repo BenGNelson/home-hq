@@ -42,6 +42,9 @@ _CURRENT_FIELDS = (
 _DAILY_FIELDS = (
     "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
 )
+# Per-hour fields for the tap-to-expand hourly strip on the Weather page. Open-Meteo
+# returns these for every forecast_day; we group them under their day in shape().
+_HOURLY_FIELDS = "temperature_2m,precipitation_probability,weather_code,is_day"
 
 # Module-level success cache (only successful reads are stored; failures aren't,
 # so a transient blip doesn't pin a bad result for the full TTL).
@@ -76,6 +79,7 @@ def _params(units: str) -> dict:
         "forecast_days": 5,
         "current": _CURRENT_FIELDS,
         "daily": _DAILY_FIELDS,
+        "hourly": _HOURLY_FIELDS,
     }
     # US imperial units are explicit; metric is Open-Meteo's default (°C/km/h/mm),
     # so we simply omit the unit params for it.
@@ -131,12 +135,49 @@ def _forecast(data) -> list:
     return out
 
 
+def _hourly(data) -> list:
+    """Shape Open-Meteo's `hourly` parallel arrays -> a flat list of hour dicts.
+
+    Like _forecast(), the block is column-oriented; we zip the parallel arrays
+    into one dict per hour. shape() then groups these under their day. Pure +
+    defensive — a short/missing array just yields fewer hours rather than
+    raising."""
+    h = data.get("hourly") or {}
+    times = h.get("time") or []
+    temps = h.get("temperature_2m") or []
+    precs = h.get("precipitation_probability") or []
+    codes = h.get("weather_code") or []
+    days = h.get("is_day") or []
+    out = []
+    for t, temp, precip, code, is_day in zip(times, temps, precs, codes, days):
+        out.append(
+            {
+                "time": t,
+                "temp": _round1(temp),
+                "precip_prob": _int(precip),
+                "code": _int(code),
+                "is_day": bool(is_day),
+            }
+        )
+    return out
+
+
 def shape(data, units) -> dict:
     """Open-Meteo response dict -> the /api/weather payload (pure, unit-tested)."""
+    days = _forecast(data)
+    # Group the flat hourly list under each day by its date prefix
+    # ("2026-06-24T14:00" -> "2026-06-24"), so the UI can expand a day to its
+    # hours without a second request. An unmatched day just gets [].
+    by_date = {}
+    for hr in _hourly(data):
+        date = (hr.get("time") or "").split("T")[0]
+        by_date.setdefault(date, []).append(hr)
+    for day in days:
+        day["hours"] = by_date.get(day["date"], [])
     return {
         "available": True,
         "current": _current(data),
-        "daily": _forecast(data),
+        "daily": days,
         "temp_unit": "°F" if units == "us" else "°C",
         "wind_unit": "mph" if units == "us" else "km/h",
     }

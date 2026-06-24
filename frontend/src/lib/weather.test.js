@@ -7,7 +7,15 @@ import {
   CloudLightning,
   Cloud,
 } from 'lucide-react'
-import { weatherInfo, weatherIcon, formatTemp, dayName } from './weather.js'
+import {
+  weatherInfo,
+  weatherIcon,
+  formatTemp,
+  dayName,
+  tempColor,
+  tempBarStyle,
+  hourLabel,
+} from './weather.js'
 
 describe('weatherInfo', () => {
   it('swaps the icon by day/night for clear codes', () => {
@@ -60,5 +68,57 @@ describe('dayName', () => {
   it('returns an empty string for invalid input', () => {
     expect(dayName('')).toBe('')
     expect(dayName('not-a-date')).toBe('')
+  })
+})
+
+describe('tempColor', () => {
+  it('ramps cold→hot from blue toward red', () => {
+    const coldHue = Number(tempColor(10).match(/hsl\((\d+)/)[1])
+    const hotHue = Number(tempColor(100).match(/hsl\((\d+)/)[1])
+    expect(coldHue).toBeGreaterThan(hotHue) // blue (high hue) → red (low hue)
+  })
+  it('clamps out-of-range temps', () => {
+    expect(tempColor(-50)).toBe(tempColor(10)) // both clamp to the cold end
+    expect(tempColor(150)).toBe(tempColor(100)) // both clamp to the hot end
+  })
+  it('treats metric via a °F conversion (0°C ≈ 32°F, not the cold floor)', () => {
+    expect(tempColor(0, '°C')).toBe(tempColor(32, '°F'))
+  })
+  it('returns a neutral color for null', () => {
+    expect(tempColor(null)).toMatch(/^hsl\(/)
+  })
+})
+
+describe('tempBarStyle', () => {
+  it('positions a day within the week range', () => {
+    // Week 50→90 (span 40); a 60→80 day sits 25% in and is 50% wide.
+    expect(tempBarStyle(60, 80, 50, 90)).toEqual({ left: '25%', width: '50%' })
+  })
+  it('floors a tiny width so the bar stays visible', () => {
+    const { width } = tempBarStyle(60, 60.1, 50, 90)
+    expect(parseFloat(width)).toBeGreaterThanOrEqual(4)
+  })
+  it('keeps left+width within the track for a flat day at the hot end', () => {
+    // A near-flat day at the week max: floored to a 4% bar, left must clamp so it
+    // doesn't overflow the right edge.
+    const { left, width } = tempBarStyle(89.9, 90, 50, 90)
+    expect(parseFloat(left) + parseFloat(width)).toBeLessThanOrEqual(100)
+  })
+  it('falls back to full width on a degenerate or missing range', () => {
+    expect(tempBarStyle(60, 80, 70, 70)).toEqual({ left: '0%', width: '100%' })
+    expect(tempBarStyle(null, 80, 50, 90)).toEqual({ left: '0%', width: '100%' })
+  })
+})
+
+describe('hourLabel', () => {
+  it('formats 12-hour with a/p suffixes', () => {
+    expect(hourLabel('2026-06-24T00:00')).toBe('12a')
+    expect(hourLabel('2026-06-24T06:00')).toBe('6a')
+    expect(hourLabel('2026-06-24T12:00')).toBe('12p')
+    expect(hourLabel('2026-06-24T15:00')).toBe('3p')
+  })
+  it('returns an empty string for invalid input', () => {
+    expect(hourLabel('')).toBe('')
+    expect(hourLabel('nope')).toBe('')
   })
 })

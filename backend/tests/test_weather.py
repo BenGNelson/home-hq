@@ -33,6 +33,18 @@ def _fake_response():
             "temperature_2m_min": [60.12, 58.4, 62.0, 55.5, 54.0],
             "precipitation_probability_max": [10, 80, 0, 60, None],
         },
+        "hourly": {
+            # Two hours on day 1, one on day 2 — enough to prove the date grouping.
+            "time": [
+                "2026-06-22T00:00",
+                "2026-06-22T01:00",
+                "2026-06-23T00:00",
+            ],
+            "temperature_2m": [61.3, 60.05, 59.0],
+            "precipitation_probability": [5, 10, 80],
+            "weather_code": [3, 3, 61],
+            "is_day": [0, 0, 1],
+        },
     }
 
 
@@ -58,16 +70,35 @@ def test_is_day_zero_becomes_false():
 def test_daily_zips_parallel_arrays():
     daily = weather.shape(_fake_response(), "us")["daily"]
     assert len(daily) == 5
-    # A sample entry (the second day) maps each parallel array by index.
-    assert daily[1] == {
-        "date": "2026-06-23",
-        "code": 61,
-        "hi": 75.1,
-        "lo": 58.4,
-        "precip_prob": 80,
-    }
+    # A sample entry (the second day) maps each parallel array by index. Its
+    # `hours` is asserted separately below; check the daily scalars here.
+    d = daily[1]
+    assert (d["date"], d["code"], d["hi"], d["lo"], d["precip_prob"]) == (
+        "2026-06-23",
+        61,
+        75.1,
+        58.4,
+        80,
+    )
     # precip_prob tolerates a None (Open-Meteo can omit it for a far-out day).
     assert daily[4]["precip_prob"] is None
+
+
+def test_hourly_grouped_under_its_day():
+    daily = weather.shape(_fake_response(), "us")["daily"]
+    # Day 1 had two hours, day 2 had one, the rest none.
+    assert len(daily[0]["hours"]) == 2
+    assert len(daily[1]["hours"]) == 1
+    assert daily[2]["hours"] == []
+    # An hour carries the shaped fields (rounding + is_day bool).
+    assert daily[0]["hours"][0] == {
+        "time": "2026-06-22T00:00",
+        "temp": 61.3,
+        "precip_prob": 5,
+        "code": 3,
+        "is_day": False,  # 0 -> bool
+    }
+    assert daily[1]["hours"][0]["temp"] == 59.0
 
 
 def test_unit_labels_us_vs_metric():
