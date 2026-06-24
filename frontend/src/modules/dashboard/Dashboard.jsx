@@ -15,6 +15,10 @@ import SpeedtestWidget from './widgets/SpeedtestWidget.jsx'
 export default function Dashboard() {
   return (
     <div>
+      {/* Weather leads as a full-width "hero" banner above the grid (it self-hides
+          when no location is configured) and links through to the Weather page. */}
+      <WeatherWidget />
+
       {/* Masonry flow: cards pack vertically per column instead of aligning
           into rows, so a short card never leaves a gap under a tall neighbour.
           Two columns kick in at sm (640px) so a portrait tablet (e.g. iPad
@@ -28,7 +32,6 @@ export default function Dashboard() {
         <ContainersWidget />
         <PrinterWidget />
         <SolarWidget />
-        <WeatherWidget />
         <HomeWidget />
         <TailscaleWidget />
         <SpeedtestWidget />

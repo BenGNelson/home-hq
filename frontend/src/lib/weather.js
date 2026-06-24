@@ -95,3 +95,44 @@ export function dayName(dateStr) {
   if (Number.isNaN(d.getTime())) return ''
   return d.toLocaleDateString(undefined, { weekday: 'short' })
 }
+
+// Map a temperature to a cold→hot color (an HSL string) for the forecast temp
+// bars + accents. We ramp hue blue→red over a 10–100°F window (passing through
+// cyan/green/amber), so cool days read blue and hot days red. Metric temps are
+// converted to °F first so one ramp serves both units. null → a neutral slate.
+export function tempColor(t, unit = '°F') {
+  if (t == null) return 'hsl(215 16% 47%)' // slate-500-ish
+  const f = unit === '°C' ? (t * 9) / 5 + 32 : t
+  const frac = Math.min(1, Math.max(0, (f - 10) / 90)) // 0 at 10°F, 1 at 100°F
+  const hue = Math.round(220 - frac * 220) // 220 (blue) → 0 (red)
+  return `hsl(${hue} 75% 58%)`
+}
+
+// Position a day's lo→hi segment within the week's overall min–max range, so the
+// bars line up like a range chart (Apple-Weather style). Returns left/width as
+// CSS percentage strings. A degenerate range (all-equal, or missing bounds) →
+// a full-width bar rather than a divide-by-zero.
+export function tempBarStyle(lo, hi, weekMin, weekMax) {
+  if (lo == null || hi == null || weekMin == null || weekMax == null) {
+    return { left: '0%', width: '100%' }
+  }
+  const span = weekMax - weekMin
+  if (span <= 0) return { left: '0%', width: '100%' }
+  const width = Math.max(((hi - lo) / span) * 100, 4) // 4% floor so it's visible
+  // Clamp the offset so left+width never exceeds 100% (a near-flat day at the hot
+  // end would otherwise push the floored bar past the track's right edge).
+  const left = Math.min(Math.max(((lo - weekMin) / span) * 100, 0), 100 - width)
+  return { left: `${left}%`, width: `${width}%` }
+}
+
+// A compact hour label ("6a", "12p", "3p") from an Open-Meteo "YYYY-MM-DDTHH:MM"
+// timestamp; '' for invalid input.
+export function hourLabel(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const h = d.getHours()
+  const period = h < 12 ? 'a' : 'p'
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return `${h12}${period}`
+}

@@ -140,7 +140,7 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/ha` | curated Home Assistant entities (glance + deep-link), self-hides when unconfigured | reads a host timer's `ha.json` |
 | `GET /api/catalog` | the home catalog — floors → rooms → items (devices/appliances/tools/infra), with stats; **live HA state overlaid** on items that have an entity; self-hides when unconfigured | parses the `CATALOG_FILE` YAML mounted read-only (defaults to a committed example) + joins the collector's `ha-catalog.json` live states |
 | `GET /api/solar` | live Enphase solar (production, consumption + net on metered systems, today/7-day/lifetime), self-hides when unconfigured | `pyenphase` reads the Envoy's local API; authenticated client + short TTL cached |
-| `GET /api/weather` | current conditions + 5-day forecast, self-hides when no location set | Open-Meteo (free, no API key); 10-min TTL cached |
+| `GET /api/weather` | current conditions + 5-day forecast (each day carries its `hours` for the tap-to-expand hourly strip), self-hides when no location set | Open-Meteo (free, no API key); 10-min TTL cached |
 | `GET /api/storage/db` | SQLite file size + per-table row counts (growth visibility) | stats the DB file + `COUNT(*)` per table |
 | `GET /api/diskio` | per-disk cumulative read/write bytes (rates computed client-side) | parses host `/proc/diskstats` |
 | `GET /api/raid` | software-RAID array state (healthy/degraded, rebuild %) | parses host `/proc/mdstat` |
@@ -743,11 +743,24 @@ units from `.env`: `WEATHER_LAT`/`WEATHER_LON`/`WEATHER_UNITS`), shapes it in a
 pure unit-tested `shape()`, and caches the result for `WEATHER_CACHE_TTL` (10 min
 default — weather moves slowly, and the fetch is a few seconds). Degrades to
 `available:false` (`not_configured` without a location, `unreachable` on error).
-The WMO `weather_code` → label+icon mapping lives in the frontend (`lib/weather.js`,
-Lucide icons with day/night variants). **Current conditions are deliberately kept
-behind a seam** (`_current()` separate from `_forecast()`): today both read
-Open-Meteo, but if a personal weather station is ever added it becomes the
-hyperlocal *current* source while Open-Meteo stays the *forecaster*.
+One call asks for `current` + `daily` (5-day) + `hourly` blocks; `_hourly()`
+shapes the flat hourly arrays and `shape()` groups them under each day by date
+prefix, so every `daily[i]` carries an `hours: [...]` list the UI expands without
+a second request. The WMO `weather_code` → label+icon mapping lives in the
+frontend (`lib/weather.js`, Lucide icons with day/night variants), alongside pure
+display helpers: `tempColor()` (a cold→hot HSL ramp for the forecast accents),
+`tempBarStyle()` (positions a day's lo→hi segment on the shared week scale, like a
+range chart), and `hourLabel()`. **Current conditions are deliberately kept behind
+a seam** (`_current()` separate from `_forecast()`): today both read Open-Meteo,
+but if a personal weather station is ever added it becomes the hyperlocal
+*current* source while Open-Meteo stays the *forecaster*.
+
+The frontend presents this as: a full-width **hero banner** at the top of the
+Dashboard (current-conditions bar, self-hides when unconfigured, links through to
+the Weather page) and the Weather page itself — current conditions plus a 5-day
+forecast rendered as **one full-width row per day** (a colored lo→hi range bar, so
+it never goes lopsided like a wrapped grid) where **tapping a day expands its
+hourly strip** (temp + precip, scrollable).
 
 ## Speedtest / ISP monitor
 

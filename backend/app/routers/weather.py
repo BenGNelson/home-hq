@@ -25,6 +25,16 @@ class CurrentModel(BaseModel):
     is_day: bool = Field(description="True during daylight at the location")
 
 
+class HourlyModel(BaseModel):
+    time: str = Field(description="Hour timestamp, YYYY-MM-DDTHH:MM (location-local)")
+    temp: float | None = Field(default=None, description="Temperature at the hour, in temp_unit")
+    precip_prob: int | None = Field(
+        default=None, description="Chance of precipitation at the hour, percent"
+    )
+    code: int | None = Field(default=None, description="WMO weather code (0-99) for the hour")
+    is_day: bool = Field(description="True when the hour is in daylight")
+
+
 class DailyModel(BaseModel):
     date: str = Field(description="Forecast day, YYYY-MM-DD (location-local)")
     code: int | None = Field(default=None, description="WMO weather code (0-99) for the day")
@@ -32,6 +42,9 @@ class DailyModel(BaseModel):
     lo: float | None = Field(default=None, description="Overnight low, in temp_unit")
     precip_prob: int | None = Field(
         default=None, description="Max chance of precipitation, percent"
+    )
+    hours: list[HourlyModel] = Field(
+        default_factory=list, description="That day's hourly forecast (for tap-to-expand)"
     )
 
 
