@@ -25,9 +25,32 @@ class SolarSeriesModel(BaseModel):
     watt_hours_lifetime: int = Field(description="Lifetime energy, Wh")
 
 
+class FlowNodeModel(BaseModel):
+    watts: int = Field(description="Magnitude of the flow, W (0 when idle)")
+    dir: str = Field(description="out|in|idle|importing|exporting|charging|discharging")
+
+
+class SolarPowerModel(BaseModel):
+    solar: FlowNodeModel | None = None
+    grid: FlowNodeModel | None = None
+    battery: FlowNodeModel | None = None
+    load: FlowNodeModel | None = None
+
+
+class SolarBatteryModel(BaseModel):
+    soc_percent: int | None = Field(default=None, description="State of charge, %")
+    available_wh: int | None = Field(default=None, description="Usable energy now, Wh")
+    capacity_wh: int | None = Field(default=None, description="Max usable capacity, Wh")
+    reserve_percent: int | None = Field(default=None, description="Backup reserve floor, %")
+    watts: int | None = Field(default=None, description="Charge/discharge magnitude, W")
+    state: str | None = Field(default=None, description="charging | discharging | idle")
+    count: int | None = Field(default=None, description="Number of batteries")
+    grid_state: str | None = Field(default=None, description="on-grid | off-grid | …")
+
+
 # Superset model. solar.get_solar() always returns `available`; the rest are
-# dropped by response_model_exclude_none when absent (not_configured, or a
-# non-metered system with no consumption).
+# dropped by response_model_exclude_none when absent (not_configured, a non-metered
+# system, or a system with no battery).
 class SolarModel(BaseModel):
     available: bool = Field(description="True when the Envoy was read OK")
     reason: str | None = Field(
@@ -44,6 +67,15 @@ class SolarModel(BaseModel):
         default=None,
         description="production - consumption; >0 surplus/exporting, <0 importing (metered only)",
     )
+    power: SolarPowerModel | None = Field(
+        default=None, description="Measured solar/grid/battery/load flows for the diagram"
+    )
+    battery: SolarBatteryModel | None = Field(
+        default=None, description="Battery (IQ/Encharge) summary; absent if no storage"
+    )
+    self_sufficiency_percent: int | None = Field(
+        default=None, description="Instantaneous % of home load not from the grid"
+    )
 
 
 @router.get("/solar", response_model=SolarModel, response_model_exclude_none=True)
@@ -52,11 +84,33 @@ async def get_solar():
     return await solar.get_solar()
 
 
+class SolarPanelModel(BaseModel):
+    i: int = Field(description="1-based panel index (serials stay server-side)")
+    watts: int | None = Field(default=None, description="Latest reported output, W")
+    max_watts: int | None = Field(default=None, description="Max reported output, W")
+
+
+class SolarPanelsModel(BaseModel):
+    available: bool
+    reason: str | None = None
+    panels: list[SolarPanelModel] | None = None
+
+
+@router.get("/solar/panels", response_model=SolarPanelsModel, response_model_exclude_none=True)
+async def get_solar_panels():
+    """Per-microinverter output for the array view (indexed, no serials)."""
+    return await solar.get_panels()
+
+
 class SolarSampleModel(BaseModel):
     ts: int = Field(description="When recorded, epoch seconds")
     prod_watts: int | None = Field(default=None, description="Production, W")
     cons_watts: int | None = Field(default=None, description="Consumption, W (metered)")
     net_watts: int | None = Field(default=None, description="Net flow, W (metered)")
+    soc_percent: int | None = Field(default=None, description="Battery state of charge, %")
+    battery_watts: int | None = Field(
+        default=None, description="Battery flow, W (+discharging / -charging)"
+    )
 
 
 class SolarHistoryStatsModel(BaseModel):

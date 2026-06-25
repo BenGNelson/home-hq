@@ -69,37 +69,45 @@ describe('glowIntensity', () => {
 })
 
 describe('flowModel', () => {
-  it('non-metered shows only the Sun → Home leg', () => {
-    const m = flowModel({ watts_now: 2000 }, null, null, false)
-    expect(m.metered).toBe(false)
-    expect(m.nodes).toEqual(['solar', 'home'])
-    expect(m.edges).toHaveLength(1)
+  const power = ({ solar = 2000, grid, battery } = {}) => ({
+    solar: { watts: solar, dir: 'out' },
+    grid,
+    battery,
+    load: { watts: 1000, dir: 'in' },
+  })
+
+  it('null power → empty model', () => {
+    expect(flowModel(null)).toEqual({ nodes: [], edges: [], hasBattery: false })
+  })
+  it('always includes the Solar → Home leg, active when producing', () => {
+    const m = flowModel(power({ solar: 2000 }))
+    expect(m.nodes).toContain('solar')
     expect(m.edges[0]).toMatchObject({ id: 'solar-home', tone: 'gold', active: true })
+    expect(flowModel(power({ solar: 0 })).edges[0].active).toBe(false)
   })
-  it('idle production marks the solar leg inactive', () => {
-    const m = flowModel({ watts_now: 0 }, null, null, false)
-    expect(m.edges[0].active).toBe(false)
+  it('charging battery flows Solar → Battery (green, active)', () => {
+    const m = flowModel(power({ battery: { watts: 1400, dir: 'charging' } }))
+    expect(m.hasBattery).toBe(true)
+    expect(m.nodes).toContain('battery')
+    expect(m.edges.find((e) => e.id === 'solar-battery')).toMatchObject({
+      from: 'solar', to: 'battery', tone: 'green', watts: 1400, active: true,
+    })
   })
-  it('metered + exporting adds an active Home → Grid emerald edge', () => {
-    const m = flowModel({ watts_now: 3000 }, { watts_now: 1200 }, 1800, true)
-    expect(m.nodes).toContain('grid')
-    const grid = m.edges.find((e) => e.id === 'home-grid')
-    expect(grid).toMatchObject({ from: 'home', to: 'grid', tone: 'emerald', watts: 1800, active: true })
+  it('discharging battery flows Battery → Home', () => {
+    const m = flowModel(power({ battery: { watts: 800, dir: 'discharging' } }))
+    expect(m.edges.find((e) => e.id === 'battery-home')).toMatchObject({
+      from: 'battery', to: 'home', tone: 'green', watts: 800, active: true,
+    })
   })
-  it('metered + importing adds an active Grid → Home amber edge with positive watts', () => {
-    const m = flowModel({ watts_now: 200 }, { watts_now: 1500 }, -1300, true)
-    const grid = m.edges.find((e) => e.id === 'grid-home')
-    expect(grid).toMatchObject({ from: 'grid', to: 'home', tone: 'amber', watts: 1300, active: true })
+  it('importing grid → Grid → Home amber; exporting → Home → Grid emerald', () => {
+    const imp = flowModel(power({ grid: { watts: 300, dir: 'importing' } }))
+    expect(imp.edges.find((e) => e.id === 'grid-home')).toMatchObject({ tone: 'amber', active: true })
+    const exp = flowModel(power({ grid: { watts: 300, dir: 'exporting' } }))
+    expect(exp.edges.find((e) => e.id === 'home-grid')).toMatchObject({ tone: 'emerald', active: true })
   })
-  it('metered + genuinely balanced (net 0) is a dim idle grid link with watts 0', () => {
-    const m = flowModel({ watts_now: 1000 }, { watts_now: 1000 }, 0, true)
-    const grid = m.edges.find((e) => e.id === 'grid-home')
-    expect(grid).toMatchObject({ tone: 'slate', active: false, watts: 0 })
-  })
-  it('metered + unknown net (null) is idle with null watts, distinct from balanced', () => {
-    const m = flowModel({ watts_now: 1000 }, { watts_now: null }, null, true)
-    const grid = m.edges.find((e) => e.id === 'grid-home')
-    expect(grid).toMatchObject({ tone: 'slate', active: false, watts: null })
+  it('idle grid is a dim slate link', () => {
+    const m = flowModel(power({ grid: { watts: 0, dir: 'idle' } }))
+    expect(m.edges.find((e) => e.id === 'grid-home')).toMatchObject({ tone: 'slate', active: false })
   })
 })
 

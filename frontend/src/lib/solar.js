@@ -58,41 +58,50 @@ export function sunGlowFilter(glow, opts = {}) {
   return glowFilter('250,204,21', glow, opts) // yellow-300
 }
 
-// Model the energy-flow diagram from a live snapshot: which nodes to show and
-// the directed edges between them, each with a tone and whether it's actively
-// flowing (drives the animation). Non-metered systems can't know grid flow, so
-// they show only the Sun → Home leg.
-export function flowModel(production, consumption, netWatts, metered) {
-  const prod = production?.watts_now ?? null
-  const producing = (prod ?? 0) > 0
+// Model the 4-node energy-flow diagram (Solar · Battery · Grid · Home) from the
+// backend `power` block ({solar,grid,battery,load}, each {watts,dir}). Returns the
+// nodes to show + directed edges, each with a tone and whether it's actively
+// flowing (drives the animation). Battery is included only when present; without
+// a `power` block at all (older payload / non-metered) it degrades to empty.
+export function flowModel(power) {
+  if (!power) return { nodes: [], edges: [], hasBattery: false }
+
+  const solarW = power.solar?.watts ?? 0
+  const grid = power.grid
+  const battery = power.battery
+  const hasBattery = !!battery
+
+  const nodes = ['solar', 'home', 'grid']
+  if (hasBattery) nodes.push('battery')
 
   const edges = [
-    // Sun → Home: solar feeding the house, active whenever producing.
-    { id: 'solar-home', from: 'solar', to: 'home', tone: 'gold', watts: prod, active: producing },
+    // Solar → Home: producing (active whenever there's output).
+    { id: 'solar-home', from: 'solar', to: 'home', tone: 'gold', watts: power.solar?.watts ?? null, active: solarW > 0 },
   ]
 
-  if (metered) {
-    if (netWatts == null) {
-      // Net flow unknown (a transient partial read) — a dim link with no value,
-      // distinct from a genuine net-zero so we don't claim "balanced" falsely.
-      edges.push({ id: 'grid-home', from: 'grid', to: 'home', tone: 'slate', watts: null, active: false })
-    } else if (netWatts > 0) {
-      // Surplus flows Home → Grid (exporting).
-      edges.push({ id: 'home-grid', from: 'home', to: 'grid', tone: 'emerald', watts: netWatts, active: true })
-    } else if (netWatts < 0) {
-      // Drawing from the grid: Grid → Home (importing).
-      edges.push({ id: 'grid-home', from: 'grid', to: 'home', tone: 'amber', watts: -netWatts, active: true })
+  if (hasBattery) {
+    if (battery.dir === 'charging') {
+      // Charging: power flows Solar → Battery (storing the surplus).
+      edges.push({ id: 'solar-battery', from: 'solar', to: 'battery', tone: 'green', watts: battery.watts, active: true })
+    } else if (battery.dir === 'discharging') {
+      // Discharging: Battery → Home (supplying the house).
+      edges.push({ id: 'battery-home', from: 'battery', to: 'home', tone: 'green', watts: battery.watts, active: true })
     } else {
-      // Genuinely balanced (net exactly zero): a dim, idle grid link.
+      edges.push({ id: 'battery-home', from: 'battery', to: 'home', tone: 'slate', watts: 0, active: false })
+    }
+  }
+
+  if (grid) {
+    if (grid.dir === 'importing') {
+      edges.push({ id: 'grid-home', from: 'grid', to: 'home', tone: 'amber', watts: grid.watts, active: true })
+    } else if (grid.dir === 'exporting') {
+      edges.push({ id: 'home-grid', from: 'home', to: 'grid', tone: 'emerald', watts: grid.watts, active: true })
+    } else {
       edges.push({ id: 'grid-home', from: 'grid', to: 'home', tone: 'slate', watts: 0, active: false })
     }
   }
 
-  return {
-    metered: !!metered,
-    nodes: metered ? ['solar', 'home', 'grid'] : ['solar', 'home'],
-    edges,
-  }
+  return { nodes, edges, hasBattery }
 }
 
 // Two-bar comparison (today's produced vs used) as 0..1 widths relative to the
