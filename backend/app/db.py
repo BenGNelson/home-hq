@@ -142,10 +142,12 @@ CREATE INDEX IF NOT EXISTS idx_speedtest_samples_ts ON speedtest_samples (ts);
 -- in-app sampler (solar_history.py) while the Envoy is reachable. Powers the
 -- Solar page's intraday trend. Pruned by retention. Nothing secret — just watts.
 CREATE TABLE IF NOT EXISTS solar_samples (
-    ts         INTEGER NOT NULL,   -- when recorded (epoch seconds)
-    prod_watts INTEGER,            -- production right now, W
-    cons_watts INTEGER,            -- whole-home consumption, W (metered only)
-    net_watts  INTEGER             -- production - consumption (metered only)
+    ts            INTEGER NOT NULL,   -- when recorded (epoch seconds)
+    prod_watts    INTEGER,            -- production right now, W
+    cons_watts    INTEGER,            -- whole-home consumption, W (metered only)
+    net_watts     INTEGER,            -- production - consumption (metered only)
+    soc_percent   INTEGER,            -- battery state of charge, % (storage only)
+    battery_watts INTEGER             -- battery flow, W (+discharging / -charging)
 );
 CREATE INDEX IF NOT EXISTS idx_solar_samples_ts ON solar_samples (ts);
 
@@ -267,6 +269,9 @@ _MIGRATIONS = [
     # + a 0..1 read fraction. Both nullable — a PDF row leaves them NULL.
     "ALTER TABLE reading_progress ADD COLUMN locator TEXT",
     "ALTER TABLE reading_progress ADD COLUMN fraction REAL",
+    # Battery columns added to the solar trend after its first release.
+    "ALTER TABLE solar_samples ADD COLUMN soc_percent INTEGER",
+    "ALTER TABLE solar_samples ADD COLUMN battery_watts INTEGER",
 ]
 
 
@@ -502,7 +507,7 @@ def prune_speedtest_samples(before_ts):
 # --- solar production samples ----------------------------------------------
 
 # The columns a solar sample carries, in insert order (see solar_history.py).
-_SOLAR_COLS = ("ts", "prod_watts", "cons_watts", "net_watts")
+_SOLAR_COLS = ("ts", "prod_watts", "cons_watts", "net_watts", "soc_percent", "battery_watts")
 
 
 def insert_solar_sample(record):

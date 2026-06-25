@@ -140,8 +140,9 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/uptime` | per-service availability — status, uptime % (24h/7d), latency | reads a host prober's `uptime.json` |
 | `GET /api/ha` | curated Home Assistant entities (glance + deep-link), self-hides when unconfigured | reads a host timer's `ha.json` |
 | `GET /api/catalog` | the home catalog — floors → rooms → items (devices/appliances/tools/infra), with stats; **live HA state overlaid** on items that have an entity; self-hides when unconfigured | parses the `CATALOG_FILE` YAML mounted read-only (defaults to a committed example) + joins the collector's `ha-catalog.json` live states |
-| `GET /api/solar` | live Enphase solar (production, consumption + net on metered systems, today/7-day/lifetime), self-hides when unconfigured | `pyenphase` reads the Envoy's local API; authenticated client + short TTL cached |
-| `GET /api/solar/history?hours=N` | intraday production/consumption trend (samples oldest-first + peak/latest stats) for the Solar page's day curve | in-app sampler → `solar_samples` SQLite; empty until samples accumulate |
+| `GET /api/solar` | live Enphase solar (production, consumption + net, today/7-day/lifetime; plus the 4-node `power` flow, `battery` SoC/charge, and `self_sufficiency_percent` when the hardware reports them), self-hides when unconfigured | `pyenphase` reads the Envoy's local API; authenticated client + short TTL cached |
+| `GET /api/solar/history?hours=N` | intraday production/consumption/SoC trend (samples oldest-first + peak/latest stats) for the Solar page's day curve | in-app sampler → `solar_samples` SQLite; empty until samples accumulate |
+| `GET /api/solar/panels` | per-microinverter output (indexed, no serials) for the array view | shares the cached Envoy poll; `available:false` until configured |
 | `GET /api/weather` | current conditions + 5-day forecast (each day carries its `hours` for the tap-to-expand hourly strip), self-hides when no location set | Open-Meteo (free, no API key); 10-min TTL cached |
 | `GET /api/adguard` | read-only AdGuard Home stats (blocked %, total/blocked query counts, protection on/off, top blocked domains), self-hides when unconfigured | two Basic-Auth GETs to AdGuard's REST API (`/control/stats` + `/control/status`); short TTL cached |
 | `GET /api/storage/db` | SQLite file size + per-table row counts (growth visibility) | stats the DB file + `COUNT(*)` per table |
@@ -787,15 +788,36 @@ One wrinkle vs the other samplers: `solar.get_solar()` is async and its cached
 the coroutine to that loop via `run_coroutine_threadsafe` (the loop is captured in
 the lifespan) rather than spinning a throwaway loop that would break the client.
 
+**Battery, grid & per-panel (the analytics layer).** Beyond production/consumption
+`shape()` also surfaces, when the hardware reports it:
+- a **`power`** block — the four *measured* flows for the diagram: `solar`
+  (production CT), `grid` (net-consumption CT), `battery` (storage CT), and a
+  **computed true home `load`** = `production + grid + battery`. Enphase's own
+  `system_consumption` is derived and *includes* battery charging, so we compute
+  load from the three meters instead. **Sign conventions (validated against live
+  readings):** grid `+`=importing/`−`=exporting; battery `+`=discharging/`−`=charging.
+- a **`battery`** block — SoC %, usable/total Wh, backup-reserve %, charge/discharge
+  rate + state, count, and grid-connected state (from `encharge_aggregate` /
+  `ctmeter_storage` / `enpower`); `null` when there's no storage.
+- **`self_sufficiency_percent`** — instantaneous share of home load not drawn from
+  the grid.
+- `GET /api/solar/panels` — per-microinverter output, **keyed by index** (device
+  serials stay server-side). One cached Envoy poll feeds both `/solar` and
+  `/solar/panels` (`_get_data()`).
+
 **Frontend — a deliberately different visual language from Weather.** Where the
 Weather page leans on a continuous temperature-color ramp and lo→hi range bars,
 Solar uses *energy motion + radiance*: a radial production **gauge** (`SolarGauge`
 + pure `lib/solarGauge.js` arc geometry) with a glowing sun whose halo scales with
-output, beside an animated **power-flow** diagram (`SolarFlow` + pure `flowModel()`
-in `lib/solar.js`) — Sun → Home ↔ Grid with dashes drifting source→target
-(emerald exporting, amber importing, dim when idle; non-metered shows only the
-Sun → Home leg). Warm gradient energy tiles, a produced-vs-used paired bar
-(metered), and the gold/cyan intraday curve via the shared `<Graph>` round it out.
+output, beside an animated **4-node power-flow** diagram (`SolarFlow` + pure
+`flowModel()` in `lib/solar.js`) — **Solar · Battery · Grid · Home** with dashes
+drifting source→target (gold solar, green battery charge/discharge, emerald
+exporting, amber importing). A **battery** section (SoC meter with a backup-reserve
+marker + usable/capacity/reserve tiles), a **self-sufficiency** headline, warm
+gradient energy tiles, a produced-vs-used paired bar, the gold/cyan intraday curve
++ a battery-SoC curve (shared `<Graph>`), and a **per-panel array** (`PanelArray` +
+pure `lib/solarPanels.js`, cells shaded by output relative to the best panel) round
+it out.
 
 ## Weather (Open-Meteo)
 

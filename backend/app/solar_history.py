@@ -119,12 +119,21 @@ class SolarSampler:
             return False
         prod = data.get("production") or {}
         cons = data.get("consumption") or {}
+        batt = data.get("battery") or {}
+        # Store battery flow SIGNED (+ discharging / - charging) for the trend.
+        # Unknown flow (watts None, e.g. the storage meter dropped this read) stays
+        # None — NOT a fabricated 0, which would conflate "unknown" with "idle".
+        batt_w = batt.get("watts")
+        if batt_w is not None and batt.get("state") == "charging":
+            batt_w = -batt_w
         db.insert_solar_sample(
             {
                 "ts": int(now),
                 "prod_watts": prod.get("watts_now"),
                 "cons_watts": cons.get("watts_now"),
                 "net_watts": data.get("net_watts"),
+                "soc_percent": batt.get("soc_percent"),
+                "battery_watts": batt_w,
             }
         )
         if self._retention_days:
