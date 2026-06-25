@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useApi, API_BASE } from '../../lib/useApi.js'
 import { useCounterRate } from '../../lib/useRates.js'
-import { Row, Bar, Spinner } from '../../components/ui.jsx'
+import { Row, Bar, Spinner, OpenLink } from '../../components/ui.jsx'
 import { Graph } from '../../components/Graph.jsx'
 import { formatBytes, formatRate, formatUptime } from '../../lib/format.js'
 import { containerUrl } from '../../lib/hostLocal.js'
@@ -40,16 +40,7 @@ function ContainerDetail({ name }) {
         <Dot ok={data.status === 'running'} />
         <h3 className="text-base font-semibold">{data.name}</h3>
         {loading && <span className="text-xs text-slate-500">…</span>}
-        {link && (
-          <a
-            href={link}
-            target="_blank"
-            rel="noreferrer"
-            className="ml-auto rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-emerald-400 transition hover:bg-slate-800"
-          >
-            Open ↗
-          </a>
-        )}
+        <OpenLink href={link} className="ml-auto" />
       </div>
 
       <dl className="space-y-2 text-sm">

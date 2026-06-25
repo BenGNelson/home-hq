@@ -1,6 +1,8 @@
 import { ShieldBan, ShieldCheck, ShieldX, Ban } from 'lucide-react'
 import { useApi } from '../../lib/useApi.js'
 import { formatPercent, formatCount, adguardUnavailableMessage } from '../../lib/adguard.js'
+import { containerUrl } from '../../lib/hostLocal.js'
+import { OpenLink } from '../../components/ui.jsx'
 
 // The Ad Blocking module: a read-only glance at the AdGuard Home DNS resolver
 // that filters the phone's traffic over the mesh VPN. The resolver is a separate
@@ -25,12 +27,16 @@ export default function Adguard() {
 function Live({ d }) {
   const on = d.protection_enabled
   const domains = d.top_blocked_domains || []
+  const link = containerUrl('adguard-home')
 
   return (
     <div className="space-y-4">
-      {/* Headline: blocked % + protection state */}
+      {/* Headline: blocked % + protection state. The icon + percentage are the
+          primary first row; the badge + Open link wrap to a second row on mobile
+          (so the link never runs off-screen) but sit inline on the right — a
+          touch larger — on sm+. */}
       <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-red-500/15 text-red-400">
             <ShieldBan className="h-7 w-7" aria-hidden="true" />
           </span>
@@ -40,18 +46,21 @@ function Live({ d }) {
             </div>
             <div className="text-sm text-slate-400">of DNS queries blocked</div>
           </div>
-          <span
-            className={`ml-auto inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium ${
-              on ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'
-            }`}
-          >
-            {on ? (
-              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-            ) : (
-              <ShieldX className="h-4 w-4" aria-hidden="true" />
-            )}
-            {on ? 'Protection on' : 'Protection paused'}
-          </span>
+          <div className="flex w-full items-center gap-3 sm:ml-auto sm:w-auto">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium sm:px-3 sm:py-1.5 sm:text-sm ${
+                on ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'
+              }`}
+            >
+              {on ? (
+                <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
+              ) : (
+                <ShieldX className="h-4 w-4 shrink-0" aria-hidden="true" />
+              )}
+              {on ? 'Protection on' : 'Protection paused'}
+            </span>
+            <OpenLink href={link} label="Open AdGuard" className="sm:px-3 sm:py-1.5 sm:text-sm" />
+          </div>
         </div>
       </div>
 
