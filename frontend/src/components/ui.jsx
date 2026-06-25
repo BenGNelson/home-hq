@@ -53,6 +53,24 @@ export function WidgetSkeleton({ rows = 0, bars = 0, barsFirst = false }) {
   )
 }
 
+// An outbound "Open ↗" link to a service's own web UI (new tab). Used to hand
+// off from HQ (the read-only cockpit) to a service's full dashboard for control
+// — e.g. AdGuard's admin UI. Renders nothing when there's no href, so callers
+// can pass an unconfigured link and simply show nothing.
+export function OpenLink({ href, label = 'Open', className = '' }) {
+  if (!href) return null
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className={`rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-emerald-400 transition hover:bg-slate-800 ${className}`}
+    >
+      {label} ↗
+    </a>
+  )
+}
+
 // A label/value line.
 export function Row({ label, value }) {
   return (

@@ -366,7 +366,9 @@ export default function Guide() {
           REST API (<Code>/api/adguard</Code> → two calls: query stats + protection
           state) and shows the blocked %, query totals, protection on/off, and the
           top blocked domains. Pausing and blocklists stay in AdGuard’s own UI —
-          cockpit, not control surface. It hides itself until{' '}
+          cockpit, not control surface; an <strong>Open ↗</strong> link on the
+          widget, the module page, and the Containers tab hands off to that UI
+          when you need to change something. It hides itself until{' '}
           <Code>ADGUARD_HOST</Code> (and the admin login) are set in{' '}
           <Code>.env</Code>.
         </p>

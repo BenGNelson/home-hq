@@ -1,6 +1,8 @@
 import { ShieldBan } from 'lucide-react'
 import { useApi } from '../../../lib/useApi.js'
 import { formatPercent, formatCount, topDomainsPreview, adguardUnavailableMessage } from '../../../lib/adguard.js'
+import { containerUrl } from '../../../lib/hostLocal.js'
+import { OpenLink } from '../../../components/ui.jsx'
 import Widget from './Widget.jsx'
 
 // Compact ad-blocking summary for the dashboard. Hides itself entirely when no
@@ -11,9 +13,12 @@ export default function AdGuardWidget() {
 
   const unavailable = data && data.available === false
   const domains = topDomainsPreview(data?.top_blocked_domains, 3)
+  // Hand-off to AdGuard's own dashboard for control (pausing, blocklists). Opt-in
+  // via the gitignored container note, so the host URL stays out of the repo.
+  const link = containerUrl('adguard-home')
 
   return (
-    <Widget title="Ad Blocking" loading={loading} error={error}>
+    <Widget title="Ad Blocking" loading={loading} error={error} action={<OpenLink href={link} />}>
       {data &&
         (unavailable ? (
           <p className="text-sm text-amber-400">{adguardUnavailableMessage(data.reason)}</p>
