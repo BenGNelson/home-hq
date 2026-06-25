@@ -58,7 +58,7 @@ function Live({ d }) {
           on the condition icon, both tinted to the condition). */}
       <div
         className="relative overflow-hidden rounded-xl border p-5"
-        style={{ borderColor: `rgba(${glow},0.22)`, background: radiantBackdrop(glow) }}
+        style={{ borderColor: `rgba(${glow},0.3)`, background: radiantBackdrop(glow) }}
       >
         <div className="flex items-center gap-4">
           <Icon
@@ -94,7 +94,7 @@ function Live({ d }) {
           current conditions, subtler than the hero. */}
       <div
         className="relative overflow-hidden rounded-xl border p-3 sm:p-4"
-        style={{ borderColor: `rgba(${glow},0.18)`, background: radiantBackdrop(glow, 0.1) }}
+        style={{ borderColor: `rgba(${glow},0.22)`, background: radiantBackdrop(glow, 0.2) }}
       >
         <h3 className="mb-1 px-1 text-sm font-medium text-slate-300">5-day forecast</h3>
         <div className="divide-y divide-slate-800/70">

@@ -4,6 +4,7 @@ import { Graph } from '../../components/Graph.jsx'
 import { SolarGauge } from '../../components/SolarGauge.jsx'
 import { SolarFlow } from '../../components/SolarFlow.jsx'
 import { PanelArray } from './PanelArray.jsx'
+import { radiantBackdrop } from '../../lib/glow.js'
 import {
   formatWatts,
   formatKwh,
@@ -71,11 +72,8 @@ function Live({ d }) {
     <div className="space-y-4">
       {/* Hero: radial gauge + animated 4-node flow over a warm radiant backdrop. */}
       <div
-        className="relative overflow-hidden rounded-xl border border-amber-500/20 p-5"
-        style={{
-          background:
-            'radial-gradient(120% 120% at 50% -10%, rgba(245,158,11,0.18), transparent 60%)',
-        }}
+        className="relative overflow-hidden rounded-xl border border-amber-500/30 p-5"
+        style={{ background: radiantBackdrop('245,158,11') }}
       >
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-around">
           <SolarGauge watts={p?.watts_now} fraction={frac} glow={glow} />
