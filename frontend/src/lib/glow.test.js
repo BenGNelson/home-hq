@@ -17,8 +17,8 @@ describe('glowFilter', () => {
 describe('radiantBackdrop', () => {
   it('builds a transparent-fading radial gradient in the given color', () => {
     expect(radiantBackdrop('1,2,3')).toBe(
-      'radial-gradient(120% 120% at 50% -10%, rgba(1,2,3,0.16), transparent 60%)',
+      'radial-gradient(120% 120% at 50% -10%, rgba(1,2,3,0.3), transparent 65%)',
     )
-    expect(radiantBackdrop('1,2,3', 0.3)).toContain('rgba(1,2,3,0.3)')
+    expect(radiantBackdrop('1,2,3', 0.5)).toContain('rgba(1,2,3,0.5)')
   })
 })

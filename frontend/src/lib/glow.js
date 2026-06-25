@@ -15,6 +15,6 @@ export function glowFilter(
 
 // A radiant backdrop gradient that fades to transparent, so a card glows in an
 // accent color on top of any theme background. Pair with a faint accent border.
-export function radiantBackdrop(rgb, alpha = 0.16) {
-  return `radial-gradient(120% 120% at 50% -10%, rgba(${rgb},${alpha}), transparent 60%)`
+export function radiantBackdrop(rgb, alpha = 0.3) {
+  return `radial-gradient(120% 120% at 50% -10%, rgba(${rgb},${alpha}), transparent 65%)`
 }
