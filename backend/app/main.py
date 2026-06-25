@@ -24,6 +24,7 @@ from app.speedtest import init_sampler as init_speedtest_sampler
 from app.storage_history import init_sampler
 from app.space_usage import init_scanner
 from app.book_sync import init_indexer
+from app import weather as weather_svc
 from app.routers import (
     adguard,
     alerts,
@@ -121,6 +122,10 @@ async def lifespan(app: FastAPI):
     # cache so the Books section is searchable (no-op unless Books is configured).
     book_indexer = init_indexer(settings.books_index_enabled, settings.books_index_interval)
     book_indexer.start()
+    # Pre-warm the weather cache in the background so the first /api/weather hit
+    # after a restart is instant instead of blocking on the ~4.5s Open-Meteo poll
+    # (the read itself is stale-while-revalidate; this just seeds the cold cache).
+    weather_svc.warm()
     try:
         yield
     finally:

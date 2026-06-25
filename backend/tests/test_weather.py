@@ -1,6 +1,12 @@
 """Tests for the weather (Open-Meteo) shaping + config gating — the pure logic
 only. The HTTP fetch isn't exercised here; shape() is pure so it's tested against
-a hand-written Open-Meteo response, and the not_configured path needs no network."""
+a hand-written Open-Meteo response, and the not_configured path needs no network.
+
+The stale-while-revalidate cache behavior is exercised separately by stubbing the
+(slow) `_fetch` round-trip — no real network — so the fresh/stale/cold paths are
+deterministic."""
+
+import time
 
 from app import weather
 from app.config import settings
@@ -121,3 +127,93 @@ def test_get_weather_reports_not_configured_when_unset():
         }
     finally:
         settings.weather_lat, settings.weather_lon = saved
+
+
+# --- stale-while-revalidate cache behavior (with the slow fetch stubbed) --------
+
+
+def _configured(monkeypatch):
+    """Point the settings at a location so is_configured() is True (no network)."""
+    monkeypatch.setattr(settings, "weather_lat", "1.0")
+    monkeypatch.setattr(settings, "weather_lon", "2.0")
+    monkeypatch.setattr(settings, "weather_units", "us")
+    monkeypatch.setattr(settings, "weather_cache_ttl", 600)
+
+
+def _reset_cache():
+    """Clear the module cache + the in-flight flag between cases."""
+    weather._cache.update(ts=0.0, data=None, ttl=0.0, units=None)
+    weather._refreshing = False
+
+
+def _wait_until(pred, timeout=2.0):
+    """Poll until a background refresh lands (or give up) — no fixed sleeps."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if pred():
+            return True
+        time.sleep(0.01)
+    return False
+
+
+def test_cold_cache_blocks_once_then_serves(monkeypatch):
+    """An empty cache does the (stubbed) fetch inline and stores the result."""
+    _configured(monkeypatch)
+    _reset_cache()
+    calls = []
+    monkeypatch.setattr(weather, "_fetch", lambda units: calls.append(units) or {"available": True, "n": 1})
+
+    out = weather.get_weather()
+    assert out == {"available": True, "n": 1}
+    assert calls == ["us"]  # exactly one upstream poll
+
+
+def test_fresh_cache_returns_without_fetching(monkeypatch):
+    """A fresh cache is served directly — no upstream poll at all."""
+    _configured(monkeypatch)
+    _reset_cache()
+    weather._cache.update(ts=time.monotonic(), data={"available": True, "cached": True}, ttl=600, units="us")
+    monkeypatch.setattr(weather, "_fetch", lambda units: (_ for _ in ()).throw(AssertionError("should not fetch")))
+
+    assert weather.get_weather() == {"available": True, "cached": True}
+
+
+def test_stale_cache_serves_stale_then_revalidates(monkeypatch):
+    """A stale cache returns the OLD value immediately, then a background refresh
+    replaces it with the NEW value — the request never blocks on the fetch."""
+    _configured(monkeypatch)
+    _reset_cache()
+    # ts far in the past relative to the 600s ttl => stale.
+    weather._cache.update(ts=time.monotonic() - 10_000, data={"available": True, "v": "old"}, ttl=600, units="us")
+    monkeypatch.setattr(weather, "_fetch", lambda units: {"available": True, "v": "new"})
+
+    out = weather.get_weather()
+    assert out == {"available": True, "v": "old"}  # served instantly, still stale
+    assert _wait_until(lambda: weather._cache["data"] == {"available": True, "v": "new"})
+
+
+def test_revalidate_failure_keeps_stale_value(monkeypatch):
+    """If the background re-poll errors, the last good (stale) value stays cached."""
+    _configured(monkeypatch)
+    _reset_cache()
+    weather._cache.update(ts=time.monotonic() - 10_000, data={"available": True, "v": "old"}, ttl=600, units="us")
+    import requests
+
+    def boom(units):
+        raise requests.RequestException("down")
+
+    monkeypatch.setattr(weather, "_fetch", boom)
+    weather.get_weather()
+    # The refresh thread finishes and clears the in-flight flag, cache untouched.
+    assert _wait_until(lambda: weather._refreshing is False)
+    assert weather._cache["data"] == {"available": True, "v": "old"}
+
+
+def test_warm_prefills_cache_in_background(monkeypatch):
+    """warm() seeds a cold cache off-thread (so the first real request is a hit)."""
+    _configured(monkeypatch)
+    _reset_cache()
+    monkeypatch.setattr(weather, "_fetch", lambda units: {"available": True, "warmed": True})
+
+    weather.warm()
+    assert _wait_until(lambda: weather._cache["data"] == {"available": True, "warmed": True})

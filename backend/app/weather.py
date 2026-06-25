@@ -17,6 +17,15 @@ slowly, so a stale-by-minutes value is fine and the dashboard stays snappy. Only
 successes are cached; any requests error / bad JSON degrades to available:false /
 "unreachable" rather than raising (the app-wide graceful-degradation pattern).
 
+To keep `/api/weather` off the slow upstream path entirely, `get_weather()` is
+**stale-while-revalidate**: a fresh cache is returned directly, a stale cache is
+returned *immediately* while a single background thread re-polls Open-Meteo (so the
+request never blocks on the ~4.5s round-trip), and only a truly cold cache (right
+after a restart) does the blocking fetch. `warm()` (called once at startup) pre-fills
+the cache in the background so even the first page load is an instant hit. This mirrors
+how every other data source here (solar/plex/storage/speedtest) collects off the hot
+path rather than fetching on request.
+
 The shaping is split into pure helpers so it's unit-tested without a live call:
 `_current(data)` and `_forecast(data)` feed the pure `shape(data, units)`.
 
@@ -26,6 +35,7 @@ is conceptually swappable — if a personal weather station shows up, only
 pulling Open-Meteo. Both read Open-Meteo today.
 """
 
+import threading
 import time
 
 import requests
@@ -49,6 +59,11 @@ _HOURLY_FIELDS = "temperature_2m,precipitation_probability,weather_code,is_day"
 # Module-level success cache (only successful reads are stored; failures aren't,
 # so a transient blip doesn't pin a bad result for the full TTL).
 _cache = {"ts": 0.0, "data": None, "ttl": 0.0, "units": None}
+
+# Guards the stale-while-revalidate background refresh so only one upstream poll
+# is ever in flight at a time (a burst of stale-cache requests coalesces into one).
+_refresh_lock = threading.Lock()
+_refreshing = False
 
 
 def is_configured() -> bool:
@@ -183,32 +198,69 @@ def shape(data, units) -> dict:
     }
 
 
+def _fetch(units: str) -> dict:
+    """Do the (slow) Open-Meteo round-trip and shape it. Raises on any HTTP / JSON
+    problem so callers can decide whether to degrade or keep serving a stale value."""
+    resp = requests.get(_ENDPOINT, params=_params(units), timeout=15)
+    resp.raise_for_status()
+    return shape(resp.json(), units)
+
+
+def _refresh(units: str) -> None:
+    """Re-poll Open-Meteo and update the cache. On failure, leave the existing
+    (stale) cache in place — a transient blip shouldn't blank out the page."""
+    global _refreshing
+    try:
+        result = _fetch(units)
+        _cache.update(ts=time.monotonic(), data=result, ttl=settings.weather_cache_ttl, units=units)
+    except (requests.RequestException, ValueError):
+        pass  # keep serving the last good value
+    finally:
+        with _refresh_lock:
+            _refreshing = False
+
+
+def _revalidate(units: str) -> None:
+    """Kick a background refresh if one isn't already running (dedup), so a stale
+    cache is updated without blocking the request that noticed it was stale."""
+    global _refreshing
+    with _refresh_lock:
+        if _refreshing:
+            return
+        _refreshing = True
+    threading.Thread(target=_refresh, args=(units,), daemon=True, name="weather-refresh").start()
+
+
+def warm() -> None:
+    """Pre-fill the cache in the background (called once at startup) so the first
+    page load after a restart is an instant hit instead of eating the ~4.5s poll."""
+    if is_configured():
+        _revalidate(settings.weather_units)
+
+
 def get_weather() -> dict:
     """Current conditions + 5-day forecast, or available:false on any problem.
 
-    Cached for `weather_cache_ttl` seconds (the upstream call is slow and weather
-    changes slowly). The cache also keys on the units string so flipping
-    WEATHER_UNITS doesn't serve a stale-unit payload."""
+    Stale-while-revalidate: a fresh cache is returned directly; a stale cache is
+    returned *immediately* while a single background thread re-polls Open-Meteo, so
+    the request never blocks on the slow upstream call. Only a cold cache (right
+    after a restart, before `warm()` lands) does the blocking fetch. The cache keys
+    on the units string so flipping WEATHER_UNITS doesn't serve a stale-unit payload."""
     if not is_configured():
         return {"available": False, "reason": "not_configured"}
 
     units = settings.weather_units
-    now = time.monotonic()
-    if (
-        _cache["data"] is not None
-        and _cache["units"] == units
-        and now - _cache["ts"] < _cache["ttl"]
-    ):
-        return _cache["data"]
+    cached = _cache["data"]
+    if cached is not None and _cache["units"] == units:
+        if time.monotonic() - _cache["ts"] >= _cache["ttl"]:
+            _revalidate(units)  # stale → refresh in the background, serve stale now
+        return cached
 
+    # Cold cache (or the units just changed): we have nothing to serve, so this one
+    # request blocks on the fetch. Failures degrade rather than caching a bad value.
     try:
-        resp = requests.get(_ENDPOINT, params=_params(units), timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        result = shape(data, units)
+        result = _fetch(units)
     except (requests.RequestException, ValueError):
-        # ValueError covers a non-JSON / malformed body (resp.json()). Don't cache
-        # the failure — let the next call retry.
         return {"available": False, "reason": "unreachable"}
 
     _cache.update(ts=time.monotonic(), data=result, ttl=settings.weather_cache_ttl, units=units)
