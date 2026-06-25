@@ -267,6 +267,14 @@ Key shared pieces: `useApi(path, interval)` polls and exposes
 for movies and episodes; live graphs derive rates client-side from cumulative
 counters so the backend stays stateless.
 
+The shared **`<Graph>`** line chart takes optional, backward-compatible labels so
+every curve reads on its own: `unit`/`formatValue` (the auto-scaled **peak** with
+its unit), `legend` (`[{label,color}]` — which line is which), and either `times`
+(epoch-ms → a shared **`<TimeAxis>`** of first/mid/last, used by the ts-backed
+charts: Solar/Speedtest/Plex-insights) or a `caption` (e.g. "live · ~2 min" for
+the client-side moving-window charts: Network/Containers/disk-IO). Daily SMART
+trends pass only `unit` (a clock axis is meaningless at day granularity).
+
 `lib/hostLocal.js` merges an optional, gitignored `host.local.jsx` at runtime
 (via `import.meta.glob`, so the build works with or without it) — per-container
 descriptions for the guide, plus an opt-in `url` that renders a **quick-link**

@@ -128,6 +128,8 @@ function History({ history, stats }) {
         <Graph
           heightClass="h-24"
           height={96}
+          unit="Mbps"
+          times={samples.map((h) => h.ts * 1000)}
           series={[
             { color: '#38bdf8', points: download },
             { color: '#34d399', points: upload },

@@ -62,6 +62,7 @@ function Body({ data }) {
   const streams = samples.map((s) => s.streams ?? 0)
   const transcodes = samples.map((s) => s.transcodes ?? 0)
   const bandwidth = samples.map((s) => s.bandwidth_kbps || 0)
+  const times = samples.map((s) => s.ts * 1000) // epoch-s → ms for the time axis
 
   return (
     <>
@@ -74,18 +75,18 @@ function Body({ data }) {
         <Stat label="Busiest hour" value={formatHour(stats.busiest_hour)} />
       </div>
 
-      <Trend title="Concurrent streams" color="#34d399" points={streams} />
-      <Trend title="Transcodes" color="#fbbf24" points={transcodes} />
-      <Trend title="Reserved bandwidth (kbps)" color="#38bdf8" points={bandwidth} />
+      <Trend title="Concurrent streams" color="#34d399" points={streams} unit="streams" times={times} />
+      <Trend title="Transcodes" color="#fbbf24" points={transcodes} unit="transcodes" times={times} />
+      <Trend title="Reserved bandwidth (kbps)" color="#38bdf8" points={bandwidth} unit="kbps" times={times} />
     </>
   )
 }
 
-function Trend({ title, color, points }) {
+function Trend({ title, color, points, unit, times }) {
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
       <h3 className="mb-2 text-sm font-medium text-slate-300">{title}</h3>
-      <Graph series={[{ color, points }]} heightClass="h-20" height={80} />
+      <Graph series={[{ color, points }]} heightClass="h-20" height={80} unit={unit} times={times} />
     </div>
   )
 }

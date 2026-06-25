@@ -1,6 +1,7 @@
 import { useNetworkRates } from '../../lib/useRates.js'
 import { Graph } from '../../components/Graph.jsx'
-import { formatRate, formatClock } from '../../lib/format.js'
+import { TimeAxis } from '../../components/TimeAxis.jsx'
+import { formatRate } from '../../lib/format.js'
 
 // Classify an interface by its (kernel-assigned) name into a friendly label and
 // a generic description. Pattern-based so it stays host-agnostic — safe for git.
@@ -20,20 +21,6 @@ function describe(name) {
   if (name.startsWith('wg'))
     return { label: 'WireGuard VPN', desc: 'Encrypted VPN tunnel traffic.' }
   return { label: name, desc: 'Network interface.' }
-}
-
-function TimeAxis({ times }) {
-  if (times.length < 2) return <div className="mt-1 h-4" />
-  const first = times[0]
-  const mid = times[Math.floor(times.length / 2)]
-  const last = times[times.length - 1]
-  return (
-    <div className="mt-1 flex justify-between text-[10px] tabular-nums text-slate-500">
-      <span>{formatClock(first)}</span>
-      <span>{formatClock(mid)}</span>
-      <span>{formatClock(last)} (now)</span>
-    </div>
-  )
 }
 
 export default function Network() {

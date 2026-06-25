@@ -111,7 +111,6 @@ function DiskActivity() {
         <div className="space-y-4">
           {names.map((name) => {
             const r = rates[name]
-            const peak = Math.max(...r.readHistory, ...r.writeHistory, 1)
             return (
               <div key={name}>
                 <div className="mb-1 flex items-start justify-between gap-4">
@@ -126,12 +125,17 @@ function DiskActivity() {
                 </div>
                 <Graph
                   heightClass="h-16"
+                  formatValue={formatRate}
+                  legend={[
+                    { label: 'read', color: '#38bdf8' },
+                    { label: 'write', color: '#f59e0b' },
+                  ]}
+                  caption="live · ~2 min window"
                   series={[
                     { color: '#38bdf8', points: r.readHistory },
                     { color: '#f59e0b', points: r.writeHistory },
                   ]}
                 />
-                <div className="mt-1 text-[10px] text-slate-500">peak {formatRate(peak)}</div>
               </div>
             )
           })}
@@ -508,8 +512,8 @@ function NvmeHealth({ nvme }) {
 function TrendCharts({ trends }) {
   if (!trends) return null
   const charts = [
-    { key: 'temperature_c', label: 'Temp °C', color: '#38bdf8' },
-    { key: 'wear_percent', label: '% life used', color: '#f59e0b' },
+    { key: 'temperature_c', label: 'Temp °C', color: '#38bdf8', unit: '°C' },
+    { key: 'wear_percent', label: '% life used', color: '#f59e0b', unit: '%' },
   ]
   const visible = charts.filter((c) => (trends[c.key]?.length || 0) >= 2)
   if (visible.length === 0) return null
@@ -524,7 +528,7 @@ function TrendCharts({ trends }) {
               <span>{c.label}</span>
               <span className="text-slate-400">now {last}</span>
             </div>
-            <Graph series={[{ color: c.color, points: pts }]} heightClass="h-10" height={40} />
+            <Graph series={[{ color: c.color, points: pts }]} heightClass="h-10" height={40} unit={c.unit} />
           </div>
         )
       })}
