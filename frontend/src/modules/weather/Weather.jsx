@@ -139,7 +139,9 @@ function DayRow({ day, label, unit, weekMin, weekMax, open, onToggle }) {
           aria-hidden="true"
           style={{ filter: glowFilter(weatherGlow(day.code, true), 0.4, { baseBlur: 3, blurGain: 8, baseAlpha: 0.15 }) }}
         />
-        <span className="flex items-center gap-1 text-[11px] tabular-nums text-sky-300/90">
+        {/* Fixed-width, right-aligned so a dry day (no %) still reserves the slot
+            and the lo-temp/range-bar column stays aligned across every row. */}
+        <span className="flex w-12 shrink-0 items-center justify-end gap-0.5 text-[11px] tabular-nums text-sky-300/90">
           {day.precip_prob != null && day.precip_prob > 0 ? (
             <>
               <Droplets className="h-3 w-3" aria-hidden="true" />
@@ -248,9 +250,10 @@ function WeatherSkeleton() {
             <div key={i} className="flex items-center gap-3 py-2.5">
               <div className={`h-4 w-12 shrink-0 ${fill}`} />
               <div className="h-6 w-6 shrink-0 rounded bg-slate-800/60" />
-              <div className={`h-4 w-8 shrink-0 ${fill}`} />
+              <div className={`h-3 w-12 shrink-0 ${fill}`} />
+              <div className={`h-4 w-10 shrink-0 ${fill}`} />
               <div className="ml-1 mr-1 h-1.5 flex-1 rounded-full bg-slate-800/60" />
-              <div className={`h-4 w-8 shrink-0 ${fill}`} />
+              <div className={`h-4 w-10 shrink-0 ${fill}`} />
               <div className="h-4 w-4 shrink-0 rounded bg-slate-800/60" />
             </div>
           ))}
