@@ -277,6 +277,33 @@ because not every published port is a web UI, and only what a reverse proxy
 fronts is reachable over the tailnet. Committed code stays generic — the real
 links live only in the gitignored file.
 
+### Visual motif: "back-lit radiance"
+
+The Solar module established a look worth reusing on other pages: content that
+appears softly **back-lit / emissive**, as if a colored light source sits behind
+it. It's three composable, theme-safe ingredients (the Solar page is the
+reference implementation):
+
+1. **Radiant backdrop** — a `radial-gradient` glow on a card that fades to
+   `transparent`, so it sits on any theme background without a hard edge:
+   `background: radial-gradient(120% 120% at 50% -10%, rgba(245,158,11,0.18), transparent 60%)`
+   (Solar hero in `modules/solar/Solar.jsx`).
+2. **Element glow** — a CSS `drop-shadow` filter whose blur + alpha scale with a
+   0..1 intensity, making an icon/arc read as a light source rather than a flat
+   shape. `lib/solar.js`'s `sunGlowFilter(intensity, {baseBlur, blurGain,
+   baseAlpha, alphaGain})` is the parameterized helper (used by the gauge arc,
+   the gauge sun, and the dashboard widget); generalize it (drop the warm rgba
+   constant into a param) if another module wants a different hue.
+3. **Warm gradient tiles** — stat tiles use `bg-gradient-to-br
+   from-<accent>/15 to-<accent2>/5` with a matching `border-<accent>/20`, so the
+   surface itself glows faintly in the module's accent.
+
+Keep the glow colors in the **constant** status palette (amber/cyan/emerald/…),
+not the theme-swapped slate/emerald ramp, and always fade gradients to
+`transparent` — that's what lets the effect ride on top of every theme. Reach for
+this on hero/at-a-glance surfaces; keep dense data tables flat so the glow stays a
+highlight, not noise.
+
 ## Plex library browser (the one stateful feature)
 
 A **sync** job (`POST /api/plex/sync`, background thread) walks Plex once and
