@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Droplets, Wind, Thermometer, ChevronDown } from 'lucide-react'
 import { useApi } from '../../lib/useApi.js'
+import { useDelayedFlag } from '../../lib/useDelayedFlag.js'
 import {
   weatherInfo,
   weatherGlow,
@@ -16,12 +17,15 @@ import { glowFilter, radiantBackdrop } from '../../lib/glow.js'
 // (free, no API key). Hides/degrades until WEATHER_LAT/WEATHER_LON are set.
 export default function Weather() {
   const { data, error, loading } = useApi('/weather', 600000)
+  // Reveal the skeleton only if the first load is slow, so a fast response
+  // never flashes a placeholder.
+  const showSkeleton = useDelayedFlag(loading && !data && !error)
 
   return (
     <div>
       {/* No page title here — the shell's top bar already shows the active
           module's name ("Weather"), so an in-page heading would just repeat it. */}
-      {loading && !data && <p className="text-sm text-slate-500">loading…</p>}
+      {!data && !error && (showSkeleton ? <WeatherSkeleton /> : null)}
       {error && <p className="text-sm text-rose-400">unavailable — {error}</p>}
 
       {data && data.available === false && <Unavailable reason={data.reason} />}
@@ -86,8 +90,12 @@ function Live({ d }) {
       </div>
 
       {/* 5-day forecast — one full-width row per day (never lopsided), with a
-          color range bar and a tap-to-expand hourly strip. */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3 sm:p-4">
+          color range bar and a tap-to-expand hourly strip. Back-lit by the
+          current conditions, subtler than the hero. */}
+      <div
+        className="relative overflow-hidden rounded-xl border p-3 sm:p-4"
+        style={{ borderColor: `rgba(${glow},0.18)`, background: radiantBackdrop(glow, 0.1) }}
+      >
         <h3 className="mb-1 px-1 text-sm font-medium text-slate-300">5-day forecast</h3>
         <div className="divide-y divide-slate-800/70">
           {d.daily.map((day, i) => (
@@ -126,7 +134,11 @@ function DayRow({ day, label, unit, weekMin, weekMax, open, onToggle }) {
         className="flex w-full items-center gap-3 py-2.5 text-left transition-colors hover:bg-slate-800/30"
       >
         <span className="w-12 shrink-0 text-sm font-medium text-slate-300">{label}</span>
-        <w.Icon className={`h-6 w-6 shrink-0 ${w.tone}`} aria-hidden="true" />
+        <w.Icon
+          className={`h-6 w-6 shrink-0 ${w.tone}`}
+          aria-hidden="true"
+          style={{ filter: glowFilter(weatherGlow(day.code, true), 0.4, { baseBlur: 3, blurGain: 8, baseAlpha: 0.15 }) }}
+        />
         <span className="flex items-center gap-1 text-[11px] tabular-nums text-sky-300/90">
           {day.precip_prob != null && day.precip_prob > 0 ? (
             <>
@@ -201,6 +213,48 @@ function HourlyStrip({ hours, unit }) {
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+// Loading placeholder shaped to the live layout (current-conditions hero + the
+// 5-day forecast rows) so the page holds its height instead of popping in.
+function WeatherSkeleton() {
+  const fill = 'rounded bg-slate-800/60'
+  return (
+    <div className="animate-pulse space-y-4" role="status" aria-label="Loading weather data">
+      <span className="sr-only">Loading weather data…</span>
+      {/* Current conditions hero */}
+      <div className="rounded-xl border border-slate-800 p-5">
+        <div className="flex items-center gap-4">
+          <div className="h-14 w-14 shrink-0 rounded-full bg-slate-800/60" />
+          <div className="space-y-2">
+            <div className={`h-9 w-24 ${fill}`} />
+            <div className={`h-4 w-20 ${fill}`} />
+          </div>
+          <div className="ml-auto space-y-2">
+            <div className={`h-4 w-24 ${fill}`} />
+            <div className={`h-4 w-16 ${fill}`} />
+            <div className={`h-4 w-20 ${fill}`} />
+          </div>
+        </div>
+      </div>
+      {/* 5-day forecast */}
+      <div className="rounded-xl border border-slate-800 p-3 sm:p-4">
+        <div className={`mb-2 ml-1 h-4 w-28 ${fill}`} />
+        <div className="divide-y divide-slate-800/70">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 py-2.5">
+              <div className={`h-4 w-12 shrink-0 ${fill}`} />
+              <div className="h-6 w-6 shrink-0 rounded bg-slate-800/60" />
+              <div className={`h-4 w-8 shrink-0 ${fill}`} />
+              <div className="ml-1 mr-1 h-1.5 flex-1 rounded-full bg-slate-800/60" />
+              <div className={`h-4 w-8 shrink-0 ${fill}`} />
+              <div className="h-4 w-4 shrink-0 rounded bg-slate-800/60" />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
