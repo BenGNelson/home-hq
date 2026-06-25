@@ -1,4 +1,5 @@
 import { useApi } from '../../lib/useApi.js'
+import { useDelayedFlag } from '../../lib/useDelayedFlag.js'
 import { Graph } from '../../components/Graph.jsx'
 import { SolarGauge } from '../../components/SolarGauge.jsx'
 import { SolarFlow } from '../../components/SolarFlow.jsx'
@@ -20,11 +21,14 @@ import {
 // Weather module's temperature ramp.
 export default function Solar() {
   const { data, error, loading } = useApi('/solar', 10000)
+  // Reveal the skeleton only if the first load is actually slow (the Envoy poll
+  // takes a beat), so a fast response never flashes a placeholder.
+  const showSkeleton = useDelayedFlag(loading && !data && !error)
 
   return (
     <div>
       {/* Title omitted — the shell's top bar already shows "Solar". */}
-      {loading && !data && <p className="text-sm text-slate-500">loading…</p>}
+      {!data && !error && (showSkeleton ? <SolarSkeleton /> : null)}
       {error && <p className="text-sm text-rose-400">unavailable — {error}</p>}
 
       {data && data.available === false && <Unavailable reason={data.reason} />}
@@ -252,6 +256,105 @@ function PairBar({ label, tone, frac, value }) {
           className={`h-full rounded-full ${fill}`}
           style={{ width: `${Math.round((frac || 0) * 100)}%` }}
         />
+      </div>
+    </div>
+  )
+}
+
+// Loading placeholder shaped to the live layout (hero gauge + flow, battery,
+// energy tiles, balance, the two curves, and the two-set array) so the page holds
+// its height and doesn't pop in. Tuned for the metered + battery layout (the
+// common case); a minimal system just settles up slightly once data lands.
+function SolarSkeleton() {
+  const block = 'rounded-xl border border-slate-800 bg-slate-900/50 p-4'
+  const fill = 'rounded bg-slate-800/60'
+  const Label = () => <div className={`mb-2 h-3 w-24 ${fill}`} />
+  const Tiles = () => (
+    <div className="grid grid-cols-3 gap-3">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="rounded-lg border border-slate-800/60 p-3">
+          <div className={`mx-auto h-6 w-16 ${fill}`} />
+          <div className={`mx-auto mt-1.5 h-3 w-10 ${fill}`} />
+        </div>
+      ))}
+    </div>
+  )
+  const ChartCard = ({ h }) => (
+    <div className={block}>
+      <div className={`mb-3 h-4 w-28 ${fill}`} />
+      <div className={`${h} w-full rounded-md bg-slate-800/40`} />
+    </div>
+  )
+  const grid = (n, cols) => (
+    <div className="grid justify-center gap-1.5" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 2.25rem))` }}>
+      {Array.from({ length: n }).map((_, i) => (
+        <div key={i} className="aspect-square rounded-sm bg-slate-800/50" />
+      ))}
+    </div>
+  )
+
+  return (
+    <div className="animate-pulse space-y-4" role="status" aria-label="Loading solar data">
+      <span className="sr-only">Loading solar data…</span>
+      {/* Hero: gauge + flow */}
+      <div className="rounded-xl border border-slate-800 p-5">
+        <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-around">
+          <div className="h-[200px] w-[200px] shrink-0 rounded-full bg-slate-800/50" />
+          <div className="w-full max-w-sm">
+            <div className="w-full rounded-lg bg-slate-800/40" style={{ aspectRatio: '260 / 200' }} />
+          </div>
+        </div>
+        <div className={`mx-auto mt-2 h-4 w-44 ${fill}`} />
+      </div>
+
+      {/* Battery */}
+      <div>
+        <Label />
+        <div className="rounded-xl border border-slate-800 p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <div className={`h-4 w-28 ${fill}`} />
+            <div className={`h-4 w-20 ${fill}`} />
+          </div>
+          <div className={`h-6 w-full rounded-md bg-slate-800/60`} />
+          <div className="mt-3">
+            <Tiles />
+          </div>
+        </div>
+      </div>
+
+      {/* Production + Consumption */}
+      <div>
+        <Label />
+        <Tiles />
+      </div>
+      <div>
+        <Label />
+        <Tiles />
+      </div>
+
+      {/* Today's balance */}
+      <div className={block}>
+        <div className={`mb-3 h-4 w-28 ${fill}`} />
+        {[0, 1].map((i) => (
+          <div key={i} className="mb-2">
+            <div className="mb-1 flex justify-between">
+              <div className={`h-3 w-16 ${fill}`} />
+              <div className={`h-3 w-12 ${fill}`} />
+            </div>
+            <div className="h-2 w-full rounded-full bg-slate-800/60" />
+          </div>
+        ))}
+      </div>
+
+      {/* The two curves + the array */}
+      <ChartCard h="h-28" />
+      <ChartCard h="h-20" />
+      <div className={block}>
+        <div className={`mb-3 h-4 w-32 ${fill}`} />
+        <div className="space-y-4">
+          {grid(8, 8)}
+          {grid(21, 7)}
+        </div>
       </div>
     </div>
   )
