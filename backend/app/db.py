@@ -137,6 +137,18 @@ CREATE TABLE IF NOT EXISTS speedtest_samples (
 );
 CREATE INDEX IF NOT EXISTS idx_speedtest_samples_ts ON speedtest_samples (ts);
 
+-- Solar production samples: periodic snapshots of current production (and, on
+-- metered systems, whole-home consumption + net grid flow) recorded by the
+-- in-app sampler (solar_history.py) while the Envoy is reachable. Powers the
+-- Solar page's intraday trend. Pruned by retention. Nothing secret — just watts.
+CREATE TABLE IF NOT EXISTS solar_samples (
+    ts         INTEGER NOT NULL,   -- when recorded (epoch seconds)
+    prod_watts INTEGER,            -- production right now, W
+    cons_watts INTEGER,            -- whole-home consumption, W (metered only)
+    net_watts  INTEGER             -- production - consumption (metered only)
+);
+CREATE INDEX IF NOT EXISTS idx_solar_samples_ts ON solar_samples (ts);
+
 -- Cached item runtimes for the watch-stats endpoint. A Plex history entry omits
 -- duration, so to total hours-watched we look it up once per item via fetchItem
 -- and remember it here (it never changes). A row with duration_ms = 0 is a
@@ -224,6 +236,7 @@ CREATE INDEX IF NOT EXISTS idx_listen_progress_updated ON listen_progress (updat
 _SAMPLE_TABLE_CAPS = {
     "plex_samples": 100_000,
     "speedtest_samples": 100_000,
+    "solar_samples": 200_000,
     "alert_log": 20_000,
 }
 
@@ -486,6 +499,47 @@ def prune_speedtest_samples(before_ts):
         conn.execute("DELETE FROM speedtest_samples WHERE ts < ?", (before_ts,))
 
 
+# --- solar production samples ----------------------------------------------
+
+# The columns a solar sample carries, in insert order (see solar_history.py).
+_SOLAR_COLS = ("ts", "prod_watts", "cons_watts", "net_watts")
+
+
+def insert_solar_sample(record):
+    """Append one solar production sample (a dict with the _SOLAR_COLS keys)."""
+    with get_conn() as conn:
+        placeholders = ",".join("?" for _ in _SOLAR_COLS)
+        conn.execute(
+            f"INSERT INTO solar_samples ({','.join(_SOLAR_COLS)}) "
+            f"VALUES ({placeholders})",
+            tuple(record.get(c) for c in _SOLAR_COLS),
+        )
+        _cap_table(conn, "solar_samples")
+
+
+def recent_solar_samples(since_ts=None, limit=None):
+    """Solar samples returned OLDEST-FIRST for charting. With `limit=None` (the
+    history endpoint's case) the time window — `since_ts` plus the retention
+    prune — is the only bound, so no rows in range are silently dropped (a fixed
+    cap would truncate wide windows: 30 days at a 1-min cadence > any small cap).
+    A positive `limit` keeps just the newest N (for ad-hoc callers)."""
+    where = "WHERE ts >= ?" if since_ts is not None else ""
+    params = [] if since_ts is None else [since_ts]
+    sql = f"SELECT {','.join(_SOLAR_COLS)} FROM solar_samples {where} ORDER BY ts DESC"
+    if limit is not None:
+        sql += " LIMIT ?"
+        params.append(limit)
+    with get_conn() as conn:
+        rows = conn.execute(sql, tuple(params)).fetchall()
+        return [dict(r) for r in reversed(rows)]
+
+
+def prune_solar_samples(before_ts):
+    """Drop solar samples older than a cutoff (retention)."""
+    with get_conn() as conn:
+        conn.execute("DELETE FROM solar_samples WHERE ts < ?", (before_ts,))
+
+
 def get_item_duration(rating_key):
     """The cached runtime (ms) for an item, or None if we've never fetched it.
     A stored 0 is the 'unfetchable' sentinel and comes back as 0 (not None) so
@@ -528,7 +582,7 @@ def _cap_table(conn, table):
 # Tables surfaced in the DB-size view + row-count breakdown (the ones that grow).
 _TRACKED_TABLES = (
     "media_items", "storage_samples", "plex_samples", "speedtest_samples",
-    "print_history", "alert_log", "space_usage", "book_meta",
+    "solar_samples", "print_history", "alert_log", "space_usage", "book_meta",
 )
 
 

@@ -1,6 +1,7 @@
 // Pure arc math for a hand-rolled SVG donut chart — no charting dependency.
 // Kept dependency-free and deterministic so it's unit-testable in isolation.
 // The component (components/Donut.jsx) just renders what this returns.
+import { pointOnCircle, f } from './arc.js'
 
 // Coerce anything dodgy (negative, NaN, non-number) to 0 — a chart slice can't
 // have negative or undefined area.
@@ -8,18 +9,6 @@ function clean(value) {
   const n = Number(value)
   return Number.isFinite(n) && n > 0 ? n : 0
 }
-
-// A point on a circle of radius `r` centered at (cx, cy) at `angle` radians,
-// measured clockwise from 12 o'clock (top). Screen-space y grows downward, so
-// clockwise-from-top is (sin, -cos).
-function pointOnCircle(cx, cy, r, angle) {
-  return {
-    x: cx + r * Math.sin(angle),
-    y: cy - r * Math.cos(angle),
-  }
-}
-
-const f = (n) => Number(n.toFixed(3))
 
 // Build the SVG path for one annulus (donut) slice spanning [a0, a1] radians
 // (clockwise from top), between inner radius `ri` and outer radius `ro`.

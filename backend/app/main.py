@@ -6,6 +6,7 @@ browser), and mounts each feature router under the /api prefix. As we add more
 endpoints (disk, containers, plex) we just include their routers here.
 """
 
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -18,6 +19,7 @@ from app.config import settings
 from app.db import init_db
 from app.printer import init_client
 from app.plex_history import init_sampler as init_plex_sampler
+from app.solar_history import init_sampler as init_solar_sampler
 from app.speedtest import init_sampler as init_speedtest_sampler
 from app.storage_history import init_sampler
 from app.space_usage import init_scanner
@@ -96,6 +98,16 @@ async def lifespan(app: FastAPI):
         settings.speedtest_retention_days,
     )
     speedtest_sampler.start()
+    # Solar trend sampler: records production/consumption while the Envoy is
+    # reachable (no-op until solar is configured), powering the Solar page's
+    # intraday curve. Runs on a worker thread but reuses THIS event loop for the
+    # async Envoy read so the cached pyenphase client isn't shared across loops.
+    solar_sampler = init_solar_sampler(
+        settings.solar_history_interval,
+        settings.solar_history_days,
+        asyncio.get_running_loop(),
+    )
+    solar_sampler.start()
     # What's-eating-space: a background thread runs a niced daily `du` of the
     # storage mount (cached in SQLite); /api/storage/space reads the cache.
     scanner = init_scanner(
@@ -118,6 +130,7 @@ async def lifespan(app: FastAPI):
         sampler.stop()
         plex_sampler.stop()
         speedtest_sampler.stop()
+        solar_sampler.stop()
         scanner.stop()
         book_indexer.stop()
 

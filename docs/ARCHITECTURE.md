@@ -141,6 +141,7 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/ha` | curated Home Assistant entities (glance + deep-link), self-hides when unconfigured | reads a host timer's `ha.json` |
 | `GET /api/catalog` | the home catalog — floors → rooms → items (devices/appliances/tools/infra), with stats; **live HA state overlaid** on items that have an entity; self-hides when unconfigured | parses the `CATALOG_FILE` YAML mounted read-only (defaults to a committed example) + joins the collector's `ha-catalog.json` live states |
 | `GET /api/solar` | live Enphase solar (production, consumption + net on metered systems, today/7-day/lifetime), self-hides when unconfigured | `pyenphase` reads the Envoy's local API; authenticated client + short TTL cached |
+| `GET /api/solar/history?hours=N` | intraday production/consumption trend (samples oldest-first + peak/latest stats) for the Solar page's day curve | in-app sampler → `solar_samples` SQLite; empty until samples accumulate |
 | `GET /api/weather` | current conditions + 5-day forecast (each day carries its `hours` for the tap-to-expand hourly strip), self-hides when no location set | Open-Meteo (free, no API key); 10-min TTL cached |
 | `GET /api/adguard` | read-only AdGuard Home stats (blocked %, total/blocked query counts, protection on/off, top blocked domains), self-hides when unconfigured | two Basic-Auth GETs to AdGuard's REST API (`/control/stats` + `/control/status`); short TTL cached |
 | `GET /api/storage/db` | SQLite file size + per-table row counts (growth visibility) | stats the DB file + `COUNT(*)` per table |
@@ -734,6 +735,28 @@ secondary router/NAT (a common home setup with a second AP), it needs a
 port-forward of TCP 443 to it, and `ENVOY_HOST` is then the forward's WAN-side IP.
 Token minting is a separate *outbound* call to the Enlighten cloud, so it's
 unaffected by that NAT.
+
+**Intraday trend.** `/api/solar` is a snapshot; the day's curve comes from a
+lightweight in-app sampler (`app/solar_history.py`, same shape as the storage /
+plex / speedtest samplers): a daemon thread records production (and, when metered,
+consumption + net) to the `solar_samples` SQLite table every
+`SOLAR_HISTORY_INTERVAL` seconds while the Envoy is reachable, pruning past
+`SOLAR_HISTORY_DAYS`. `GET /api/solar/history?hours=N` returns the samples
+oldest-first plus a pure, unit-tested `summarize_history()` (count, peak, latest).
+One wrinkle vs the other samplers: `solar.get_solar()` is async and its cached
+`pyenphase` client is bound to the app's event loop, so the sampler thread submits
+the coroutine to that loop via `run_coroutine_threadsafe` (the loop is captured in
+the lifespan) rather than spinning a throwaway loop that would break the client.
+
+**Frontend — a deliberately different visual language from Weather.** Where the
+Weather page leans on a continuous temperature-color ramp and lo→hi range bars,
+Solar uses *energy motion + radiance*: a radial production **gauge** (`SolarGauge`
++ pure `lib/solarGauge.js` arc geometry) with a glowing sun whose halo scales with
+output, beside an animated **power-flow** diagram (`SolarFlow` + pure `flowModel()`
+in `lib/solar.js`) — Sun → Home ↔ Grid with dashes drifting source→target
+(emerald exporting, amber importing, dim when idle; non-metered shows only the
+Sun → Home leg). Warm gradient energy tiles, a produced-vs-used paired bar
+(metered), and the gold/cyan intraday curve via the shared `<Graph>` round it out.
 
 ## Weather (Open-Meteo)
 

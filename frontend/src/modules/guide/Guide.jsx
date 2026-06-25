@@ -49,6 +49,7 @@ const ENDPOINTS = [
   ['POST /api/printer/command', 'Pause / resume / stop / light — published over the MQTT connection.'],
   ['/api/printer/history', 'Completed-print log + stats (count, success rate, total print time), from SQLite.'],
   ['/api/solar', 'Live Enphase solar — production (+ consumption/net on metered systems) read from the Envoy’s local API via pyenphase.'],
+  ['/api/solar/history', 'Intraday solar production/consumption trend (in-app sampler → SQLite) — powers the Solar page’s day curve.'],
   ['/api/weather', 'Current conditions + 5-day forecast from Open-Meteo (free, no API key); cached ~10 min.'],
   ['/api/adguard', 'Read-only AdGuard Home ad-block stats (blocked %, query totals, top blocked domains) via its REST API; self-hides when unconfigured.'],
   ['/api/backups', 'Lists the age-encrypted config backups (read-only).'],
