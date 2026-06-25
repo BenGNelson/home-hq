@@ -50,8 +50,13 @@ function Live({ d }) {
   const glow = glowIntensity(p?.watts_now, refPeak)
 
   const samples = hist?.samples || []
+  const times = samples.map((s) => s.ts * 1000) // epoch-s → ms for the time axis
   const series = [{ color: '#f59e0b', points: samples.map((s) => s.prod_watts ?? 0) }]
-  if (d.metered) series.push({ color: '#22d3ee', points: samples.map((s) => s.cons_watts ?? 0) })
+  const legend = [{ label: 'Production', color: '#f59e0b' }]
+  if (d.metered) {
+    series.push({ color: '#22d3ee', points: samples.map((s) => s.cons_watts ?? 0) })
+    legend.push({ label: 'Consumption', color: '#22d3ee' })
+  }
 
   const bp = d.metered && c ? barPair(p?.watt_hours_today, c?.watt_hours_today) : null
 
@@ -109,7 +114,14 @@ function Live({ d }) {
       <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
         <h3 className="mb-3 text-sm font-medium text-slate-300">Today’s curve</h3>
         {samples.length > 0 ? (
-          <Graph heightClass="h-28" height={112} series={series} />
+          <Graph
+            heightClass="h-28"
+            height={112}
+            series={series}
+            legend={legend}
+            times={times}
+            formatValue={formatWatts}
+          />
         ) : (
           <p className="text-xs text-slate-500">
             The day’s curve fills in as readings are collected.

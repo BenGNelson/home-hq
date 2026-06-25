@@ -83,6 +83,12 @@ function ContainerDetail({ name }) {
             </span>
           </div>
           <Graph
+            formatValue={formatRate}
+            legend={[
+              { label: 'download', color: '#34d399' },
+              { label: 'upload', color: '#38bdf8' },
+            ]}
+            caption="live"
             series={[
               { color: '#34d399', points: net.rx },
               { color: '#38bdf8', points: net.tx },
