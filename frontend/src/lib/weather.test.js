@@ -10,12 +10,30 @@ import {
 import {
   weatherInfo,
   weatherIcon,
+  weatherGlow,
   formatTemp,
   dayName,
   tempColor,
   tempBarStyle,
   hourLabel,
 } from './weather.js'
+
+describe('weatherGlow', () => {
+  it('is amber for a clear day, slate for a clear night', () => {
+    expect(weatherGlow(0, true)).toBe('251,191,36')
+    expect(weatherGlow(0, false)).toBe('148,163,184')
+  })
+  it('maps precipitation/storm conditions to their tone family', () => {
+    expect(weatherGlow(63)).toBe('56,189,248') // rain → sky
+    expect(weatherGlow(66)).toBe('34,211,238') // freezing → cyan
+    expect(weatherGlow(75)).toBe('125,211,252') // snow → sky-300
+    expect(weatherGlow(95)).toBe('167,139,250') // thunderstorm → violet
+  })
+  it('falls back to slate for overcast/unknown', () => {
+    expect(weatherGlow(3)).toBe('148,163,184')
+    expect(weatherGlow(999)).toBe('148,163,184')
+  })
+})
 
 describe('weatherInfo', () => {
   it('swaps the icon by day/night for clear codes', () => {

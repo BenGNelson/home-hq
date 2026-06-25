@@ -1,6 +1,8 @@
 // Pure helpers for the Solar module — value formatting + the unavailable
 // message. Kept here (not in the component) so they're unit-tested.
 
+import { glowFilter } from './glow.js'
+
 // Power: small values in W, larger in kW (2 decimals). Sign is preserved so a
 // negative net (importing) formats with its minus.
 export function formatWatts(w) {
@@ -49,12 +51,11 @@ export function glowIntensity(watts, refPeak = SOLAR_REF_PEAK) {
   return gaugeFraction(watts, refPeak)
 }
 
-// A warm sun-glow CSS `drop-shadow` whose blur + alpha grow with `glow` (0..1).
-// One definition for the gauge arc, the gauge sun, and the dashboard widget — the
-// base/gain knobs let each tune its look without re-spelling the rgba string.
-export function sunGlowFilter(glow, { baseBlur = 4, blurGain = 12, baseAlpha = 0.4, alphaGain = 0.5 } = {}) {
-  const g = Math.min(1, Math.max(0, Number(glow) || 0))
-  return `drop-shadow(0 0 ${baseBlur + g * blurGain}px rgba(250,204,21,${(baseAlpha + g * alphaGain).toFixed(2)}))`
+// A warm sun-glow `drop-shadow` whose blur + alpha grow with `glow` (0..1) — the
+// solar (amber) preset of the shared back-lit glow. One definition for the gauge
+// arc, the gauge sun, and the dashboard widget.
+export function sunGlowFilter(glow, opts = {}) {
+  return glowFilter('250,204,21', glow, opts) // yellow-300
 }
 
 // Model the energy-flow diagram from a live snapshot: which nodes to show and

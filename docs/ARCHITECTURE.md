@@ -281,8 +281,12 @@ links live only in the gitignored file.
 
 The Solar module established a look worth reusing on other pages: content that
 appears softly **back-lit / emissive**, as if a colored light source sits behind
-it. It's three composable, theme-safe ingredients (the Solar page is the
-reference implementation):
+it. The reusable engine lives in `lib/glow.js` — `glowFilter(rgb, intensity,
+opts)` (the `drop-shadow`) and `radiantBackdrop(rgb, alpha)` (the gradient);
+`lib/solar.js`'s `sunGlowFilter` is the amber preset, and the **Weather** page +
+dashboard banner use it condition-tinted (`weatherGlow()` → sky for rain, violet
+for storms, amber for clear). It's three composable, theme-safe ingredients (the
+Solar page is the reference implementation):
 
 1. **Radiant backdrop** — a `radial-gradient` glow on a card that fades to
    `transparent`, so it sits on any theme background without a hard edge:

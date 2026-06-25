@@ -82,6 +82,31 @@ export function weatherInfo(code, isDay = true) {
 // The Lucide icon component for a weather code (convenience, mirrors entityIcon).
 export const weatherIcon = (code, isDay) => weatherInfo(code, isDay).Icon
 
+// The "back-lit" glow color (an "r,g,b" constant-palette string) for a weather
+// condition, matching its icon tone family — so the hero icon reads as lit by the
+// weather (warm amber sun, sky-blue rain, violet storm, icy cyan, calm slate at
+// night/overcast). Used with glowFilter()/radiantBackdrop() (lib/glow.js).
+export function weatherGlow(code, isDay = true) {
+  if ((code === 0 || code === 1) && isDay) return '251,191,36' // clear day — amber-400
+  if (code === 0 || code === 1) return '148,163,184' // clear night — slate-400
+  switch (code) {
+    case 51: case 53: case 55: // drizzle
+    case 61: case 63: case 65: // rain
+    case 80: case 81: case 82: // rain showers
+      return '56,189,248' // sky-400
+    case 56: case 57: // freezing drizzle
+    case 66: case 67: // freezing rain
+      return '34,211,238' // cyan-400
+    case 71: case 73: case 75: // snow
+    case 77: case 85: case 86: // snow grains/showers
+      return '125,211,252' // sky-300
+    case 95: case 96: case 99: // thunderstorm
+      return '167,139,250' // violet-400
+    default:
+      return '148,163,184' // partly/overcast/fog/unknown — slate-400
+  }
+}
+
 // Round a temperature and append its unit ("68°F"); null/undefined → an em dash.
 export function formatTemp(t, unit) {
   if (t == null) return '—'
