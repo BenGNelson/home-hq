@@ -45,6 +45,7 @@ PAGES = [
     ("/alerts", []),
     ("/printer", []),
     ("/solar", []),
+    ("/adguard", []),
     ("/guide", []),
     ("/readme", []),
     ("/server-guide", []),

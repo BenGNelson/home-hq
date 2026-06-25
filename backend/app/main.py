@@ -23,6 +23,7 @@ from app.storage_history import init_sampler
 from app.space_usage import init_scanner
 from app.book_sync import init_indexer
 from app.routers import (
+    adguard,
     alerts,
     backups,
     catalog,
@@ -137,6 +138,7 @@ tags_metadata = [
     {"name": "Catalog", "description": "The home catalog — a floor-by-floor inventory of devices, appliances, tools, and infrastructure."},
     {"name": "Solar", "description": "Solar / energy production read from the Enphase Envoy gateway."},
     {"name": "Weather", "description": "Current conditions and a multi-day forecast for the configured location."},
+    {"name": "Ad Blocking", "description": "Read-only stats from the AdGuard Home DNS resolver — blocked %, query totals, and top blocked domains."},
     {"name": "Docs", "description": "In-app document sources (project README) served as markdown."},
 ]
 
@@ -208,3 +210,4 @@ app.include_router(ha.router, prefix="/api", tags=["Devices"])
 app.include_router(catalog.router, prefix="/api", tags=["Catalog"])
 app.include_router(solar.router, prefix="/api", tags=["Solar"])
 app.include_router(weather.router, prefix="/api", tags=["Weather"])
+app.include_router(adguard.router, prefix="/api", tags=["Ad Blocking"])

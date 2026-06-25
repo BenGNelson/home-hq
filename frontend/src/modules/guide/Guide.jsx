@@ -50,6 +50,7 @@ const ENDPOINTS = [
   ['/api/printer/history', 'Completed-print log + stats (count, success rate, total print time), from SQLite.'],
   ['/api/solar', 'Live Enphase solar — production (+ consumption/net on metered systems) read from the Envoy’s local API via pyenphase.'],
   ['/api/weather', 'Current conditions + 5-day forecast from Open-Meteo (free, no API key); cached ~10 min.'],
+  ['/api/adguard', 'Read-only AdGuard Home ad-block stats (blocked %, query totals, top blocked domains) via its REST API; self-hides when unconfigured.'],
   ['/api/backups', 'Lists the age-encrypted config backups (read-only).'],
   ['/api/alerts', 'Push-alert config, each rule’s current state (incl. muted), and recent history (+ POST /test, POST /{rule}/mute).'],
   ['/api/readme · /asset/{n}', 'The project README (markdown) + its screenshots, for the in-app viewer.'],
@@ -352,6 +353,22 @@ export default function Guide() {
           uses. Interfaces get friendly labels, stacked full-width with a time
           axis. Nothing is stored — rates are derived client-side, so the backend
           stays stateless.
+        </p>
+      </Section>
+
+      <Section title="Ad Blocking module">
+        <p>
+          A <strong>read-only</strong> gauge for ad/tracker blocking. The blocker
+          itself — <strong>AdGuard Home</strong> — runs as a separate service that
+          filters DNS for chosen devices; it’s deliberately <em>not</em> part of
+          this app and <em>not</em> in the whole-house DNS path, so a problem with
+          it can’t take down the dashboard or strand the network. HQ just reads its
+          REST API (<Code>/api/adguard</Code> → two calls: query stats + protection
+          state) and shows the blocked %, query totals, protection on/off, and the
+          top blocked domains. Pausing and blocklists stay in AdGuard’s own UI —
+          cockpit, not control surface. It hides itself until{' '}
+          <Code>ADGUARD_HOST</Code> (and the admin login) are set in{' '}
+          <Code>.env</Code>.
         </p>
       </Section>
 
