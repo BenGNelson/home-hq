@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { panelsPeak, panelColor } from './solarPanels.js'
+import { panelsPeak, panelColor, splitSets, evenCols } from './solarPanels.js'
 
 describe('panelsPeak', () => {
   it('is the max current output, floored at 1', () => {
@@ -20,5 +20,35 @@ describe('panelColor', () => {
   })
   it('caps alpha at 1 when a panel exceeds the reference', () => {
     expect(panelColor(600, 300)).toBe('rgba(245,158,11,1.00)')
+  })
+})
+
+describe('splitSets', () => {
+  const mk = (n) => Array.from({ length: n }, (_, i) => ({ i: i + 1 }))
+  it('splits into the given set sizes by index', () => {
+    const sets = splitSets(mk(29), [8, 21])
+    expect(sets.map((s) => s.length)).toEqual([8, 21])
+    expect(sets[0][0].i).toBe(1)
+    expect(sets[1][0].i).toBe(9) // second set starts after the first 8
+  })
+  it('puts a count mismatch (leftover) into a trailing set', () => {
+    expect(splitSets(mk(30), [8, 21]).map((s) => s.length)).toEqual([8, 21, 1])
+  })
+  it('drops empty sets and falls back to one set with no sizes', () => {
+    expect(splitSets(mk(5), [8, 21]).map((s) => s.length)).toEqual([5]) // 2nd set empty
+    expect(splitSets(mk(5), []).map((s) => s.length)).toEqual([5])
+    expect(splitSets([], [8, 21])).toEqual([])
+  })
+})
+
+describe('evenCols', () => {
+  it('picks the largest divisor ≤ max for full rows', () => {
+    expect(evenCols(8)).toBe(8) // 1 row
+    expect(evenCols(21)).toBe(7) // 3 rows of 7
+    expect(evenCols(12)).toBe(6)
+  })
+  it('falls back to max columns for a prime with no neat divisor', () => {
+    expect(evenCols(13)).toBe(9) // remainder row centers
+    expect(evenCols(1)).toBe(1)
   })
 })

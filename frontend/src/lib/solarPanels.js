@@ -18,3 +18,27 @@ export function panelColor(watts, peak) {
   const frac = Math.min(1, w / p)
   return `rgba(245,158,11,${(0.18 + frac * 0.82).toFixed(2)})` // amber 0.18..1
 }
+
+// Slice the flat panel list into the configured set sizes (the system's physical
+// arrays), so each renders as its own block. Any leftover (count mismatch) becomes
+// a trailing set; empty sets are dropped. With no/invalid sizes → one set.
+export function splitSets(panels, sizes) {
+  const list = panels || []
+  if (!Array.isArray(sizes) || sizes.length === 0) return list.length ? [list] : []
+  const sets = []
+  let i = 0
+  for (const n of sizes) {
+    sets.push(list.slice(i, i + n))
+    i += n
+  }
+  if (i < list.length) sets.push(list.slice(i)) // leftover panels → their own set
+  return sets.filter((s) => s.length > 0)
+}
+
+// Columns for an evenly-filled rectangle of `n` cells: the largest divisor of n
+// that's ≤ max (so the rows are full, no ragged trailing gap). A prime > max
+// (no neat divisor) falls back to `max` columns (remainder row is centered).
+export function evenCols(n, max = 9) {
+  for (let c = Math.min(n, max); c >= 2; c--) if (n % c === 0) return c
+  return Math.min(Math.max(n, 1), max)
+}
