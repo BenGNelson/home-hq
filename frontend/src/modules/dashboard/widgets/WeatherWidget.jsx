@@ -2,7 +2,8 @@ import { Link } from 'react-router-dom'
 import { Droplets, Wind, Thermometer } from 'lucide-react'
 import { useApi } from '../../../lib/useApi.js'
 import { useDelayedFlag } from '../../../lib/useDelayedFlag.js'
-import { weatherInfo, formatTemp } from '../../../lib/weather.js'
+import { weatherInfo, weatherGlow, formatTemp } from '../../../lib/weather.js'
+import { glowFilter, radiantBackdrop } from '../../../lib/glow.js'
 
 // Wind degrees → 8-point compass abbreviation (mirrors the Weather page).
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
@@ -21,11 +22,16 @@ export default function WeatherWidget() {
 
   if (data && data.available === false && data.reason === 'not_configured') return null
 
+  // When live, back-light the banner with a radiant backdrop tinted to the
+  // current condition (the icon glow is applied in Hero).
+  const glow = data && data.available ? weatherGlow(data.current.code, data.current.is_day) : null
+
   return (
     <Link
       to="/weather"
       aria-label="Open the Weather page"
       className="group mb-4 block rounded-xl border border-slate-800 bg-slate-900/50 transition-colors hover:border-slate-700 hover:bg-slate-900/80"
+      style={glow ? { background: radiantBackdrop(glow) } : undefined}
     >
       <div className="p-5">
         {error && <p className="text-sm text-rose-400">unavailable — {error}</p>}
@@ -42,6 +48,7 @@ export default function WeatherWidget() {
 function Hero({ d }) {
   const c = d.current
   const { label, Icon, tone } = weatherInfo(c.code, c.is_day)
+  const glow = weatherGlow(c.code, c.is_day)
   // The three current-condition values, shared by both layouts so they can't
   // drift between mobile and desktop.
   const dir = compass(c.wind_dir)
@@ -51,7 +58,11 @@ function Hero({ d }) {
 
   return (
     <div className="flex items-center gap-4 sm:gap-6">
-      <Icon className={`h-14 w-14 shrink-0 ${tone}`} aria-hidden="true" />
+      <Icon
+        className={`h-14 w-14 shrink-0 ${tone}`}
+        aria-hidden="true"
+        style={{ filter: glowFilter(glow, c.is_day ? 0.7 : 0.4, { baseBlur: 6, blurGain: 16, baseAlpha: 0.2 }) }}
+      />
       <div className="shrink-0">
         <div className="text-4xl font-semibold tabular-nums text-slate-100">
           {formatTemp(c.temp, d.temp_unit)}

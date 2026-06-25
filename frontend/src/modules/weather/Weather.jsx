@@ -3,12 +3,14 @@ import { Droplets, Wind, Thermometer, ChevronDown } from 'lucide-react'
 import { useApi } from '../../lib/useApi.js'
 import {
   weatherInfo,
+  weatherGlow,
   formatTemp,
   dayName,
   tempColor,
   tempBarStyle,
   hourLabel,
 } from '../../lib/weather.js'
+import { glowFilter, radiantBackdrop } from '../../lib/glow.js'
 
 // The Weather module: current conditions + a 5-day forecast from Open-Meteo
 // (free, no API key). Hides/degrades until WEATHER_LAT/WEATHER_LON are set.
@@ -35,6 +37,7 @@ const compass = (deg) => (deg == null ? '' : COMPASS[Math.round(deg / 45) % 8])
 function Live({ d }) {
   const c = d.current
   const { label, Icon, tone } = weatherInfo(c.code, c.is_day)
+  const glow = weatherGlow(c.code, c.is_day) // back-lit color for this condition
   // Which day's hourly strip is expanded (null = none). Default to today open.
   const [openDate, setOpenDate] = useState(d.daily?.[0]?.date ?? null)
 
@@ -47,10 +50,18 @@ function Live({ d }) {
 
   return (
     <div className="space-y-4">
-      {/* Current conditions */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+      {/* Current conditions — back-lit by the weather (radiant backdrop + a glow
+          on the condition icon, both tinted to the condition). */}
+      <div
+        className="relative overflow-hidden rounded-xl border p-5"
+        style={{ borderColor: `rgba(${glow},0.22)`, background: radiantBackdrop(glow) }}
+      >
         <div className="flex items-center gap-4">
-          <Icon className={`h-14 w-14 shrink-0 ${tone}`} aria-hidden="true" />
+          <Icon
+            className={`h-14 w-14 shrink-0 ${tone}`}
+            aria-hidden="true"
+            style={{ filter: glowFilter(glow, c.is_day ? 0.7 : 0.4, { baseBlur: 6, blurGain: 16, baseAlpha: 0.2 }) }}
+          />
           <div>
             <div className="text-4xl font-semibold tabular-nums text-slate-100">
               {formatTemp(c.temp, d.temp_unit)}
