@@ -64,6 +64,7 @@ backend/app/
     printer.py       # /api/printer  (cached snapshot from the MQTT client)
     solar.py         # /api/solar    (live Enphase Envoy production via pyenphase)
     weather.py       # /api/weather  (current + 5-day forecast from Open-Meteo)
+    adguard.py       # /api/adguard  (read-only AdGuard Home ad-block stats via REST)
     plex.py          # /api/plex + library browser endpoints
     library.py       # /api/library  (owned-content hub: list + range-stream files)
   library.py         # pure: section framework, listing, the path-traversal guard
@@ -141,6 +142,7 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/catalog` | the home catalog — floors → rooms → items (devices/appliances/tools/infra), with stats; **live HA state overlaid** on items that have an entity; self-hides when unconfigured | parses the `CATALOG_FILE` YAML mounted read-only (defaults to a committed example) + joins the collector's `ha-catalog.json` live states |
 | `GET /api/solar` | live Enphase solar (production, consumption + net on metered systems, today/7-day/lifetime), self-hides when unconfigured | `pyenphase` reads the Envoy's local API; authenticated client + short TTL cached |
 | `GET /api/weather` | current conditions + 5-day forecast (each day carries its `hours` for the tap-to-expand hourly strip), self-hides when no location set | Open-Meteo (free, no API key); 10-min TTL cached |
+| `GET /api/adguard` | read-only AdGuard Home stats (blocked %, total/blocked query counts, protection on/off, top blocked domains), self-hides when unconfigured | two Basic-Auth GETs to AdGuard's REST API (`/control/stats` + `/control/status`); short TTL cached |
 | `GET /api/storage/db` | SQLite file size + per-table row counts (growth visibility) | stats the DB file + `COUNT(*)` per table |
 | `GET /api/diskio` | per-disk cumulative read/write bytes (rates computed client-side) | parses host `/proc/diskstats` |
 | `GET /api/raid` | software-RAID array state (healthy/degraded, rebuild %) | parses host `/proc/mdstat` |
@@ -762,6 +764,26 @@ forecast rendered as **one full-width row per day** (a colored lo→hi range bar
 it never goes lopsided like a wrapped grid) where **tapping a day expands its
 hourly strip** (temp + precip, scrollable).
 
+## Ad blocking (AdGuard Home)
+
+A **read-only** glance at ad/tracker blocking. The blocking itself is a separate
+host-side service — **AdGuard Home** in its own container, filtering DNS for
+chosen devices (here: one phone, over the mesh VPN) — deliberately kept *out* of
+the HQ stack so an AdGuard hiccup can't touch the dashboard, and out of the
+whole-house DNS path so the LAN never depends on this box to resolve. HQ does not
+run, configure, or proxy the resolver; it only reads its stats, true to the
+cockpit-vs-brain split (pausing and blocklists stay in AdGuard's own UI).
+
+`app/adguard.py` makes two Basic-Auth `requests.get` calls to AdGuard's REST API
+(`/control/stats` for query totals + `top_blocked_domains`, `/control/status` for
+`protection_enabled`), shapes them in a pure unit-tested `shape()` (→ blocked %,
+total/blocked counts, top domains), and caches for `ADGUARD_CACHE_TTL` seconds.
+Same graceful degradation as Solar/Weather: `available:false` with
+`not_configured` (no `ADGUARD_HOST`) or `unreachable` (any transport/JSON error).
+Like Solar, it needs no host privileges, so the backend calls it directly; the
+admin login lives in `.env`. The frontend is a self-hiding dashboard widget +
+a full page (blocked-% headline, query totals, top-blocked-domains list).
+
 ## Speedtest / ISP monitor
 
 Adds the *time* dimension to internet speed: an in-app sampler (same
@@ -1361,3 +1383,13 @@ Short record of *why* things are the way they are, so future changes have contex
   Storage/Printer status, etc.). The one place emoji deliberately remain is the
   **ntfy push notifications** the backend sends (`alerting.py` emoji tags) —
   those render as emoji on the phone, which is what we want there.
+- **Ad blocking: read its stats, don't run it.** The ad-blocking resolver
+  (AdGuard Home) is a standalone host-side service in its own container, NOT part
+  of the HQ stack — so an AdGuard problem can't take the dashboard down with it,
+  and it can be scoped to just the device(s) we want (here, one phone over the
+  mesh VPN) rather than the whole-house DNS path, which would make this box a
+  single point of failure for everyone's internet. HQ surfaces it the same way it
+  surfaces a 3D printer or a solar gateway: a read-only `/api/adguard` glance
+  (blocked %, top domains) with pausing/blocklists left to AdGuard's own UI —
+  cockpit, not brain. Direct backend REST read (no host privileges needed, like
+  Solar), admin login in `.env`.

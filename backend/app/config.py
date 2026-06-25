@@ -233,6 +233,17 @@ class Settings(BaseSettings):
     weather_units: str = "us"
     weather_cache_ttl: int = 600  # seconds to reuse the last Open-Meteo poll
 
+    # --- Ad blocking (AdGuard Home — read-only stats glance) ---
+    # All optional: absent adguard_host => /api/adguard reports available:false
+    # ("not_configured"). The ad-blocking resolver itself is a SEPARATE host-side
+    # service (its own container, filtering DNS for the phone over the mesh VPN);
+    # HQ only READS its REST API for a stats glance (blocked %, top domains). The
+    # admin password is a secret — it lives only in .env.
+    adguard_host: str = ""  # base URL of the AdGuard admin/API (e.g. http://host:3000)
+    adguard_username: str = ""  # AdGuard admin login
+    adguard_password: str = ""  # AdGuard admin password (secret)
+    adguard_cache_ttl: int = 30  # seconds to reuse the last AdGuard poll
+
     # --- In-app doc viewers (files mounted read-only into the container) ---
     # Under /readme & /srv-guide, not /app — see the mount note in
     # docker-compose.yml (the test runner bind-mounts ./backend over /app).
