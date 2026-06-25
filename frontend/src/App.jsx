@@ -75,6 +75,7 @@ import {
 const builtinModules = [
   { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: Home, group: 'Overview', tint: 'bg-emerald-500/15 text-emerald-400' },
   { id: 'weather', label: 'Weather', path: '/weather', icon: CloudSun, group: 'Overview', tint: 'bg-sky-500/15 text-sky-400' },
+  { id: 'solar', label: 'Solar', path: '/solar', icon: Sun, group: 'Overview', tint: 'bg-yellow-500/15 text-yellow-400' },
   { id: 'plex', label: 'Plex', path: '/plex', icon: Clapperboard, group: 'Media', tint: 'bg-rose-500/15 text-rose-400' },
   { id: 'library', label: 'Library', path: '/library', icon: LibraryIcon, group: 'Media', tint: 'bg-amber-500/15 text-amber-400' },
   { id: 'containers', label: 'Containers', path: '/containers', icon: Container, group: 'System', tint: 'bg-sky-500/15 text-sky-400' },
@@ -87,7 +88,6 @@ const builtinModules = [
   { id: 'adguard', label: 'Ad Blocking', path: '/adguard', icon: ShieldBan, group: 'Network', tint: 'bg-red-500/15 text-red-400' },
   { id: 'catalog', label: 'Home Catalog', path: '/catalog', icon: Boxes, group: 'Devices', tint: 'bg-purple-500/15 text-purple-400' },
   { id: 'printer', label: '3D Printer', path: '/printer', icon: PrinterIcon, group: 'Devices', tint: 'bg-orange-500/15 text-orange-400' },
-  { id: 'solar', label: 'Solar', path: '/solar', icon: Sun, group: 'Devices', tint: 'bg-yellow-500/15 text-yellow-400' },
   { id: 'alerts', label: 'Alerts', path: '/alerts', icon: Bell, group: 'Monitoring', tint: 'bg-red-500/15 text-red-400' },
   { id: 'uptime', label: 'Uptime', path: '/uptime', icon: Activity, group: 'Monitoring', tint: 'bg-lime-500/15 text-lime-400' },
   { id: 'guide', label: 'Under the Hood', path: '/guide', icon: Wrench, group: 'Docs' },
