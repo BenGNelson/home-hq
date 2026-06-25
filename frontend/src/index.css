@@ -189,3 +189,18 @@ html {
   --color-slate-100: #e8ebee;
   --color-slate-50:  #f4f6f8;
 }
+
+/*
+  Animated energy-flow connectors on the Solar page: dashes drift from source to
+  target to suggest power moving along each leg (Sun → Home, Home ↔ Grid). The
+  dasharray sums to 12, so a -12 offset is exactly one cycle. Honors reduced-motion.
+*/
+@keyframes hq-solar-flow {
+  to { stroke-dashoffset: -12; }
+}
+.solar-flow-line {
+  animation: hq-solar-flow 0.7s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .solar-flow-line { animation: none; }
+}

@@ -7,10 +7,13 @@ app/solar.py for the why + the auth model). available:false ("not_configured" |
 UI degrades cleanly — same pattern as /api/printer and /api/ha.
 """
 
+import time
+
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from app import solar
+from app import db, solar
+from app.solar_history import summarize_history
 
 router = APIRouter()
 
@@ -47,3 +50,32 @@ class SolarModel(BaseModel):
 async def get_solar():
     """Live solar snapshot (cached briefly server-side to smooth polling)."""
     return await solar.get_solar()
+
+
+class SolarSampleModel(BaseModel):
+    ts: int = Field(description="When recorded, epoch seconds")
+    prod_watts: int | None = Field(default=None, description="Production, W")
+    cons_watts: int | None = Field(default=None, description="Consumption, W (metered)")
+    net_watts: int | None = Field(default=None, description="Net flow, W (metered)")
+
+
+class SolarHistoryStatsModel(BaseModel):
+    samples: int = Field(description="Number of samples in the window")
+    peak_watts: int | None = Field(default=None, description="Peak production seen, W")
+    latest_watts: int | None = Field(default=None, description="Most recent production, W")
+
+
+class SolarHistoryModel(BaseModel):
+    hours: int = Field(description="Width of the returned window, hours")
+    samples: list[SolarSampleModel] = Field(description="Samples, oldest-first")
+    stats: SolarHistoryStatsModel
+
+
+@router.get("/solar/history", response_model=SolarHistoryModel)
+def get_solar_history(hours: int = 24):
+    """The intraday (default) production trend from the in-app sampler — empty
+    until samples accumulate (or while solar is unconfigured)."""
+    hours = max(1, min(hours, 720))
+    since = time.time() - hours * 3600
+    samples = db.recent_solar_samples(since_ts=since)
+    return {"hours": hours, "samples": samples, "stats": summarize_history(samples)}

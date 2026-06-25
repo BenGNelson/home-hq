@@ -221,6 +221,11 @@ class Settings(BaseSettings):
     enphase_password: str = ""  # Enlighten password (secret)
     enphase_token: str = ""  # optional: a pre-minted token used instead of user/pass
     solar_cache_ttl: int = 10  # seconds to reuse the last Envoy poll (smooths widget polling)
+    # Intraday trend sampler (in-app, like the storage/plex/speedtest samplers):
+    # records production/consumption to SQLite while the Envoy is reachable so the
+    # Solar page can chart the day's curve. No-op until solar is configured.
+    solar_history_interval: int = 300  # seconds between trend samples
+    solar_history_days: int = 30  # retention window (days)
 
     # --- Weather (Open-Meteo — free, NO API key) ---
     # All optional: absent lat/lon => /api/weather reports available:false
