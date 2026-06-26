@@ -1280,6 +1280,14 @@ update a test whenever you change a helper, query, parser, or endpoint.
   proxy, build/runtime errors, white-screen crashes — the durable successor to
   the one-off headless checks. Needs the stack up; gates `scripts/deploy.sh` and
   CI. Add a page by appending a `(path, [expected text])` tuple to `PAGES`.
+- **Visual regression — Playwright** (`e2e/visual.py`, run by `scripts/visual.sh`)
+  is a **local-only** aid (not a CI gate): it screenshots every page and pixel-diffs
+  against a stored baseline to catch an unintended layout/CSS shift. The captures
+  come from the live app — so they hold real host data and are **gitignored**, never
+  committed and not reproducible on CI's empty stack. It's coarse by nature (the
+  dashboard's live hero/graphs always move a little), so a flagged page means
+  "go look at `e2e/screenshots/diff/`", not "definitely broken".
+  `UPDATE_BASELINE=1 scripts/visual.sh` re-establishes the baseline.
 
 `scripts/deploy.sh` chains it all: unit suites → build + deploy the prod images →
 e2e smoke, stopping at the first failure. CI (`.github/workflows/ci.yml`) runs

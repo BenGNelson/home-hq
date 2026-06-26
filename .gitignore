@@ -22,6 +22,12 @@ dist/
 # fetched by scripts/fetch-emulatorjs.sh — never committed.
 frontend/public/emulatorjs/
 
+# Visual-regression screenshots — captured from the LIVE app, so they contain
+# real host data (tailnet device names, Plex titles, catalog rooms). Host-side
+# only; never committed to the public repo. The harness (e2e/visual.py) IS
+# committed; its baseline/current/diff PNGs are not.
+e2e/screenshots/
+
 # --- Editor / OS noise ---
 .DS_Store
 *.swp
