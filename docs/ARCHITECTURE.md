@@ -512,7 +512,11 @@ globals and has no clean teardown, so it lives in a static page,
 `data`). The React `Player` just renders that page in an iframe and removes it to
 tear the engine fully down — nothing leaks into the SPA. `emulator.html`
 allowlists its `data` (engine) source to a same-origin path or the official
-EmulatorJS CDN, so the param can't be abused to load arbitrary script.
+EmulatorJS CDN, so the param can't be abused to load arbitrary script (the JS
+guard rejects a protocol-relative `//host` too). As defence-in-depth that page
+also carries **its own CSP** (nginx, `= /emulator.html`) bounding `script-src` to
+`'self'` + that one CDN — looser than the app shell only where EmulatorJS needs
+it (WASM/eval, blob workers, the inline boot script).
 
 **The engine is self-hosted + pinned.** `scripts/fetch-emulatorjs.sh` downloads a
 pinned EmulatorJS release (v4.2.3) into `frontend/public/emulatorjs/` (gitignored,
