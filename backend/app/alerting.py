@@ -118,23 +118,44 @@ def _check_containers(ctx):
     c = ctx.get("containers") or {}
     if not c.get("available"):
         return None, ""
-    down = sorted(x["name"] for x in c.get("containers", []) if x.get("status") in ("exited", "dead"))
+    # Skip `*-dev` containers: they're opt-in `profiles: ["dev"]` services that
+    # are *expected* to be down most of the time, so a stopped dev container
+    # isn't a fault worth a push. Prod containers don't carry the suffix.
+    down = sorted(
+        x["name"]
+        for x in c.get("containers", [])
+        if x.get("status") in ("exited", "dead") and not x["name"].endswith("-dev")
+    )
     if down:
         return "down:" + ",".join(down), f"Container(s) down: {', '.join(down)}"
     return None, ""
 
 
 def _check_printer(ctx):
-    p = ctx.get("printer") or {}
-    if not p.get("available"):
+    """Fire once per *completed* print, and clear once the printer moves on.
+
+    Dedupe on the latest recorded `print_history` row id — the same
+    RUNNING/PAUSE→FINISH/FAILED completion the printer page shows — so loading a
+    new plate without printing (which leaves the Bambu sitting in FINISH,
+    re-publishing the same telemetry) can't edge-trigger a phantom alert: the id
+    only changes when a genuinely new print is recorded. We also gate on the
+    *live* terminal state so the rule reads OK again once the printer powers off
+    or starts the next job, instead of staying amber forever."""
+    pr = (ctx.get("printer") or {}).get("printer") or {}
+    if pr.get("state") not in ("FINISH", "FAILED"):
         return None, ""
-    pr = p.get("printer") or {}
-    name = pr.get("file") or "print"
-    if pr.get("state") == "FINISH":
-        return f"done:{name}", f"Print finished: {name}"
-    if pr.get("state") == "FAILED":
-        return f"failed:{name}", f"Print FAILED: {name}"
-    return None, ""
+    if "last_print" not in ctx:
+        # Print history couldn't be read this tick. Raise so the engine SKIPS the
+        # rule (preserving its stored key) instead of reading the absence as
+        # "cleared" and re-firing the already-announced completion next tick.
+        raise RuntimeError("print history unavailable")
+    last = ctx["last_print"]
+    if not last:
+        return None, ""
+    name = last.get("file") or "print"
+    if last.get("result") == "success":
+        return f"done:{last['id']}", f"Print finished: {name}"
+    return f"failed:{last['id']}", f"Print FAILED: {name}"
 
 
 def _check_printer_paused(ctx):
@@ -318,6 +339,16 @@ class AlertManager:
             ctx["printer"] = client.snapshot() if client else {}
         except Exception:
             ctx["printer"] = {}
+        # The most recent *recorded* completion (a print_history row). The printer
+        # finish alert keys off this so it stays 1:1 with the printer page rather
+        # than re-firing on live-snapshot filename churn. On a read error leave
+        # `last_print` ABSENT (not None) — _check_printer then holds its state
+        # instead of treating the gap as a cleared/finished print.
+        try:
+            recent = db.recent_prints(1)
+            ctx["last_print"] = recent[0] if recent else None
+        except Exception:
+            pass
         return ctx
 
     def evaluate(self) -> None:

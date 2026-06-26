@@ -951,7 +951,18 @@ SMART, 🗄️ capacity, 🔌 external drive, 📦 containers, 🖨️ printer (
 ⏸ paused (catches filament runout — the stage reads "Changing filament"), ⚠️
 printer HMS faults, 🛰️ printer-offline-mid-print.
 
-A few of those deserve a note. **Printer-offline** fires *only* when the printer
+A few of those deserve a note. The **printer done/failed** rule dedupes on the
+latest *recorded* print's id (a `print_history` row — the same completion the
+printer page shows) and gates on the live terminal state, so it fires exactly once
+per real completion and stays 1:1 with the printer page. The Bambu sits in FINISH
+long after a job and re-publishes whenever a new plate is loaded; keying off the
+live filename used to edge-trigger phantom "finished" alerts for prints we never
+watched, while the live-state gate lets the rule read OK again once the printer
+powers off or starts the next job (rather than staying amber forever). The
+**containers** rule skips any container
+whose name ends in `-dev` — those are opt-in `profiles: ["dev"]` services that are
+expected to be down, so a stopped dev container isn't a fault worth a push.
+**Printer-offline** fires *only* when the printer
 vanishes mid-print (last state RUNNING/PAUSE) — a dead telemetry pipe, a crash,
 or the upstream router's WAN IP drifting (which silently breaks the printer
 host); a normal power-down while idle stays quiet. The **external-drive** rule
