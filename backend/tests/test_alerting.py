@@ -1,5 +1,7 @@
 """Tests for the alerting engine: rule checks (pure) + edge-trigger behavior."""
 
+import pytest
+
 from app import alerting, notify
 from app.alerting import (
     RULES,
@@ -121,14 +123,40 @@ def test_container_down():
     assert key == "down:qb" and "qb" in msg
 
 
-def test_printer_done_failed_running():
-    # ctx["printer"] holds the printer SNAPSHOT, i.e. {available, printer:{...}}.
-    def pctx(state):
-        return {"printer": {"available": True, "printer": {"state": state, "file": "a.3mf"}}}
+def test_container_down_skips_dev_containers():
+    # `*-dev` are opt-in dev services expected to be down — not alert-worthy.
+    ctx = {"containers": {"available": True, "containers": [
+        {"name": "home-hq-frontend-dev", "status": "exited"},
+        {"name": "fair-play-web-dev", "status": "exited"},
+        {"name": "qb", "status": "exited"}]}}
+    key, msg = _check_containers(ctx)
+    assert key == "down:qb" and "dev" not in msg
+    # A lone dev container down stays quiet.
+    ctx_dev_only = {"containers": {"available": True, "containers": [
+        {"name": "home-hq-frontend-dev", "status": "exited"}]}}
+    assert _check_containers(ctx_dev_only) == (None, "")
 
-    assert _check_printer(pctx("FINISH"))[0] == "done:a.3mf"
-    assert _check_printer(pctx("FAILED"))[0] == "failed:a.3mf"
-    assert _check_printer(pctx("RUNNING")) == (None, "")
+
+def test_printer_done_failed_idle():
+    # Gated on the live terminal state; dedup key comes from the latest RECORDED
+    # print_history row (ctx["last_print"]) so it's 1:1 with the printer page.
+    def ctx(state, last):
+        return {"printer": {"available": True, "printer": {"state": state}}, "last_print": last}
+
+    row = {"id": 7, "file": "a.3mf", "result": "success"}
+    assert _check_printer(ctx("FINISH", row)) == ("done:7", "Print finished: a.3mf")
+    assert _check_printer(ctx("FINISH", {"id": 7, "file": "a.3mf", "result": "failed"}))[0] == "failed:7"
+    # Printer isn't sitting on a finished plate -> OK regardless of history,
+    # so the UI clears once it powers off / starts the next job.
+    assert _check_printer(ctx("RUNNING", row)) == (None, "")
+    assert _check_printer(ctx("IDLE", row)) == (None, "")
+    assert _check_printer({"last_print": row}) == (None, "")  # no snapshot at all
+    # Sitting in FINISH but nothing recorded yet -> nothing to announce.
+    assert _check_printer(ctx("FINISH", None)) == (None, "")
+    # Sitting in FINISH but history unreadable this tick -> raise so the engine
+    # skips (holds state) instead of clearing.
+    with pytest.raises(RuntimeError):
+        _check_printer({"printer": {"available": True, "printer": {"state": "FINISH"}}})
 
 
 def test_printer_paused_surfaces_stage():
@@ -183,6 +211,60 @@ def test_edge_trigger_prime_fire_dedupe_clear(monkeypatch):
     mgr.evaluate()
     assert len(sent) == 2
     assert any(r["firing"] is False for r in mgr.status())
+
+
+def test_printer_alert_fires_once_per_recorded_print(monkeypatch):
+    # A new print_history row (new id) fires exactly once; the same id sitting
+    # there across ticks (printer idling in FINISH) never re-fires.
+    sent = []
+    monkeypatch.setattr(notify, "notify", lambda *a, **k: (sent.append((a, k)), True)[1])
+    mgr = AlertManager(60)
+
+    def ctx_last(print_row, now, state="FINISH"):
+        return {"now": now, "printer": {"available": True, "printer": {"state": state}},
+                "last_print": print_row}
+
+    # 1) prime silently on the print already on the bed
+    monkeypatch.setattr(mgr, "build_context", lambda: ctx_last({"id": 1, "file": "a.3mf", "result": "success"}, NOW))
+    mgr.evaluate()
+    assert sent == []
+
+    # 2) same id across ticks -> no fire (no new completion)
+    mgr.evaluate()
+    assert sent == []
+
+    # 3) a new print completes (new id) -> one notification
+    monkeypatch.setattr(mgr, "build_context", lambda: ctx_last({"id": 2, "file": "b.3mf", "result": "success"}, NOW + 60))
+    mgr.evaluate()
+    assert len(sent) == 1
+
+    # 4) printer powers off / leaves terminal state -> rule clears to OK (no push,
+    #    notify_on_clear=False) so the UI doesn't stay amber forever.
+    monkeypatch.setattr(mgr, "build_context",
+                        lambda: ctx_last({"id": 2, "file": "b.3mf", "result": "success"}, NOW + 120, state="IDLE"))
+    mgr.evaluate()
+    assert len(sent) == 1
+    assert any(r["id"] == "printer" and r["firing"] is False for r in mgr.status())
+
+
+def test_printer_alert_holds_state_when_history_unreadable(monkeypatch):
+    # A transient print-history read error (last_print absent) must NOT clear the
+    # key and re-fire the already-announced completion on the next good tick.
+    sent = []
+    monkeypatch.setattr(notify, "notify", lambda *a, **k: (sent.append((a, k)), True)[1])
+    mgr = AlertManager(60)
+    term = {"printer": {"available": True, "printer": {"state": "FINISH"}}}
+    row = {"id": 1, "file": "a.3mf", "result": "success"}
+
+    monkeypatch.setattr(mgr, "build_context", lambda: {"now": NOW, **term, "last_print": row})
+    mgr.evaluate()  # prime
+    # history unreadable this tick -> rule raises -> engine skips, state preserved
+    monkeypatch.setattr(mgr, "build_context", lambda: {"now": NOW + 60, **term})
+    mgr.evaluate()
+    # readable again, SAME completion -> must not re-fire
+    monkeypatch.setattr(mgr, "build_context", lambda: {"now": NOW + 120, **term, "last_print": row})
+    mgr.evaluate()
+    assert sent == []
 
 
 def test_heartbeat_pings_when_configured(monkeypatch):
