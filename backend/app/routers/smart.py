@@ -10,12 +10,12 @@ backup: privileged work on the host, the app only reads the result.
 The file may not exist yet (timer hasn't run) — we degrade to available:false.
 """
 
-import json
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from app.collectors import read_collector_json
 from app.routers import raid
 
 router = APIRouter()
@@ -238,10 +238,8 @@ def parse_nvme_health(report):
 def get_smart_attributes(name: str):
     """The full SMART attribute table for one drive, fetched on demand when its
     row is expanded (kept out of the polled /smart list to keep that lean)."""
-    try:
-        with open(settings.smart_json_path) as fh:
-            data = json.load(fh)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
+    data = read_collector_json(settings.smart_json_path)
+    if data is None:
         return {"available": False}
     for raw in data.get("drives", []):
         if raw.get("name") == name:
@@ -258,10 +256,8 @@ def get_smart_attributes(name: str):
 
 @router.get("/smart", response_model=SmartModel, response_model_exclude_none=True)
 def get_smart():
-    try:
-        with open(settings.smart_json_path) as fh:
-            data = json.load(fh)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
+    data = read_collector_json(settings.smart_json_path)
+    if data is None:
         return {"available": False}
 
     raid_members = _raid_member_disks()

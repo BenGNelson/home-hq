@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from app import uptime
 from app.config import settings
+from app.collectors import read_collector_json
 
 router = APIRouter()
 
@@ -45,10 +46,8 @@ class UptimeModel(BaseModel):
 
 @router.get("/uptime", response_model=UptimeModel)
 def get_uptime():
-    try:
-        with open(settings.uptime_json_path) as fh:
-            data = json.load(fh)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
+    data = read_collector_json(settings.uptime_json_path)
+    if data is None:
         return {"configured": False, "stale": True, "interval": None, "targets": []}
 
     import time

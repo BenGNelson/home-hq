@@ -19,6 +19,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from app.collectors import read_collector_json
 
 router = APIRouter()
 
@@ -88,10 +89,8 @@ def summarize(data, now=None):
 
 @router.get("/drive-watchdog", response_model=WatchdogModel, response_model_exclude_none=True)
 def get_drive_watchdog():
-    try:
-        with open(settings.watchdog_state_path) as fh:
-            data = json.load(fh)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
+    data = read_collector_json(settings.watchdog_state_path)
+    if data is None:
         return {"available": False}
     result = summarize(data)
     result["recoveries"] = read_events(settings.watchdog_events_path)
