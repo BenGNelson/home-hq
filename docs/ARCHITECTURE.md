@@ -334,8 +334,9 @@ app's card-glow intensity lives in one constant:
   being decoration). Current earned uses: **System** is tinted by server health
   (`lib/health.js` — emerald→amber→rose off the worst of memory+disk; CPU is
   excluded so the hue doesn't flicker per poll), **Printer** glows warm only while
-  a job is actively printing, and **Plex** glows its signature gold only while a
-  stream is live. A card with no meaningful state stays flat.
+  a job is actively printing, **Plex** glows its signature gold only while a
+  stream is live, and **Tailscale** carries a status hue (emerald when the mesh is
+  up, rose when disconnected). A card with no meaningful state stays flat.
 
 ## Plex library browser (the one stateful feature)
 
