@@ -333,8 +333,9 @@ app's card-glow intensity lives in one constant:
 - **The accent color must MEAN something** (that's the rule that keeps it from
   being decoration). Current earned uses: **System** is tinted by server health
   (`lib/health.js` — emerald→amber→rose off the worst of memory+disk; CPU is
-  excluded so the hue doesn't flicker per poll), and **Printer** glows warm only
-  while a job is actively printing. A card with no meaningful state stays flat.
+  excluded so the hue doesn't flicker per poll), **Printer** glows warm only while
+  a job is actively printing, and **Plex** glows its signature gold only while a
+  stream is live. A card with no meaningful state stays flat.
 
 ## Plex library browser (the one stateful feature)
 
