@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useApi } from '../lib/useApi.js'
 import { useOnline } from '../lib/online.jsx'
@@ -112,9 +112,34 @@ export default function Shell({ modules, children }) {
   const [open, setOpen] = useState(false)
   const location = useLocation()
   const { online } = useOnline()
+  const sidebarRef = useRef(null)
 
   // Close the mobile drawer whenever the route changes (after a tap).
   useEffect(() => setOpen(false), [location.pathname])
+
+  // Dismiss the open mobile drawer with Escape (the overlay-a11y norm).
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => e.key === 'Escape' && setOpen(false)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
+
+  // When the drawer is closed ON MOBILE it's only translated off-screen, so its
+  // links would otherwise stay focusable + announced. Mark it `inert` in that
+  // state only — never on md+ where the same <aside> is the always-visible
+  // sidebar. (inert implies aria-hidden, so screen readers skip it too.)
+  useEffect(() => {
+    const el = sidebarRef.current
+    if (!el) return
+    const mq = window.matchMedia('(max-width: 767px)')
+    const apply = () => {
+      el.inert = mq.matches && !open
+    }
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [open])
 
   // Group the flat registry into labeled sections. The Docs group renders apart
   // at the bottom (reference material, not functional modules); everything else
@@ -138,6 +163,8 @@ export default function Shell({ modules, children }) {
       )}
 
       <aside
+        ref={sidebarRef}
+        id="app-sidebar"
         className={`fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 transform flex-col border-r border-slate-800 bg-slate-900 px-4 pb-4 transition-transform md:static md:translate-x-0 md:bg-slate-900/50 [padding-top:calc(env(safe-area-inset-top)+1rem)] ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
@@ -174,7 +201,9 @@ export default function Shell({ modules, children }) {
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-label="Toggle navigation"
-            className="rounded-lg p-1 text-slate-300 hover:bg-slate-800 md:hidden"
+            aria-expanded={open}
+            aria-controls="app-sidebar"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-300 hover:bg-slate-800 md:hidden"
           >
             {/* Hamburger */}
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
