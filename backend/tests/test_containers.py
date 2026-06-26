@@ -157,6 +157,26 @@ def test_logs_endpoint_withholds_excluded_container(client, monkeypatch):
     assert "disabled" in body["reason"].lower()
 
 
+def test_logs_endpoint_blocks_excluded_container_requested_by_id(client, monkeypatch):
+    import docker
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "container_logs_exclude", "gluetun")
+
+    class _Excluded:
+        name = "/gluetun"  # Docker reports the name with a leading slash
+
+        def logs(self, **kw):
+            raise AssertionError("an excluded container's logs must never be read")
+
+    monkeypatch.setattr(docker, "from_env", lambda: _FakeClient(container=_Excluded()))
+    # Ask by a 64-hex id (which isn't the excluded *name*, so the up-front name
+    # check passes) — the resolved name is still gluetun, so the re-check withholds it.
+    body = client.get("/api/containers/" + "a" * 64 + "/logs").json()
+    assert body["available"] is False and body["excluded"] is True
+    assert body["name"] == "gluetun"  # leading slash stripped
+
+
 def test_logs_endpoint_not_found(client, monkeypatch):
     import docker
 

@@ -99,6 +99,12 @@ class Settings(BaseSettings):
     # (still only over the LAN/tailnet — never the public internet).
     container_logs_exclude: str = ""
 
+    # Comma-separated browser origins allowed to call the API cross-origin (CORS).
+    # The SPA is served same-origin behind nginx, so it needs NOTHING here; leave
+    # empty to deny all cross-origin browser access (the secure default). Only add
+    # an origin if some other browser app must reach the API directly.
+    cors_allow_origins: str = ""
+
     # --- Config backup (read-only listing; backups are created by a host script) ---
     backup_dir: str = ""  # where encrypted backups land (under RAID_MOUNT)
     age_recipient: str = ""  # public key — presence = "backups configured"
