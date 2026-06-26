@@ -340,14 +340,16 @@ def create_save_state(
     state_path, shot_path = library.save_state_files(saves_root, id, slot)
     if not state_path:
         return Response(status_code=400)
-    data = state.file.read()
+    # Read at most cap+1 bytes so an oversized upload is rejected without ever
+    # buffering the whole (possibly multi-GB) body.
+    data = state.file.read(_MAX_STATE_BYTES + 1)
     if not data or len(data) > _MAX_STATE_BYTES:
         return Response(status_code=413)
     os.makedirs(os.path.dirname(state_path), exist_ok=True)
     with open(state_path, "wb") as fh:
         fh.write(data)
     if screenshot is not None:
-        shot = screenshot.file.read()
+        shot = screenshot.file.read(_MAX_SHOT_BYTES + 1)
         if shot and len(shot) <= _MAX_SHOT_BYTES:
             with open(shot_path, "wb") as fh:
                 fh.write(shot)
@@ -382,7 +384,7 @@ def put_sram(
     path = library.sram_file(settings.games_saves_dir, id)
     if not path:
         return Response(status_code=400)
-    data = sram.file.read()
+    data = sram.file.read(_MAX_STATE_BYTES + 1)  # cap+1 — never buffer the whole body
     if not data or len(data) > _MAX_STATE_BYTES:
         return Response(status_code=413)
     os.makedirs(os.path.dirname(path), exist_ok=True)

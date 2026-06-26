@@ -181,12 +181,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Allow the browser-based frontend to call this API. In a homelab we keep it
-# permissive; tighten to specific origins if this ever leaves the tailnet.
+# CORS. The SPA is served same-origin (nginx proxies /api), so it triggers no
+# preflight and needs no allowed origin — an empty CORS_ALLOW_ORIGINS therefore
+# denies all *cross-origin* browser access without affecting the app. Add origins
+# only for a separate browser client. (The network boundary is still the primary
+# control; this stops the unauthenticated API from being a cross-origin target.)
+_cors_origins = [o.strip() for o in (settings.cors_allow_origins or "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_origins=_cors_origins,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 

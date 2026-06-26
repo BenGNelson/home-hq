@@ -305,6 +305,17 @@ def get_container_logs(name: str, tail: int = _LOGS_TAIL_DEFAULT):
     try:
         client = docker.from_env()
         c = client.containers.get(name)
+        # The exclusion above matches on the requested name, but containers.get()
+        # also resolves a 64-hex id — re-check the RESOLVED name so a sensitive
+        # container can't be read by asking for it by id instead of by name.
+        resolved = c.name.lstrip("/")
+        if resolved.lower() in _excluded_log_names():
+            return {
+                "available": False,
+                "excluded": True,
+                "name": resolved,
+                "reason": "Logs are disabled for this container.",
+            }
         # timestamps=True prefixes each line with an RFC3339 time; tail caps it so
         # we never stream a whole history. stream=False returns the bytes at once.
         raw = c.logs(tail=tail, timestamps=True, stdout=True, stderr=True, stream=False)
