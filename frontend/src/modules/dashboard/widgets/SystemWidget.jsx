@@ -3,6 +3,7 @@ import { useNetworkRates } from '../../../lib/useRates.js'
 import { Row, Bar, WidgetSkeleton } from '../../../components/ui.jsx'
 import { formatBytes, formatRate, formatUptime } from '../../../lib/format.js'
 import { primaryGpu, gpuCaption } from '../../../lib/gpu.js'
+import { healthAccent } from '../../../lib/health.js'
 import Widget from './Widget.jsx'
 
 // GPU stats come from a separate host-timer source (/api/gpu); the rows below
@@ -20,11 +21,17 @@ export default function SystemWidget() {
   const gpuApi = useApi('/gpu', 5000)
   const g = primaryGpu(gpuApi.data)
 
+  // Back-light the card by the server's health: the worst of the SUSTAINED
+  // pressures (memory + disk). CPU is left out on purpose — it spikes per poll
+  // and would make the glow flicker. null until data lands (no glow while loading).
+  const accent = data ? healthAccent(data.memory?.percent, data.disk?.percent) : null
+
   return (
     <Widget
       title="System"
       loading={loading}
       error={error}
+      accent={accent}
       // Match the real body height: 3 rows + CPU/Memory/Disk bars, plus GPU/VRAM
       // when a GPU is present (/api/gpu resolves before /system, so `g` is known
       // by the time the skeleton is revealed) — so the card doesn't grow on load.

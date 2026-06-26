@@ -317,6 +317,25 @@ not the theme-swapped slate/emerald ramp, and always fade gradients to
 this on hero/at-a-glance surfaces; keep dense data tables flat so the glow stays a
 highlight, not noise.
 
+**Back-lit cards (the reusable, tuned-in-one-place version).** For dashboard
+widgets the motif is packaged so a card opts in with a single prop and the whole
+app's card-glow intensity lives in one constant:
+
+- `lib/glow.js` exports `backlitSurface(rgb)` (tinted border + radiant backdrop)
+  and `backlitDot(rgb)` (a glowing status dot), both driven by the central
+  `BACKLIT` knobs (`backdropAlpha`/`borderAlpha`/`dotIntensity`) — bump those to
+  re-tune every back-lit card at once. These are the **softer card tier**; the
+  full-page heroes (Solar/Weather) use `radiantBackdrop` directly at its brighter
+  default, so the two tiers stay distinct.
+- The shared `Widget` wrapper takes an optional **`accent`** (an "r,g,b" string).
+  Pass it and the card lights up; omit it and the card is the normal flat slate.
+  It only lights once data has resolved (and never on an error card).
+- **The accent color must MEAN something** (that's the rule that keeps it from
+  being decoration). Current earned uses: **System** is tinted by server health
+  (`lib/health.js` — emerald→amber→rose off the worst of memory+disk; CPU is
+  excluded so the hue doesn't flicker per poll), and **Printer** glows warm only
+  while a job is actively printing. A card with no meaningful state stays flat.
+
 ## Plex library browser (the one stateful feature)
 
 A **sync** job (`POST /api/plex/sync`, background thread) walks Plex once and

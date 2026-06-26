@@ -18,3 +18,29 @@ export function glowFilter(
 export function radiantBackdrop(rgb, alpha = 0.3) {
   return `radial-gradient(120% 120% at 50% -10%, rgba(${rgb},${alpha}), transparent 65%)`
 }
+
+// Centralized knobs for the "back-lit CARD" treatment (a dashboard widget lit by
+// an accent color) — softer than the full-page heroes, which use radiantBackdrop
+// directly at its brighter default. Tune these to dial every back-lit card up or
+// down at once.
+export const BACKLIT = { backdropAlpha: 0.16, borderAlpha: 0.35, dotIntensity: 0.7 }
+
+// The inline style for a back-lit surface: a radiant backdrop fading to
+// transparent + a faintly tinted border, both in the accent color (the fade lets
+// the themed page show through, so it stays theme-safe). `rgb` is an "r,g,b"
+// string. This is the one-liner that opts any card into the motif.
+export function backlitSurface(rgb) {
+  return {
+    borderColor: `rgba(${rgb},${BACKLIT.borderAlpha})`,
+    background: radiantBackdrop(rgb, BACKLIT.backdropAlpha),
+  }
+}
+
+// The matching glowing "status dot" style — a small filled dot that reads as a
+// little light source in the accent color (drop it beside a title).
+export function backlitDot(rgb) {
+  return {
+    backgroundColor: `rgb(${rgb})`,
+    filter: glowFilter(rgb, BACKLIT.dotIntensity, { baseBlur: 4, blurGain: 8, baseAlpha: 0.4 }),
+  }
+}
