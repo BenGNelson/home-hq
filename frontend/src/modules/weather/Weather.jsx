@@ -10,8 +10,12 @@ import {
   tempColor,
   tempBarStyle,
   hourLabel,
+  uvInfo,
+  formatPrecip,
 } from '../../lib/weather.js'
 import { glowFilter, radiantBackdrop } from '../../lib/glow.js'
+import { SunArc } from '../../components/SunArc.jsx'
+import { Sun, Umbrella } from 'lucide-react'
 
 // The Weather module: current conditions + a 5-day forecast from Open-Meteo
 // (free, no API key). Hides/degrades until WEATHER_LAT/WEATHER_LON are set.
@@ -52,6 +56,17 @@ function Live({ d }) {
   const weekMin = los.length ? Math.min(...los) : null
   const weekMax = his.length ? Math.max(...his) : null
 
+  // Today's extras for the hero: high/low, the sun-arc, the UV + expected-precip
+  // chips. `today` is the first forecast day (carries sunrise/sunset/uv/precip).
+  const today = d.daily?.[0]
+  const metric = d.temp_unit === '°C'
+  const uv = today ? uvInfo(today.uv_max) : null
+  const precipToday = today ? formatPrecip(today.precip_sum, metric) : null
+  const hl =
+    today && today.hi != null && today.lo != null
+      ? `H ${Math.round(today.hi)}°   L ${Math.round(today.lo)}°`
+      : null
+
   return (
     <div className="space-y-4">
       {/* Current conditions — back-lit by the weather (radiant backdrop + a glow
@@ -71,6 +86,7 @@ function Live({ d }) {
               {formatTemp(c.temp, d.temp_unit)}
             </div>
             <div className="text-sm text-slate-400">{label}</div>
+            {hl && <div className="mt-0.5 text-xs tabular-nums text-slate-400">{hl}</div>}
           </div>
           <div className="ml-auto grid grid-cols-1 gap-1 text-sm text-slate-400">
             <span className="flex items-center justify-end gap-1.5">
@@ -87,6 +103,29 @@ function Live({ d }) {
             </span>
           </div>
         </div>
+
+        {/* Sun-arc band: the day's path with the sun at the current time, plus a
+            UV + expected-precip chip row — the "lit by the sky" detail. */}
+        {today?.sunrise && (
+          <div className="mt-4 border-t border-slate-700/40 pt-3">
+            <SunArc sunrise={today.sunrise} sunset={today.sunset} now={c.time} isDay={c.is_day} />
+            <div className="mt-1.5 flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-[11px] text-slate-400">
+              {today.uv_max != null && (
+                <span className="flex items-center gap-1.5">
+                  <Sun className="h-3.5 w-3.5 text-amber-300/80" aria-hidden="true" />
+                  UV <span className={`font-medium tabular-nums ${uv.tone}`}>{Math.round(today.uv_max)}</span>
+                  <span className={uv.tone}>{uv.label}</span>
+                </span>
+              )}
+              {precipToday && (
+                <span className="flex items-center gap-1.5">
+                  <Umbrella className="h-3.5 w-3.5 text-sky-300/80" aria-hidden="true" />
+                  <span className="text-sky-300">{precipToday}</span> expected
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 5-day forecast — one full-width row per day (never lopsided), with a
@@ -113,7 +152,7 @@ function Live({ d }) {
         </div>
       </div>
 
-      <p className="text-[11px] text-slate-600">Data from Open-Meteo.</p>
+      <p className="text-[11px] text-slate-500">Data from Open-Meteo.</p>
     </div>
   )
 }
@@ -234,12 +273,18 @@ function WeatherSkeleton() {
           <div className="space-y-2">
             <div className={`h-9 w-24 ${fill}`} />
             <div className={`h-4 w-20 ${fill}`} />
+            <div className={`h-3 w-24 ${fill}`} />
           </div>
           <div className="ml-auto space-y-2">
             <div className={`h-4 w-24 ${fill}`} />
             <div className={`h-4 w-16 ${fill}`} />
             <div className={`h-4 w-20 ${fill}`} />
           </div>
+        </div>
+        {/* Sun-arc band */}
+        <div className="mt-4 border-t border-slate-700/40 pt-3">
+          <div className={`h-12 w-full ${fill}`} />
+          <div className={`mx-auto mt-2 h-3 w-40 ${fill}`} />
         </div>
       </div>
       {/* 5-day forecast */}

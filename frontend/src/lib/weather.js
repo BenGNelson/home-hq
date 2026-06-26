@@ -161,3 +161,54 @@ export function hourLabel(iso) {
   const h12 = h % 12 === 0 ? 12 : h % 12
   return `${h12}${period}`
 }
+
+// Like hourLabel but with minutes ("6:02a", "8:31p") — for sunrise/sunset times.
+export function timeLabel(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  let h = d.getHours()
+  const m = d.getMinutes()
+  const period = h < 12 ? 'a' : 'p'
+  h = h % 12 === 0 ? 12 : h % 12
+  return `${h}:${String(m).padStart(2, '0')}${period}`
+}
+
+// Fraction of daylight elapsed (0 at sunrise → 1 at sunset) for placing the sun on
+// the day-arc. All three timestamps are the location's local naive ISO from the
+// same response, so the browser-tz offset cancels in the differences. Returns null
+// if any is missing/invalid or the day is degenerate; clamps outside [0,1].
+export function sunFraction(sunrise, sunset, now) {
+  // Guard empties first: new Date(null) is epoch 0 (finite!), which would slip
+  // past the isFinite check below and yield a bogus fraction.
+  if (!sunrise || !sunset || !now) return null
+  const r = new Date(sunrise).getTime()
+  const s = new Date(sunset).getTime()
+  const n = new Date(now).getTime()
+  if (![r, s, n].every(Number.isFinite) || s <= r) return null
+  return Math.min(1, Math.max(0, (n - r) / (s - r)))
+}
+
+// Map a UV index to a risk label + accent tone (literal Tailwind classes so the
+// JIT keeps them). Buckets follow the WHO UV scale. null → a neutral dash.
+export function uvInfo(uv) {
+  if (uv == null) return { label: '—', tone: 'text-slate-400' }
+  if (uv < 3) return { label: 'Low', tone: 'text-emerald-300' }
+  if (uv < 6) return { label: 'Moderate', tone: 'text-amber-300' }
+  if (uv < 8) return { label: 'High', tone: 'text-orange-300' }
+  if (uv < 11) return { label: 'Very high', tone: 'text-rose-300' }
+  return { label: 'Extreme', tone: 'text-violet-300' }
+}
+
+// Format a precipitation amount for a chip ("0.2 in" / "5 mm"); null/zero → null so
+// the caller can omit the chip entirely on a dry day. `metric` picks mm vs inches.
+export function formatPrecip(amount, metric = false) {
+  if (amount == null || amount <= 0) return null
+  if (metric) {
+    // Keep a decimal under 1mm so a light shower that cleared the >0 guard doesn't
+    // round to a contradictory "0 mm"; whole millimetres above that.
+    const mm = amount < 1 ? Math.round(amount * 10) / 10 : Math.round(amount)
+    return `${mm} mm`
+  }
+  return `${Math.round(amount * 100) / 100} in`
+}

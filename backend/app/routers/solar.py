@@ -116,6 +116,7 @@ class SolarSampleModel(BaseModel):
 class SolarHistoryStatsModel(BaseModel):
     samples: int = Field(description="Number of samples in the window")
     peak_watts: int | None = Field(default=None, description="Peak production seen, W")
+    peak_ts: int | None = Field(default=None, description="When the peak occurred, epoch seconds")
     latest_watts: int | None = Field(default=None, description="Most recent production, W")
 
 

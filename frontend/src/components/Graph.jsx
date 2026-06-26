@@ -15,6 +15,8 @@ import { TimeAxis } from './TimeAxis.jsx'
 //   times         epoch-MS aligned with the points → renders a time axis below
 //   caption       a small bottom-right note (e.g. "last ~2 min") when there's no
 //                 absolute time axis (live moving-window charts)
+//   peakMarker    {index, label} → a dot on the first series at that point + the
+//                 label appended to the "peak" readout (e.g. the time it occurred)
 export function Graph({
   series,
   height = 56,
@@ -24,11 +26,26 @@ export function Graph({
   legend,
   times,
   caption,
+  peakMarker,
 }) {
   const W = 100
   const peak = graphPeak(series)
   const hasData = series.some((s) => s.points.length > 0)
   const line = (points) => graphLine(points, peak, height, W)
+
+  // Position of the peak dot on the first series (kept round via a CSS overlay
+  // rather than an SVG <circle>, which the non-uniform x-scaling would distort).
+  // `value` is that series' value at the marker, so the readout pairs it with the
+  // marker's time (not the global cross-series max, which may be another line).
+  const pts = series[0]?.points ?? []
+  const dot =
+    peakMarker && hasData && pts.length > 1
+      ? (() => {
+          const i = Math.min(Math.max(peakMarker.index ?? 0, 0), pts.length - 1)
+          const v = Number(pts[i]) || 0
+          return { left: (i / (pts.length - 1)) * 100, top: (1 - v / peak) * 100, color: series[0].color, value: v }
+        })()
+      : null
 
   const svg = (
     <svg
@@ -56,15 +73,20 @@ export function Graph({
     </svg>
   )
 
-  const labeled = unit != null || formatValue != null || legend != null || times != null || caption != null
+  const labeled =
+    unit != null || formatValue != null || legend != null || times != null || caption != null || peakMarker != null
   if (!labeled) return svg
 
-  const peakLabel = formatValue ? formatValue(peak) : `${Math.round(peak)}${unit ? ` ${unit}` : ''}`
+  // With a marker, report the marked series' value at that point (consistent with
+  // the marker's time label); otherwise the auto-scaled cross-series peak.
+  const readout = dot ? dot.value : peak
+  const peakValue = formatValue ? formatValue(readout) : `${Math.round(readout)}${unit ? ` ${unit}` : ''}`
+  const peakLabel = `peak ${peakValue}${peakMarker?.label ? ` · ${peakMarker.label}` : ''}`
 
   return (
     <div>
       <div className="mb-1 flex items-end justify-between gap-3 text-[10px] text-slate-500">
-        <span className="tabular-nums">peak {peakLabel}</span>
+        <span className="tabular-nums">{peakLabel}</span>
         {legend && (
           <span className="flex flex-wrap justify-end gap-x-3 gap-y-0.5">
             {legend.map((l, i) => (
@@ -76,7 +98,21 @@ export function Graph({
           </span>
         )}
       </div>
-      {svg}
+      <div className="relative">
+        {svg}
+        {dot && (
+          <span
+            className="pointer-events-none absolute h-2 w-2 rounded-full ring-2 ring-slate-950/40"
+            style={{
+              left: `${dot.left}%`,
+              top: `${dot.top}%`,
+              transform: 'translate(-50%, -50%)',
+              backgroundColor: dot.color,
+              boxShadow: `0 0 6px ${dot.color}`,
+            }}
+          />
+        )}
+      </div>
       {times ? (
         <TimeAxis times={times} />
       ) : caption ? (

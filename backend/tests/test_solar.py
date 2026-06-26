@@ -251,6 +251,7 @@ def test_summarize_history_empty():
     assert solar_history.summarize_history([]) == {
         "samples": 0,
         "peak_watts": None,
+        "peak_ts": None,
         "latest_watts": None,
     }
 
@@ -262,7 +263,8 @@ def test_summarize_history_peak_and_latest():
         {"ts": 3, "prod_watts": 1800, "cons_watts": 600, "net_watts": 1200},
     ]
     out = solar_history.summarize_history(samples)
-    assert out == {"samples": 3, "peak_watts": 2500, "latest_watts": 1800}
+    # peak_ts is the timestamp of the peak sample (ts=2), for the curve marker.
+    assert out == {"samples": 3, "peak_watts": 2500, "peak_ts": 2, "latest_watts": 1800}
 
 
 def test_summarize_history_ignores_none_production():
@@ -270,6 +272,7 @@ def test_summarize_history_ignores_none_production():
     samples = [{"ts": 1, "prod_watts": None}, {"ts": 2, "prod_watts": 500}]
     out = solar_history.summarize_history(samples)
     assert out["peak_watts"] == 500
+    assert out["peak_ts"] == 2
     assert out["latest_watts"] == 500
 
 
@@ -375,7 +378,12 @@ def test_solar_history_endpoint_shape(client):
     body = r.json()
     assert body["hours"] == 24
     assert [s["ts"] for s in body["samples"]] == [t0, t0 + 60]  # oldest-first
-    assert body["stats"] == {"samples": 2, "peak_watts": 1500, "latest_watts": 1500}
+    assert body["stats"] == {
+        "samples": 2,
+        "peak_watts": 1500,
+        "peak_ts": t0 + 60,
+        "latest_watts": 1500,
+    }
 
 
 def test_solar_history_clamps_hours(client):
