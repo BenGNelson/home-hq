@@ -33,7 +33,7 @@ function ContainerDetail({ name }) {
         <OpenLink href={link} className="ml-auto" />
       </div>
 
-      <dl className="space-y-2 text-sm">
+      <div className="space-y-2 text-sm">
         <Row label="Image" value={<span className="truncate">{data.image}</span>} />
         <Row label="State" value={data.state ?? data.status} />
         {data.health && (
@@ -46,7 +46,7 @@ function ContainerDetail({ name }) {
         <Row label="Restarts" value={data.restart_count ?? '—'} />
         <Row label="Restart policy" value={data.restart_policy || 'none'} />
         <Row label="Networks" value={data.networks?.join(', ') || '—'} />
-      </dl>
+      </div>
 
       {(data.cpu_percent != null || data.mem_percent != null) && (
         <div className="space-y-3 border-t border-slate-800 pt-3 text-sm">

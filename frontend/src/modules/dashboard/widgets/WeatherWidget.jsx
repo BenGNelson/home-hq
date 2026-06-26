@@ -29,10 +29,13 @@ export default function WeatherWidget() {
   return (
     <Link
       to="/weather"
-      aria-label="Open the Weather page"
       className="group mb-4 block rounded-xl border border-slate-800 bg-slate-900/50 transition-colors hover:border-slate-700 hover:bg-slate-900/80"
       style={glow ? { background: radiantBackdrop(glow) } : undefined}
     >
+      {/* Stable accessible name that also CONTAINS the visible weather text
+          (so it satisfies label-content-name-mismatch), and labels the link
+          while the hero is still a loading skeleton. */}
+      <span className="sr-only">Weather</span>
       <div className="p-5">
         {error && <p className="text-sm text-rose-400">unavailable — {error}</p>}
         {!error && !data && (showSkeleton ? <HeroSkeleton /> : <div className="h-[3.5rem]" />)}
@@ -104,7 +107,7 @@ function Stat({ Icon, iconClass, label, value }) {
     <div className="flex items-center gap-2.5">
       <Icon className={`h-7 w-7 shrink-0 ${iconClass}`} aria-hidden="true" />
       <div className="leading-tight">
-        <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
+        <div className="text-xs uppercase tracking-wide text-slate-400">{label}</div>
         <div className="text-lg font-medium tabular-nums text-slate-200">{value}</div>
       </div>
     </div>

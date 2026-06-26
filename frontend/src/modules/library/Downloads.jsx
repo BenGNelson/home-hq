@@ -95,12 +95,12 @@ export default function Downloads() {
           </span>
         </div>
 
-        <dl className="space-y-1 text-sm">
+        <div className="space-y-1 text-sm">
           <Line label="App offline shell" bytes={s.shellBytes} muted />
           {s.engineBytes > 0 && <Line label="Emulator engine" bytes={s.engineBytes} muted />}
           {s.gameSavesBytes > 0 && <Line label="Game saves" bytes={s.gameSavesBytes} muted />}
           <Line label={`Downloads (${s.items.length})`} bytes={s.downloadsBytes} />
-        </dl>
+        </div>
 
         {pct != null && (
           <div className="space-y-1 pt-1">
@@ -193,8 +193,8 @@ export default function Downloads() {
 function Line({ label, bytes, muted, warn }) {
   return (
     <div className="flex justify-between">
-      <dt className={warn ? 'text-amber-400' : muted ? 'text-slate-500' : 'text-slate-400'}>{label}</dt>
-      <dd className={`tabular-nums ${warn ? 'text-amber-400' : 'text-slate-300'}`}>{formatSize(bytes)}</dd>
+      <span className={warn ? 'text-amber-400' : muted ? 'text-slate-500' : 'text-slate-400'}>{label}</span>
+      <span className={`tabular-nums ${warn ? 'text-amber-400' : 'text-slate-300'}`}>{formatSize(bytes)}</span>
     </div>
   )
 }

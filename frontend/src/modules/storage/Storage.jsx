@@ -175,11 +175,11 @@ function Capacity({ disk, projection }) {
     <Card title="Capacity">
       <div className="space-y-3 text-sm">
         <Bar label={disk.mount} percent={disk.percent} caption={`${disk.percent.toFixed(0)}% full`} />
-        <dl className="space-y-2">
+        <div className="space-y-2">
           <Row label="Used" value={formatBytes(disk.used_bytes)} />
           <Row label="Free" value={formatBytes(disk.free_bytes)} />
           <Row label="Total" value={formatBytes(disk.total_bytes)} />
-        </dl>
+        </div>
         <Projection p={projection} />
       </div>
     </Card>
@@ -497,14 +497,14 @@ function AttributeTable({ name }) {
 // NVMe drives report a health log instead of an ATA attribute table.
 function NvmeHealth({ nvme }) {
   return (
-    <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
+    <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
       {Object.entries(nvme).map(([k, v]) => (
         <div key={k} className="flex justify-between border-b border-slate-800/40 py-0.5">
-          <dt className="text-slate-500">{k.replace(/_/g, ' ')}</dt>
-          <dd className="tabular-nums text-slate-300">{String(v)}</dd>
+          <span className="text-slate-500">{k.replace(/_/g, ' ')}</span>
+          <span className="tabular-nums text-slate-300">{String(v)}</span>
         </div>
       ))}
-    </dl>
+    </div>
   )
 }
 

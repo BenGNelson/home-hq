@@ -38,7 +38,7 @@ export default function SystemWidget() {
       skeleton={<WidgetSkeleton rows={3} bars={g ? 5 : 3} />}
     >
       {data && (
-        <dl className="space-y-3 text-sm">
+        <div className="space-y-3 text-sm">
           <Row label="Host" value={data.server_name} />
           <Row label="Uptime" value={formatUptime(data.uptime_seconds)} />
           <Row
@@ -79,7 +79,7 @@ export default function SystemWidget() {
               />
             </>
           )}
-        </dl>
+        </div>
       )}
     </Widget>
   )

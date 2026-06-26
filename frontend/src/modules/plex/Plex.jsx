@@ -53,20 +53,20 @@ export default function Plex() {
       {/* Server status card */}
       <section className="mb-4 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
         {!s ? (
-          <dl className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {[0, 1, 2].map((i) => (
               <div key={i} className="flex h-5 items-center justify-between">
                 <SkeletonLine className="h-4 w-16" />
                 <SkeletonLine className="h-4 w-20" />
               </div>
             ))}
-          </dl>
+          </div>
         ) : !s.configured ? (
           <p className="text-sm text-slate-500">not configured</p>
         ) : !s.reachable ? (
           <p className="text-sm text-amber-400">unreachable</p>
         ) : (
-          <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
             <Row label="Server" value={s.server_name} />
             <Row label="Version" value={s.version} />
             <Row
@@ -77,7 +77,7 @@ export default function Plex() {
                 </span>
               }
             />
-          </dl>
+          </div>
         )}
       </section>
 

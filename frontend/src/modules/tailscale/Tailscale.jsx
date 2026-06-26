@@ -65,12 +65,12 @@ function Detail({ t }) {
 
       {/* Tailnet facts */}
       <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
           <Fact label="Tailnet" value={t.tailnet || '—'} />
           <Fact label="MagicDNS" value={t.magicdns ? 'on' : 'off'} />
           <Fact label="Devices online" value={`${t.online_total ?? t.online_count} / ${t.peer_count + (t.self ? 1 : 0)}`} />
           <Fact label="Exit node" value={t.exit_node || 'none'} />
-        </dl>
+        </div>
       </div>
 
       {/* Device list */}
@@ -138,8 +138,8 @@ function Row({ d }) {
 function Fact({ label, value }) {
   return (
     <div>
-      <dt className="text-xs text-slate-500">{label}</dt>
-      <dd className="truncate text-slate-200 tabular-nums">{value}</dd>
+      <span className="block text-xs text-slate-400">{label}</span>
+      <span className="block truncate text-slate-200 tabular-nums">{value}</span>
     </div>
   )
 }
