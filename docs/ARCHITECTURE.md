@@ -318,26 +318,17 @@ not the theme-swapped slate/emerald ramp, and always fade gradients to
 this on hero/at-a-glance surfaces; keep dense data tables flat so the glow stays a
 highlight, not noise.
 
-**Back-lit cards (the reusable, tuned-in-one-place version).** For dashboard
-widgets the motif is packaged so a card opts in with a single prop and the whole
-app's card-glow intensity lives in one constant:
-
-- `lib/glow.js` exports `backlitSurface(rgb)` (tinted border + radiant backdrop)
-  and `backlitDot(rgb)` (a glowing status dot), both driven by the central
-  `BACKLIT` knobs (`backdropAlpha`/`borderAlpha`/`dotIntensity`) — bump those to
-  re-tune every back-lit card at once. These are the **softer card tier**; the
-  full-page heroes (Solar/Weather) use `radiantBackdrop` directly at its brighter
-  default, so the two tiers stay distinct.
-- The shared `Widget` wrapper takes an optional **`accent`** (an "r,g,b" string).
-  Pass it and the card lights up; omit it and the card is the normal flat slate.
-  It only lights once data has resolved (and never on an error card).
-- **The accent color must MEAN something** (that's the rule that keeps it from
-  being decoration). Current earned uses: **System** is tinted by server health
-  (`lib/health.js` — emerald→amber→rose off the worst of memory+disk; CPU is
-  excluded so the hue doesn't flicker per poll), **Printer** glows warm only while
-  a job is actively printing, **Plex** glows its signature gold only while a
-  stream is live, and **Tailscale** carries a status hue (emerald when the mesh is
-  up, rose when disconnected). A card with no meaningful state stays flat.
+**Scope: heroes and the weather banner, not the dashboard widget grid.** The
+motif lives on full-page **hero** surfaces (Solar, Weather) and the **Weather
+dashboard banner** (`WeatherWidget` applies `radiantBackdrop`/`glowFilter`
+directly, condition-tinted). The standard dashboard widgets (System, Plex,
+Tailscale, Printer, …) are deliberately **flat** — a uniform slate card frame via
+the shared `Widget` wrapper, so the grid reads as one calm surface and the glow
+stays special to the banner above it. (An earlier pass briefly back-lit those
+widgets by a "meaningful accent"; it was reverted 2026-06-26 — the per-card glow
+made the grid busy. If a tuned card tier is ever wanted again, reintroduce a
+`backlitSurface`/`backlitDot` pair in `lib/glow.js` driven by one `BACKLIT` knob
+block and an optional `Widget` `accent` prop.)
 
 ## Plex library browser (the one stateful feature)
 

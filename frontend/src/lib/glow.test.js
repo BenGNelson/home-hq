@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { glowFilter, radiantBackdrop, backlitSurface, backlitDot, BACKLIT } from './glow.js'
+import { glowFilter, radiantBackdrop } from './glow.js'
 
 describe('glowFilter', () => {
   it('scales blur + alpha with intensity and clamps to [0,1]', () => {
@@ -20,22 +20,5 @@ describe('radiantBackdrop', () => {
       'radial-gradient(120% 120% at 50% -10%, rgba(1,2,3,0.3), transparent 65%)',
     )
     expect(radiantBackdrop('1,2,3', 0.5)).toContain('rgba(1,2,3,0.5)')
-  })
-})
-
-describe('backlitSurface', () => {
-  it('builds a tinted border + radiant backdrop from the centralized knobs', () => {
-    expect(backlitSurface('1,2,3')).toEqual({
-      borderColor: `rgba(1,2,3,${BACKLIT.borderAlpha})`,
-      background: radiantBackdrop('1,2,3', BACKLIT.backdropAlpha),
-    })
-  })
-})
-
-describe('backlitDot', () => {
-  it('builds a filled dot glowing in the accent color', () => {
-    const s = backlitDot('1,2,3')
-    expect(s.backgroundColor).toBe('rgb(1,2,3)')
-    expect(s.filter).toBe(glowFilter('1,2,3', BACKLIT.dotIntensity, { baseBlur: 4, blurGain: 8, baseAlpha: 0.4 }))
   })
 })
