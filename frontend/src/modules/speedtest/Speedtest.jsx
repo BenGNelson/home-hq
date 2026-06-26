@@ -29,8 +29,8 @@ export default function Speedtest() {
 
   return (
     <div>
+      {/* No page title — the shell's top bar already shows "Speed". */}
       <div className="mb-4 flex items-center gap-3">
-        <h2 className="text-xl font-semibold">Internet Speed</h2>
         <button
           onClick={runTest}
           disabled={running}
@@ -183,7 +183,7 @@ function Unavailable({ reason, running, onRun }) {
   if (reason === 'not_enabled') {
     return (
       <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
-        <p className="text-sm text-slate-400">Speedtest is disabled.</p>
+        <p className="text-sm text-amber-400">Speedtest is disabled.</p>
       </div>
     )
   }
