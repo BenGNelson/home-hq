@@ -28,6 +28,9 @@ frontend/public/emulatorjs/
 # committed; its baseline/current/diff PNGs are not.
 e2e/screenshots/
 
+# Lighthouse audit output (diagnostic reports, reference the local URL).
+lighthouse-report/
+
 # --- Editor / OS noise ---
 .DS_Store
 *.swp
