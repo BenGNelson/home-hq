@@ -71,6 +71,18 @@ export function OpenLink({ href, label = 'Open', className = '' }) {
   )
 }
 
+// A small status dot — emerald when "ok" (running / online), muted slate when
+// not. The one shared indicator so the shade can't drift between widgets.
+export function StatusDot({ ok, className = '' }) {
+  return (
+    <span
+      className={`inline-block h-2 w-2 shrink-0 rounded-full ${
+        ok ? 'bg-emerald-500' : 'bg-slate-600'
+      } ${className}`}
+    />
+  )
+}
+
 // A label/value line.
 export function Row({ label, value }) {
   return (

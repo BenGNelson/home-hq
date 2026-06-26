@@ -2,6 +2,7 @@ import { Waypoints, TriangleAlert } from 'lucide-react'
 import { useApi } from '../../lib/useApi.js'
 import { formatAgo } from '../../lib/format.js'
 import { tailscaleVerdict, tailscaleExplanation, osIcon } from '../../lib/tailscale.js'
+import { StatusDot } from '../../components/ui.jsx'
 
 // Tailscale mesh status: this host plus every other device on the tailnet, with
 // online state, exit-node role, and last-seen — read from a host-collected
@@ -122,7 +123,7 @@ function Row({ d }) {
       <td className="px-4 py-2">
         {d.online ? (
           <span className="inline-flex items-center gap-1.5 text-emerald-400">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" /> online
+            <StatusDot ok /> online
           </span>
         ) : (
           <span className="text-slate-500">

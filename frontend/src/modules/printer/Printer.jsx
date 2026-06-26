@@ -15,7 +15,9 @@ export default function Printer() {
 
   return (
     <div>
-      <h2 className="mb-4 text-xl font-semibold">{name}</h2>
+      {/* No page title — the shell's top bar already shows "3D Printer"; the
+          live device name is a muted subtitle, not a competing heading. */}
+      <p className="mb-4 text-sm text-slate-400">{name}</p>
 
       {loading && !data && <p className="text-sm text-slate-500">loading…</p>}
       {error && <p className="text-sm text-rose-400">unavailable — {error}</p>}

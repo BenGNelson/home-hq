@@ -60,7 +60,7 @@ export default function PlexWidget() {
     <Widget title="Plex" loading={loading} error={error} accent={accent} skeleton={<WidgetSkeleton rows={6} />}>
       {data &&
         (!data.configured ? (
-          <p className="text-sm text-slate-500">not configured</p>
+          <p className="text-sm text-amber-400">not configured</p>
         ) : !data.reachable ? (
           <p className="text-sm text-amber-400">unreachable</p>
         ) : (

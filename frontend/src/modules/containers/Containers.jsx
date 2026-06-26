@@ -1,20 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useApi, API_BASE } from '../../lib/useApi.js'
 import { useCounterRate } from '../../lib/useRates.js'
-import { Row, Bar, Spinner, OpenLink } from '../../components/ui.jsx'
+import { Row, Bar, Spinner, OpenLink, StatusDot } from '../../components/ui.jsx'
 import { Graph } from '../../components/Graph.jsx'
 import { formatBytes, formatRate, formatUptime } from '../../lib/format.js'
 import { containerUrl } from '../../lib/hostLocal.js'
-
-function Dot({ ok }) {
-  return (
-    <span
-      className={`inline-block h-2 w-2 shrink-0 rounded-full ${
-        ok ? 'bg-emerald-500' : 'bg-slate-600'
-      }`}
-    />
-  )
-}
 
 // The right-hand panel: live operational detail for the selected container.
 // Polls so CPU/memory stay current. Shows only non-sensitive facts.
@@ -37,7 +27,7 @@ function ContainerDetail({ name }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Dot ok={data.status === 'running'} />
+        <StatusDot ok={data.status === 'running'} />
         <h3 className="text-base font-semibold">{data.name}</h3>
         {loading && <span className="text-xs text-slate-500">…</span>}
         <OpenLink href={link} className="ml-auto" />
@@ -225,7 +215,7 @@ export default function Containers() {
                   }`}
                 >
                   <span className="flex items-center gap-2 truncate">
-                    <Dot ok={c.status === 'running'} />
+                    <StatusDot ok={c.status === 'running'} />
                     <span className="truncate text-slate-200">{c.name}</span>
                     {containerUrl(c.name) && (
                       <span className="shrink-0 text-xs text-slate-500" title="has a web UI">

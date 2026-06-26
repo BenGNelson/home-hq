@@ -1,5 +1,5 @@
 import { useApi } from '../../../lib/useApi.js'
-import { WidgetSkeleton } from '../../../components/ui.jsx'
+import { WidgetSkeleton, StatusDot } from '../../../components/ui.jsx'
 import { formatUptime } from '../../../lib/format.js'
 import { containerUrl } from '../../../lib/hostLocal.js'
 import Widget from './Widget.jsx'
@@ -23,7 +23,7 @@ export default function ContainersWidget() {
               return (
                 <li key={c.name} className="flex items-center justify-between py-1.5">
                   <span className="flex items-center gap-2 truncate">
-                    <Dot ok={c.status === 'running'} />
+                    <StatusDot ok={c.status === 'running'} />
                     {link ? (
                       <a
                         href={link}
@@ -46,15 +46,5 @@ export default function ContainersWidget() {
           </ul>
         ))}
     </Widget>
-  )
-}
-
-function Dot({ ok }) {
-  return (
-    <span
-      className={`inline-block h-2 w-2 shrink-0 rounded-full ${
-        ok ? 'bg-emerald-500' : 'bg-slate-600'
-      }`}
-    />
   )
 }
