@@ -33,13 +33,14 @@ age -d -i your-private-key.txt FILE.tar.gz.age | tar -xzf -`}
         <Spinner label="loading backups…" />
       ) : !data.configured ? (
         <p className="text-sm text-amber-400">
-          Not configured — set <code>AGE_RECIPIENT</code> in <code>.env</code> and
-          install the backup timer.
+          Not configured — set <code className="rounded bg-slate-800 px-1">AGE_RECIPIENT</code> in{' '}
+          <code className="rounded bg-slate-800 px-1">.env</code> and install the backup timer.
         </p>
       ) : !data.dir_present ? (
         <p className="text-sm text-slate-500">
           No backup directory yet — the first scheduled run will create it (or run
-          it manually with <code>sudo systemctl start home-hq-backup.service</code>
+          it manually with{' '}
+          <code className="rounded bg-slate-800 px-1">sudo systemctl start home-hq-backup.service</code>
           ).
         </p>
       ) : (

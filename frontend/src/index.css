@@ -175,7 +175,7 @@ html {
   --color-emerald-600: #4f46e5;
 }
 
-/* Onyx — cool gray, near-black with a faint blue undertone (no green). */
+/* Onyx — cool gray, near-black with a faint blue undertone. */
 :root[data-theme="onyx"] {
   --color-slate-950: #101216;
   --color-slate-900: #181b1f;

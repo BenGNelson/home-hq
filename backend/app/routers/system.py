@@ -90,7 +90,7 @@ def get_system():
         "server_name": settings.server_name,
         "cpu": {
             "percent": cpu_percent,
-            "cores": psutil.cpu_count(logical=True),
+            "cores": psutil.cpu_count(logical=True) or 1,
         },
         "memory": {
             "total_bytes": mem.total,

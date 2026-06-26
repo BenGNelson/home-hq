@@ -51,6 +51,7 @@ export default function PapersList() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={`Search ${data.count.toLocaleString()} papers…`}
+            aria-label="Search papers"
             className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-slate-100 placeholder-slate-500 outline-none focus:border-slate-500"
           />
 

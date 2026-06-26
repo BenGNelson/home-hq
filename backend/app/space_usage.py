@@ -129,7 +129,3 @@ def init_scanner(root: str, enabled: bool, interval: int, timeout: int) -> Space
     global _scanner
     _scanner = SpaceScanner(root, enabled, interval, timeout)
     return _scanner
-
-
-def get_scanner() -> SpaceScanner | None:
-    return _scanner

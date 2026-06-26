@@ -156,7 +156,3 @@ def init_sampler(interval: int, retention_days: int, loop=None) -> SolarSampler:
     global _sampler
     _sampler = SolarSampler(interval, retention_days, loop)
     return _sampler
-
-
-def get_sampler() -> SolarSampler | None:
-    return _sampler

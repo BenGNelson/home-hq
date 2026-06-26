@@ -117,7 +117,7 @@
         var data = p.get('data') || '/emulatorjs/';
         // Only allow a same-origin path or the official EmulatorJS CDN as the
         // engine source — never an arbitrary URL handed in via ?data=.
-        if (!(data.charAt(0) === '/' || data.indexOf('https://cdn.emulatorjs.org/') === 0)) {
+        if (!((data.charAt(0) === '/' && data.charAt(1) !== '/') || data.indexOf('https://cdn.emulatorjs.org/') === 0)) {
           data = '/emulatorjs/';
         }
         if (data.charAt(data.length - 1) !== '/') data += '/';

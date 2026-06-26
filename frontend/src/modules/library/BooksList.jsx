@@ -97,7 +97,7 @@ export default function BooksList() {
             placeholder={
               total ? `Search ${total.toLocaleString()} books by title or author…` : 'Search books…'
             }
-            autoFocus
+            aria-label="Search books"
             className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-slate-100 placeholder-slate-500 outline-none focus:border-slate-500"
           />
 

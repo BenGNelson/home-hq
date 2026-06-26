@@ -19,10 +19,13 @@ router = APIRouter()
 
 
 class SolarSeriesModel(BaseModel):
-    watts_now: int = Field(description="Current power, watts")
-    watt_hours_today: int = Field(description="Energy since local midnight, Wh")
-    watt_hours_last_7_days: int = Field(description="Energy over the last 7 days, Wh")
-    watt_hours_lifetime: int = Field(description="Lifetime energy, Wh")
+    # Optional: some firmware/configs omit a total, and _series()/_round() pass
+    # None for those — a required int would fail response validation and 500 the
+    # endpoint (outside the router's try/except), defeating graceful degradation.
+    watts_now: int | None = Field(default=None, description="Current power, watts")
+    watt_hours_today: int | None = Field(default=None, description="Energy since local midnight, Wh")
+    watt_hours_last_7_days: int | None = Field(default=None, description="Energy over the last 7 days, Wh")
+    watt_hours_lifetime: int | None = Field(default=None, description="Lifetime energy, Wh")
 
 
 class FlowNodeModel(BaseModel):

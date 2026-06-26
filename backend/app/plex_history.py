@@ -148,7 +148,3 @@ def init_sampler(interval: int, retention_days: int) -> PlexSampler:
     global _sampler
     _sampler = PlexSampler(interval, retention_days)
     return _sampler
-
-
-def get_sampler() -> PlexSampler | None:
-    return _sampler
