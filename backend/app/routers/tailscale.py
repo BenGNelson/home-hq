@@ -10,13 +10,13 @@ The shaping (counts, sorting, exit-node detection, stale check) lives in the
 pure `summarize()` so it stays unit-tested; the route is a thin wrapper.
 """
 
-import json
 import time
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from app.collectors import read_collector_json
 
 router = APIRouter()
 
@@ -123,10 +123,8 @@ def summarize(data, now=None):
 
 def get_tailscale():
     """Read + summarize the Tailscale state file. Missing/garbage -> available:false."""
-    try:
-        with open(settings.tailscale_json_path) as fh:
-            data = json.load(fh)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
+    data = read_collector_json(settings.tailscale_json_path)
+    if data is None:
         return {"available": False}
     return summarize(data)
 

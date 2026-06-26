@@ -17,13 +17,13 @@ The shaping (entity normalization, domain split, stale check) lives in the pure
 `summarize()` so it stays unit-tested; the route is a thin wrapper.
 """
 
-import json
 import time
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from app.collectors import read_collector_json
 
 router = APIRouter()
 
@@ -115,10 +115,8 @@ def summarize(data, now=None):
 def get_ha():
     """Read + summarize the HA state file. Missing/garbage -> available:false,
     reason no_data (collector never ran / not installed)."""
-    try:
-        with open(settings.ha_json_path) as fh:
-            data = json.load(fh)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
+    data = read_collector_json(settings.ha_json_path)
+    if data is None:
         # Delegate the shaping to summarize() (rather than hand-building the dict)
         # so the unavailable shape can't drift from the available one.
         data = {"available": False, "reason": "no_data"}

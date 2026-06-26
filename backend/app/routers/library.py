@@ -722,6 +722,31 @@ def listen_progress_delete(book: str = Query(description="The book folder path")
     return Response(status_code=204 if removed else 404)
 
 
+def _serve_cached_cover(cache_dir, key_source, extract):
+    """Shared on-demand cover cache (book + audiobook art). Serve the cached WebP
+    if present, a 404 if a prior miss was recorded, else call `extract()` for raw
+    image bytes, downscale + cache them as a WebP — or record a miss so a coverless
+    item isn't re-extracted every view. `key_source` is hashed for the filename so
+    a raw path never becomes a path component. Same shape as the comic page cache."""
+    key = hashlib.sha1(key_source.encode()).hexdigest()
+    webp = os.path.join(cache_dir, key + ".webp")
+    miss = os.path.join(cache_dir, key + ".miss")
+
+    if os.path.isfile(webp):
+        return FileResponse(webp, media_type="image/webp", headers=_EXTRACTED_ART_HEADERS)
+    if os.path.isfile(miss):
+        return Response(status_code=404)
+
+    raw = extract()
+    thumb = images.to_thumbnail(raw) if raw else None
+    os.makedirs(cache_dir, exist_ok=True)
+    if thumb:
+        images.write_atomic(webp, thumb)
+        return FileResponse(webp, media_type="image/webp", headers=_EXTRACTED_ART_HEADERS)
+    open(miss, "w").close()  # no cover (or unreadable) — remember it
+    return Response(status_code=404)
+
+
 @router.get("/library/audiobooks/cover")
 def audiobook_cover(path: str = Query(description="The book folder path")):
     """A book's cover, from a folder image or the first chapter's embedded art,
@@ -732,24 +757,9 @@ def audiobook_cover(path: str = Query(description="The book folder path")):
     book_dir = library.safe_dir(section, settings, path) if section else None
     if not book_dir:
         return Response(status_code=404)
-    cache_dir = settings.audiobook_covers_dir
-    key = hashlib.sha1(path.encode()).hexdigest()
-    webp = os.path.join(cache_dir, key + ".webp")
-    miss = os.path.join(cache_dir, key + ".miss")
-
-    if os.path.isfile(webp):
-        return FileResponse(webp, media_type="image/webp", headers=_EXTRACTED_ART_HEADERS)
-    if os.path.isfile(miss):
-        return Response(status_code=404)
-
-    raw = audiobooks.find_cover(book_dir)
-    thumb = images.to_thumbnail(raw) if raw else None
-    os.makedirs(cache_dir, exist_ok=True)
-    if thumb:
-        images.write_atomic(webp, thumb)
-        return FileResponse(webp, media_type="image/webp", headers=_EXTRACTED_ART_HEADERS)
-    open(miss, "w").close()
-    return Response(status_code=404)
+    return _serve_cached_cover(
+        settings.audiobook_covers_dir, path, lambda: audiobooks.find_cover(book_dir)
+    )
 
 
 # --- Books search (backed by the metadata cache) --------------------------
@@ -813,24 +823,9 @@ def get_book_cover(id: str = Query(description="Book item id from the search/lis
     path = library.safe_path(books, settings, id)
     if not path:
         return Response(status_code=404)
-    cache_dir = settings.book_covers_dir
-    key = hashlib.sha1(id.encode()).hexdigest()
-    webp = os.path.join(cache_dir, key + ".webp")
-    miss = os.path.join(cache_dir, key + ".miss")
-
-    if os.path.isfile(webp):
-        return FileResponse(webp, media_type="image/webp", headers=_EXTRACTED_ART_HEADERS)
-    if os.path.isfile(miss):
-        return Response(status_code=404)
-
-    raw = bookmeta.extract_cover(path, os.path.splitext(id)[1])
-    thumb = images.to_thumbnail(raw) if raw else None
-    os.makedirs(cache_dir, exist_ok=True)
-    if thumb:
-        images.write_atomic(webp, thumb)
-        return FileResponse(webp, media_type="image/webp", headers=_EXTRACTED_ART_HEADERS)
-    open(miss, "w").close()  # no cover (or unreadable) — remember it
-    return Response(status_code=404)
+    return _serve_cached_cover(
+        settings.book_covers_dir, id, lambda: bookmeta.extract_cover(path, os.path.splitext(id)[1])
+    )
 
 
 # --- Comics (CBZ/CBR/CB7 page reader) -------------------------------------

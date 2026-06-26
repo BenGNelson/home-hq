@@ -14,13 +14,13 @@ container isn't running or the lookup failed, it's just "down" (with the
 kill-switch that means no traffic at all, so it's not alarmed on).
 """
 
-import json
 import time
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from app.collectors import read_collector_json
 
 router = APIRouter()
 
@@ -126,10 +126,8 @@ def summarize(data, now=None):
 
 def get_vpn():
     """Read + summarize the VPN state file. Missing/garbage -> available:false."""
-    try:
-        with open(settings.vpn_json_path) as fh:
-            data = json.load(fh)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
+    data = read_collector_json(settings.vpn_json_path)
+    if data is None:
         return {"available": False}
     return summarize(data)
 
