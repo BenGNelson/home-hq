@@ -3,7 +3,7 @@
 // A spinning indicator for "this is loading / updating".
 export function Spinner({ label = 'loading…' }) {
   return (
-    <div className="flex items-center gap-2 text-sm text-slate-500">
+    <div className="flex items-center gap-2 text-sm text-slate-400">
       <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-600 border-t-slate-300" />
       {label}
     </div>
@@ -47,9 +47,9 @@ export function WidgetSkeleton({ rows = 0, bars = 0, barsFirst = false }) {
     </div>
   ))
   return (
-    <dl className="space-y-3 text-sm" aria-hidden="true">
+    <div className="space-y-3 text-sm" aria-hidden="true">
       {barsFirst ? [...barEls, ...rowEls] : [...rowEls, ...barEls]}
-    </dl>
+    </div>
   )
 }
 
@@ -87,8 +87,8 @@ export function StatusDot({ ok, className = '' }) {
 export function Row({ label, value }) {
   return (
     <div className="flex items-center justify-between">
-      <dt className="text-slate-400">{label}</dt>
-      <dd className="font-medium text-slate-100">{value}</dd>
+      <span className="text-slate-400">{label}</span>
+      <span className="font-medium text-slate-100">{value}</span>
     </div>
   )
 }

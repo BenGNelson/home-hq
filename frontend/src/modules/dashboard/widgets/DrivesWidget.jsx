@@ -18,7 +18,7 @@ export default function DrivesWidget() {
   return (
     <Widget title="Drives" loading={loading} error={error} skeleton={<WidgetSkeleton rows={4} />}>
       {data && empty && (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-slate-400">
           No SMART data yet — the host collector hasn’t run.
         </p>
       )}
@@ -44,7 +44,7 @@ export default function DrivesWidget() {
                       </span>
                     )}
                     {d.model && (
-                      <span className="ml-2 text-xs font-normal text-slate-500">
+                      <span className="ml-2 text-xs font-normal text-slate-400">
                         {d.model}
                       </span>
                     )}
@@ -55,7 +55,7 @@ export default function DrivesWidget() {
                   </span>
                 </div>
                 {d.supported && (
-                  <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-slate-500">
+                  <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-slate-400">
                     {d.capacity_bytes != null && <span>{formatBytes(d.capacity_bytes)}</span>}
                     {d.temperature_c != null && <span>{d.temperature_c}°C</span>}
                     {d.power_on_hours != null && (
@@ -97,7 +97,7 @@ function WatchedDrive({ d }) {
             EXT
           </span>
           {d.mount && (
-            <span className="ml-2 text-xs font-normal text-slate-500">{d.mount}</span>
+            <span className="ml-2 text-xs font-normal text-slate-400">{d.mount}</span>
           )}
         </span>
         <span className={b.cls} title={d.note || ''}>
@@ -105,7 +105,7 @@ function WatchedDrive({ d }) {
           {b.label}
         </span>
       </div>
-      <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-slate-500">
+      <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-slate-400">
         {d.fstype && <span>{d.fstype}</span>}
         {d.recovery_count > 0 && (
           <span>

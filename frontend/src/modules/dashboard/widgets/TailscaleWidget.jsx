@@ -54,7 +54,7 @@ export default function TailscaleWidget() {
                   />
                   <OsIcon className="h-3.5 w-3.5 shrink-0 text-slate-300" aria-hidden="true" />
                   <span className="truncate text-slate-300">{d.hostname}</span>
-                  {d.self && <span className="text-[10px] uppercase text-slate-500">you</span>}
+                  {d.self && <span className="text-[10px] uppercase text-slate-400">you</span>}
                 </li>
                 )
               })}

@@ -37,7 +37,7 @@ export default function AdGuardWidget() {
               {formatCount(data.blocked_queries)} of {formatCount(data.total_queries)} queries blocked
             </div>
             {domains.length > 0 && (
-              <ul className="space-y-1 text-xs text-slate-500">
+              <ul className="space-y-1 text-xs text-slate-400">
                 {domains.map((row) => (
                   <li key={row.domain} className="flex items-center gap-2">
                     <span className="min-w-0 flex-1 truncate">{row.domain}</span>

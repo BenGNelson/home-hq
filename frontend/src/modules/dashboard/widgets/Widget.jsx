@@ -36,7 +36,7 @@ export default function Widget({ title, loading, error, skeleton, action, accent
   } else if (children) {
     body = children
   } else {
-    body = <p className="text-sm text-slate-500">loading…</p>
+    body = <p className="text-sm text-slate-400">loading…</p>
   }
 
   // Only back-light once data has resolved (accent is known) and the card isn't
@@ -49,15 +49,15 @@ export default function Widget({ title, loading, error, skeleton, action, accent
       style={lit ? backlitSurface(accent) : undefined}
     >
       <header className="mb-3 flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-sm font-medium text-slate-300">
+        <h2 className="flex items-center gap-2 text-sm font-medium text-slate-300">
           {lit && (
             <span className="h-2 w-2 shrink-0 rounded-full" aria-hidden="true" style={backlitDot(accent)} />
           )}
           {title}
-        </h3>
+        </h2>
         <div className="flex items-center gap-2">
           {action}
-          {loading && <span className="text-xs text-slate-500">…</span>}
+          {loading && <span className="text-xs text-slate-400">…</span>}
         </div>
       </header>
       {body}

@@ -27,7 +27,7 @@ export default function HomeWidget() {
         (unavailable ? (
           <p className="text-sm text-amber-400">Home Assistant unreachable</p>
         ) : entities.length === 0 ? (
-          <p className="text-sm text-slate-500">No devices configured.</p>
+          <p className="text-sm text-slate-400">No devices configured.</p>
         ) : (
           <>
             <ul className="space-y-2 text-sm">

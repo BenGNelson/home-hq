@@ -15,19 +15,19 @@ export default function DiskWidget() {
         (unavailable ? (
           <p className="text-sm text-amber-400">mount unavailable</p>
         ) : (
-          <dl className="space-y-3 text-sm">
+          <div className="space-y-3 text-sm">
             <Bar label="Used" percent={data.percent} caption={`${data.percent.toFixed(0)}%`} />
             <Row label="Used" value={formatBytes(data.used_bytes)} />
             <Row label="Free" value={formatBytes(data.free_bytes)} />
             <Row label="Total" value={formatBytes(data.total_bytes)} />
-          </dl>
+          </div>
         ))}
 
       {arrays.map((a) => (
         <div key={a.name} className="mt-3 border-t border-slate-800 pt-3 text-sm">
           <div className="flex items-center justify-between">
             <span className="text-slate-400">
-              {a.level.toUpperCase()} <span className="text-slate-500">({a.name})</span>
+              {a.level.toUpperCase()} <span className="text-slate-400">({a.name})</span>
             </span>
             <span className={a.healthy ? 'text-emerald-400' : 'text-rose-400'}>
               <span className="mr-1">●</span>

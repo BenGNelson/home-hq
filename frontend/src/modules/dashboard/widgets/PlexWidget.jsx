@@ -23,7 +23,7 @@ function NowPlaying({ s }) {
           {s.transcoding ? 'transcode' : 'direct'}
         </span>
       </div>
-      <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-slate-500">
+      <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-slate-400">
         {s.user && <span>{s.user}</span>}
         {s.player && <span>· {s.player}</span>}
         {s.resolution && <span>· {formatResolution(s.resolution)}</span>}
@@ -65,7 +65,7 @@ export default function PlexWidget() {
           <p className="text-sm text-amber-400">unreachable</p>
         ) : (
           <>
-            <dl className="space-y-3 text-sm">
+            <div className="space-y-3 text-sm">
               <Row label="Server" value={data.server_name} />
               <Row
                 label="Active streams"
@@ -90,7 +90,7 @@ export default function PlexWidget() {
                 <Row label="TV episodes" value={episodes.toLocaleString()} />
               )}
               <Row label="Version" value={data.version} />
-            </dl>
+            </div>
 
             {sessions.length > 0 && (
               <div className="mt-3 space-y-3 border-t border-slate-800 pt-3">
