@@ -38,6 +38,22 @@ def _fake_response():
             "temperature_2m_max": [78.46, 75.1, 81.0, 73.9, 70.0],
             "temperature_2m_min": [60.12, 58.4, 62.0, 55.5, 54.0],
             "precipitation_probability_max": [10, 80, 0, 60, None],
+            "sunrise": [
+                "2026-06-22T05:58",
+                "2026-06-23T05:58",
+                "2026-06-24T05:59",
+                "2026-06-25T05:59",
+                "2026-06-26T05:59",
+            ],
+            "sunset": [
+                "2026-06-22T20:31",
+                "2026-06-23T20:31",
+                "2026-06-24T20:32",
+                "2026-06-25T20:32",
+                "2026-06-26T20:32",
+            ],
+            "uv_index_max": [6.85, 7.0, 9.2, 5.5, 4.0],
+            "precipitation_sum": [0.0, 0.413, 0.0, 0.25, None],
         },
         "hourly": {
             # Two hours on day 1, one on day 2 — enough to prove the date grouping.
@@ -71,6 +87,32 @@ def test_is_day_zero_becomes_false():
     data = _fake_response()
     data["current"]["is_day"] = 0
     assert weather.shape(data, "us")["current"]["is_day"] is False
+
+
+def test_current_carries_time_for_sun_arc():
+    cur = weather.shape(_fake_response(), "us")["current"]
+    assert cur["time"] == "2026-06-22T14:00"  # location-local "now" for the sun-arc
+
+
+def test_daily_carries_sun_uv_and_precip_sum():
+    day = weather.shape(_fake_response(), "us")["daily"][2]  # 2026-06-24
+    assert day["sunrise"] == "2026-06-24T05:59"
+    assert day["sunset"] == "2026-06-24T20:32"
+    assert day["uv_max"] == 9.2
+    assert day["precip_sum"] == 0.0
+
+
+def test_daily_extras_tolerate_missing_arrays():
+    # Drop the sun/UV/precip arrays entirely — days still come through, just
+    # without those fields (zip_longest pads with None rather than dropping rows).
+    data = _fake_response()
+    for k in ("sunrise", "sunset", "uv_index_max", "precipitation_sum"):
+        data["daily"].pop(k)
+    days = weather.shape(data, "us")["daily"]
+    assert len(days) == 5
+    assert days[0]["sunrise"] is None
+    assert days[0]["uv_max"] is None
+    assert days[4]["precip_sum"] is None  # last day's precip_sum was None anyway
 
 
 def test_daily_zips_parallel_arrays():

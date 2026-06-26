@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   formatWatts,
   formatKwh,
+  clockLabel,
   netLabel,
   solarUnavailableMessage,
   gaugeFraction,
@@ -132,5 +133,18 @@ describe('barPair', () => {
   it('returns null when neither has data', () => {
     expect(barPair(0, 0)).toBe(null)
     expect(barPair(null, undefined)).toBe(null)
+  })
+})
+
+describe('clockLabel', () => {
+  it('formats epoch ms as a compact 12-hour time', () => {
+    // Build via a local Date so the test is timezone-agnostic.
+    const ms = new Date(2026, 5, 24, 13, 35).getTime()
+    expect(clockLabel(ms)).toBe('1:35p')
+    expect(clockLabel(new Date(2026, 5, 24, 0, 5).getTime())).toBe('12:05a')
+  })
+  it('returns empty for null/invalid', () => {
+    expect(clockLabel(null)).toBe('')
+    expect(clockLabel(NaN)).toBe('')
   })
 })

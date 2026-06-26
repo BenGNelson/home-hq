@@ -17,6 +17,19 @@ export function formatKwh(wh) {
   return `${(wh / 1000).toFixed(1)} kWh`
 }
 
+// A compact wall-clock label ("1:35p") from epoch milliseconds — for the
+// peak-production time on the day's curve. '' for null/invalid input.
+export function clockLabel(ms) {
+  if (ms == null) return ''
+  const d = new Date(ms)
+  if (Number.isNaN(d.getTime())) return ''
+  let h = d.getHours()
+  const m = d.getMinutes()
+  const period = h < 12 ? 'a' : 'p'
+  h = h % 12 === 0 ? 12 : h % 12
+  return `${h}:${String(m).padStart(2, '0')}${period}`
+}
+
 // A metered system's net flow, as a human label. Positive = exporting surplus to
 // the grid, negative = importing from it, ~0 = balanced.
 export function netLabel(netWatts) {

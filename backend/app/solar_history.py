@@ -42,18 +42,25 @@ def summarize_history(samples):
     """Aggregate raw solar samples into headline stats. Pure + defensive.
 
     `samples` = [{ts, prod_watts, cons_watts, net_watts}], ascending by ts.
-    Returns the sample count, the peak production seen, and the latest production
-    (the gauge uses peak as its reference scale). Empty input → zeros / None,
-    never raises.
+    Returns the sample count, the peak production seen (and *when* it occurred, so
+    the curve can mark it), and the latest production (the gauge uses peak as its
+    reference scale). Empty input → zeros / None, never raises.
     """
     n = len(samples)
     if n == 0:
-        return {"samples": 0, "peak_watts": None, "latest_watts": None}
+        return {"samples": 0, "peak_watts": None, "peak_ts": None, "latest_watts": None}
 
-    prod = [s.get("prod_watts") for s in samples if s.get("prod_watts") is not None]
+    # The sample with the highest production — keep its ts for the peak marker.
+    # Skip rows with no reading so a None can't win the max.
+    peak = max(
+        (s for s in samples if s.get("prod_watts") is not None),
+        key=lambda s: s["prod_watts"],
+        default=None,
+    )
     return {
         "samples": n,
-        "peak_watts": max(prod) if prod else None,
+        "peak_watts": peak["prod_watts"] if peak else None,
+        "peak_ts": peak["ts"] if peak else None,
         "latest_watts": samples[-1].get("prod_watts"),
     }
 

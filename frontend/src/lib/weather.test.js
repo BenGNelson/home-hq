@@ -16,6 +16,10 @@ import {
   tempColor,
   tempBarStyle,
   hourLabel,
+  timeLabel,
+  sunFraction,
+  uvInfo,
+  formatPrecip,
 } from './weather.js'
 
 describe('weatherGlow', () => {
@@ -138,5 +142,65 @@ describe('hourLabel', () => {
   it('returns an empty string for invalid input', () => {
     expect(hourLabel('')).toBe('')
     expect(hourLabel('nope')).toBe('')
+  })
+})
+
+describe('timeLabel', () => {
+  it('formats with zero-padded minutes and a/p suffixes', () => {
+    expect(timeLabel('2026-06-24T05:58')).toBe('5:58a')
+    expect(timeLabel('2026-06-24T00:05')).toBe('12:05a')
+    expect(timeLabel('2026-06-24T20:31')).toBe('8:31p')
+    expect(timeLabel('2026-06-24T12:00')).toBe('12:00p')
+  })
+  it('returns empty for invalid input', () => {
+    expect(timeLabel('')).toBe('')
+    expect(timeLabel('nope')).toBe('')
+  })
+})
+
+describe('sunFraction', () => {
+  const rise = '2026-06-24T06:00'
+  const set = '2026-06-24T18:00'
+  it('is 0 at sunrise, ~0.5 at midday, 1 at sunset', () => {
+    expect(sunFraction(rise, set, '2026-06-24T06:00')).toBe(0)
+    expect(sunFraction(rise, set, '2026-06-24T12:00')).toBeCloseTo(0.5, 5)
+    expect(sunFraction(rise, set, '2026-06-24T18:00')).toBe(1)
+  })
+  it('clamps before sunrise and after sunset', () => {
+    expect(sunFraction(rise, set, '2026-06-24T03:00')).toBe(0)
+    expect(sunFraction(rise, set, '2026-06-24T23:00')).toBe(1)
+  })
+  it('returns null for missing/invalid or a degenerate day', () => {
+    expect(sunFraction(null, set, '2026-06-24T12:00')).toBe(null)
+    expect(sunFraction(rise, 'nope', '2026-06-24T12:00')).toBe(null)
+    expect(sunFraction(set, rise, '2026-06-24T12:00')).toBe(null) // set <= rise
+  })
+})
+
+describe('uvInfo', () => {
+  it('buckets the UV index per the WHO scale', () => {
+    expect(uvInfo(1).label).toBe('Low')
+    expect(uvInfo(4).label).toBe('Moderate')
+    expect(uvInfo(7).label).toBe('High')
+    expect(uvInfo(9).label).toBe('Very high')
+    expect(uvInfo(12).label).toBe('Extreme')
+  })
+  it('returns a neutral dash for null', () => {
+    expect(uvInfo(null)).toEqual({ label: '—', tone: 'text-slate-400' })
+  })
+})
+
+describe('formatPrecip', () => {
+  it('formats inches (default) and millimetres', () => {
+    expect(formatPrecip(0.25)).toBe('0.25 in')
+    expect(formatPrecip(0.034)).toBe('0.03 in')
+    expect(formatPrecip(5.4, true)).toBe('5 mm')
+  })
+  it('keeps a decimal for sub-1mm so it never shows a contradictory "0 mm"', () => {
+    expect(formatPrecip(0.4, true)).toBe('0.4 mm')
+  })
+  it('returns null on a dry day so the chip is omitted', () => {
+    expect(formatPrecip(0)).toBe(null)
+    expect(formatPrecip(null)).toBe(null)
   })
 })

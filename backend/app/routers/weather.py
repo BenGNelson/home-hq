@@ -14,6 +14,7 @@ router = APIRouter()
 
 
 class CurrentModel(BaseModel):
+    time: str | None = Field(default=None, description="Location-local 'now', YYYY-MM-DDTHH:MM")
     temp: float | None = Field(default=None, description="Current temperature, in temp_unit")
     feels_like: float | None = Field(
         default=None, description="Apparent ('feels like') temperature, in temp_unit"
@@ -42,6 +43,12 @@ class DailyModel(BaseModel):
     lo: float | None = Field(default=None, description="Overnight low, in temp_unit")
     precip_prob: int | None = Field(
         default=None, description="Max chance of precipitation, percent"
+    )
+    sunrise: str | None = Field(default=None, description="Sunrise time, YYYY-MM-DDTHH:MM (local)")
+    sunset: str | None = Field(default=None, description="Sunset time, YYYY-MM-DDTHH:MM (local)")
+    uv_max: float | None = Field(default=None, description="Max UV index for the day")
+    precip_sum: float | None = Field(
+        default=None, description="Total expected precipitation for the day, in/mm"
     )
     hours: list[HourlyModel] = Field(
         default_factory=list, description="That day's hourly forecast (for tap-to-expand)"

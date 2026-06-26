@@ -49,8 +49,11 @@ _CURRENT_FIELDS = (
     "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,"
     "weather_code,wind_speed_10m,wind_direction_10m"
 )
+# sunrise/sunset + uv_index_max + precipitation_sum power the hero's sun-arc, the
+# UV chip, and the expected-precip chip (all on today = daily[0]).
 _DAILY_FIELDS = (
-    "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
+    "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,"
+    "sunrise,sunset,uv_index_max,precipitation_sum"
 )
 # Per-hour fields for the tap-to-expand hourly strip on the Weather page. Open-Meteo
 # returns these for every forecast_day; we group them under their day in shape().
@@ -85,6 +88,12 @@ def _int(x):
     return round(x) if isinstance(x, (int, float)) else None
 
 
+def _round2(x):
+    """Round to 2 decimals, tolerating None — for precipitation amounts (small
+    inch/mm values where 1 decimal would collapse a light shower to 0)."""
+    return round(x, 2) if isinstance(x, (int, float)) else None
+
+
 def _params(units: str) -> dict:
     """Build the Open-Meteo query params for the configured location + units."""
     p = {
@@ -113,6 +122,9 @@ def _current(data) -> dict:
     Open-Meteo. Pure + defensive."""
     c = data.get("current") or {}
     return {
+        # The location-local "now" timestamp — the frontend uses it to place the
+        # sun on the day-arc (so it tracks the location's time, not the browser's).
+        "time": c.get("time"),
         "temp": _round1(c.get("temperature_2m")),
         "feels_like": _round1(c.get("apparent_temperature")),
         "humidity": _int(c.get("relative_humidity_2m")),
@@ -136,8 +148,20 @@ def _forecast(data) -> list:
     his = d.get("temperature_2m_max") or []
     los = d.get("temperature_2m_min") or []
     precs = d.get("precipitation_probability_max") or []
+    # The hero extras (sunrise/sunset/UV/precip amount) are looked up by index so a
+    # short/missing extras array just yields None for that field — while the day
+    # count stays bounded by the core temperature arrays (zip truncates to the
+    # shortest of those), so we never emit a blank-temperature ghost day.
+    rises = d.get("sunrise") or []
+    sets = d.get("sunset") or []
+    uvs = d.get("uv_index_max") or []
+    psums = d.get("precipitation_sum") or []
+
+    def _at(arr, i):
+        return arr[i] if i < len(arr) else None
+
     out = []
-    for date, code, hi, lo, precip in zip(dates, codes, his, los, precs):
+    for i, (date, code, hi, lo, precip) in enumerate(zip(dates, codes, his, los, precs)):
         out.append(
             {
                 "date": date,
@@ -145,6 +169,10 @@ def _forecast(data) -> list:
                 "hi": _round1(hi),
                 "lo": _round1(lo),
                 "precip_prob": _int(precip),
+                "sunrise": _at(rises, i),
+                "sunset": _at(sets, i),
+                "uv_max": _round1(_at(uvs, i)),
+                "precip_sum": _round2(_at(psums, i)),
             }
         )
     return out

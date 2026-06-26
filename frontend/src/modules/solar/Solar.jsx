@@ -8,6 +8,7 @@ import { radiantBackdrop } from '../../lib/glow.js'
 import {
   formatWatts,
   formatKwh,
+  clockLabel,
   solarUnavailableMessage,
   gaugeFraction,
   glowIntensity,
@@ -55,6 +56,25 @@ function Live({ d }) {
 
   const samples = hist?.samples || []
   const times = samples.map((s) => s.ts * 1000) // epoch-s → ms for the time axis
+
+  // Today's production peak (value + when), for the gauge caption and a dot on the
+  // curve. The history window is a rolling 24h, so right after midnight its stats
+  // still describe yesterday's peak — restrict to samples since local midnight, and
+  // only when there's real (non-zero) production to call out.
+  const midnight = new Date()
+  midnight.setHours(0, 0, 0, 0)
+  let peakWatts = null
+  let peakTs = null
+  for (const s of samples) {
+    if (s.ts * 1000 < midnight.getTime() || s.prod_watts == null) continue
+    if (peakWatts == null || s.prod_watts > peakWatts) {
+      peakWatts = s.prod_watts
+      peakTs = s.ts
+    }
+  }
+  const hasPeak = peakWatts != null && peakWatts > 0
+  const peakIdx = hasPeak ? samples.findIndex((s) => s.ts === peakTs) : -1
+  const peakAt = hasPeak ? clockLabel(peakTs * 1000) : ''
   const series = [{ color: '#f59e0b', points: samples.map((s) => s.prod_watts ?? 0) }]
   const legend = [{ label: 'Production', color: '#f59e0b' }]
   if (d.metered) {
@@ -83,6 +103,12 @@ function Live({ d }) {
             </div>
           )}
         </div>
+        {hasPeak && (
+          <div className="mt-1 text-center text-xs text-amber-300/80">
+            Today’s peak {formatWatts(peakWatts)}
+            {peakAt ? ` at ${peakAt}` : ''}
+          </div>
+        )}
         {d.self_sufficiency_percent != null && (
           <div className="mt-1 text-center text-sm font-medium text-emerald-400">
             {d.self_sufficiency_percent}% self-sufficient right now
@@ -133,6 +159,7 @@ function Live({ d }) {
             legend={legend}
             times={times}
             formatValue={formatWatts}
+            peakMarker={peakIdx >= 0 ? { index: peakIdx, label: peakAt } : undefined}
           />
         ) : (
           <p className="text-xs text-slate-500">
