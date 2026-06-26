@@ -14,13 +14,8 @@ export default function TailscaleWidget() {
   const verdict = data ? tailscaleVerdict(data) : null
   const devices = data?.available ? [data.self, ...(data.peers || [])].filter(Boolean) : []
 
-  // Back-light by the tailnet verdict (a status hue, like System): emerald when
-  // the mesh is up, rose when it's disconnected, flat while indeterminate.
-  const accent =
-    verdict?.tone === 'good' ? '52,211,153' : verdict?.tone === 'bad' ? '248,113,113' : null
-
   return (
-    <Widget title="Tailscale" loading={loading} error={error} accent={accent}>
+    <Widget title="Tailscale" loading={loading} error={error}>
       {data && (
         <div className="space-y-3 text-sm">
           <div className="flex items-center justify-between">

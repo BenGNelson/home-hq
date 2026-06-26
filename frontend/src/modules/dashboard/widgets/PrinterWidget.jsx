@@ -14,12 +14,9 @@ export default function PrinterWidget() {
   const unavailable = data && data.available === false
   const p = data?.printer
   const printing = p?.state === 'RUNNING'
-  // Back-light the card warm while a job is actively printing (the "earned" use:
-  // it draws the eye when there's something live, and stays calm when idle).
-  const accent = printing ? '251,146,60' : null // orange-400
 
   return (
-    <Widget title={data?.name ?? 'Printer'} loading={loading} error={error} accent={accent}>
+    <Widget title={data?.name ?? 'Printer'} loading={loading} error={error}>
       {data &&
         (unavailable ? (
           <p className="text-sm text-amber-400">{printerUnavailableMessage(data.reason)}</p>
