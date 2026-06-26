@@ -174,7 +174,7 @@ def _mem_usage(stats: dict) -> tuple[int | None, int | None, float | None]:
         usage = mem.get("usage")
         limit = mem.get("limit")
         # Subtract page cache so it reflects real working set (cgroup v2).
-        inactive = mem.get("stats", {}).get("inactive_file", 0)
+        inactive = (mem.get("stats") or {}).get("inactive_file", 0)
         if usage is not None:
             used = max(usage - inactive, 0)
             percent = round(used / limit * 100, 1) if limit else None

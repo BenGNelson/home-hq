@@ -24,7 +24,7 @@ function readerColors() {
   return {
     bg: v('--color-slate-950', '#0f172a'),
     text: v('--color-slate-100', '#e5e5e5'),
-    link: v('--color-emerald-400', '#9cafcf'),
+    link: v('--color-emerald-400', '#34d399'),
   }
 }
 

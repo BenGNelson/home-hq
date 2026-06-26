@@ -170,7 +170,3 @@ def init_sampler(interval: int, retention_days: int) -> StorageSampler:
     global _sampler
     _sampler = StorageSampler(interval, retention_days)
     return _sampler
-
-
-def get_sampler() -> StorageSampler | None:
-    return _sampler

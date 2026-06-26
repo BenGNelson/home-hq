@@ -168,6 +168,7 @@ function ContainerLogs({ name }) {
         <select
           value={tail}
           onChange={(e) => setTail(Number(e.target.value))}
+          aria-label="Log lines to tail"
           className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-slate-300"
         >
           {TAIL_OPTIONS.map((n) => (

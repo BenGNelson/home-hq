@@ -120,13 +120,15 @@ class BookIndexer:
                     batch = []
             if batch:
                 db.upsert_book_meta_many(batch)
-            # Prune cache rows for files that no longer exist.
-            removed = set(known) - present
-            if removed:
-                db.delete_book_meta_many(removed)
-            # Record the logic version once a pass actually completes (not if it
-            # was interrupted), so a forced re-parse only happens once.
+            # Prune + record the version only once a pass actually completes (not
+            # if it was interrupted) — an interrupted pass hasn't visited every
+            # file, so `present` is partial and the prune would delete
+            # not-yet-scanned books from the search cache.
+            removed = set()
             if not self._stop.is_set():
+                removed = set(known) - present
+                if removed:
+                    db.delete_book_meta_many(removed)
                 db.set_meta("book_index_version", _INDEX_VERSION)
             self._last_scanned = time.time()
             log.info(

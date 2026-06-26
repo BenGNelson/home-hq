@@ -79,9 +79,6 @@ export function weatherInfo(code, isDay = true) {
   }
 }
 
-// The Lucide icon component for a weather code (convenience, mirrors entityIcon).
-export const weatherIcon = (code, isDay) => weatherInfo(code, isDay).Icon
-
 // The "back-lit" glow color (an "r,g,b" constant-palette string) for a weather
 // condition, matching its icon tone family — so the hero icon reads as lit by the
 // weather (warm amber sun, sky-blue rain, violet storm, icy cyan, calm slate at

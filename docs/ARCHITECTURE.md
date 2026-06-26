@@ -129,6 +129,7 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/health` | liveness + server name | trivial |
 | `GET /api/system` | CPU %, RAM used/total, OS/root disk used/total/%, uptime | `psutil` |
 | `GET /api/disk` | total/used/free/% for the storage mount | `psutil.disk_usage` |
+| `GET /api/gpu` | GPU load + VRAM (+ encode sessions), self-hides when absent | reads a host timer's `gpu.json` |
 | `GET /api/containers` | name, status, image, uptime per container | Docker SDK → read-only socket proxy |
 | `GET /api/containers/{name}` | one container's live stats (cpu/mem/net) | Docker SDK → read-only socket proxy |
 | `GET /api/containers/{name}/logs?tail=N` | recent stdout/stderr (tail-limited, timestamped) | Docker SDK → read-only socket proxy; honors `CONTAINER_LOGS_EXCLUDE` |

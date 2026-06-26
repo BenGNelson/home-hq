@@ -9,7 +9,6 @@ import {
 } from 'lucide-react'
 import {
   weatherInfo,
-  weatherIcon,
   weatherGlow,
   formatTemp,
   dayName,
@@ -61,13 +60,6 @@ describe('weatherInfo', () => {
     expect(weatherInfo(61).label).toBe('Rain')
     expect(weatherInfo(71).label).toBe('Snow')
     expect(weatherInfo(95).label).toBe('Thunderstorm')
-  })
-})
-
-describe('weatherIcon', () => {
-  it('is the icon from weatherInfo', () => {
-    expect(weatherIcon(0, true)).toBe(Sun)
-    expect(weatherIcon(0, false)).toBe(Moon)
   })
 })
 

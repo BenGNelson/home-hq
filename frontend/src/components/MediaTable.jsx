@@ -35,7 +35,7 @@ export default function MediaTable({
     const col = columns.find((c) => c.key === sort) ?? columns[0]
     const q = search.trim().toLowerCase()
     const filtered = q
-      ? items.filter((i) => i.title.toLowerCase().includes(q))
+      ? items.filter((i) => (i.title || '').toLowerCase().includes(q))
       : items
     return [...filtered].sort((a, b) => compare(col.get(a), col.get(b), order))
   }, [items, search, sort, order, columns])
@@ -58,6 +58,7 @@ export default function MediaTable({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={searchPlaceholder}
+          aria-label={searchPlaceholder}
           className="w-full max-w-xs rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-slate-500 focus:outline-none"
         />
         <span className="text-xs text-slate-500">

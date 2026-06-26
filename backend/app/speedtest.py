@@ -202,7 +202,3 @@ def init_sampler(interval: int, retention_days: int) -> SpeedtestSampler:
     global _sampler
     _sampler = SpeedtestSampler(interval, retention_days)
     return _sampler
-
-
-def get_sampler() -> SpeedtestSampler | None:
-    return _sampler

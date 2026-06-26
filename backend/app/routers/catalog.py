@@ -127,7 +127,7 @@ def _norm_item(it, states_map=None):
     return {
         "name": name,
         "category": (str(it["category"]) if it.get("category") else None),
-        "brand": (it.get("brand") or None),
+        "brand": (str(it["brand"]) if it.get("brand") else None),
         "model": (str(it["model"]) if it.get("model") is not None else None),
         "in_ha": bool(it.get("in_ha", False)),
         "entity": entity,
