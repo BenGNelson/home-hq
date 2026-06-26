@@ -51,8 +51,13 @@ export default function PlexWidget() {
   const episodes = libs.reduce((a, l) => a + (l.episodes || 0), 0)
   const sessions = npData?.sessions ?? []
 
+  // Back-light in Plex's signature gold while something's actively streaming (the
+  // earned use: it glows when there's a live session, stays flat when nothing's on).
+  const streaming = data?.configured && data?.reachable && data.streams > 0
+  const accent = streaming ? '229,160,13' : null // Plex gold
+
   return (
-    <Widget title="Plex" loading={loading} error={error} skeleton={<WidgetSkeleton rows={6} />}>
+    <Widget title="Plex" loading={loading} error={error} accent={accent} skeleton={<WidgetSkeleton rows={6} />}>
       {data &&
         (!data.configured ? (
           <p className="text-sm text-slate-500">not configured</p>
