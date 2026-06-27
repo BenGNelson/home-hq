@@ -1,4 +1,4 @@
-import { graphBounds, graphLine } from '../lib/graph.js'
+import { graphBounds, graphLine, graphTicks } from '../lib/graph.js'
 import { TimeAxis } from './TimeAxis.jsx'
 
 // A lightweight live line graph — no charting dependency, just SVG.
@@ -28,6 +28,7 @@ export function Graph({
   caption,
   peakMarker,
   zeroBaseline = true,
+  yTicks = 0,
 }) {
   const W = 100
   // Bottom/top of the value axis. zeroBaseline:false zooms to the data so a
@@ -35,6 +36,11 @@ export function Graph({
   const { floor, top, peak, low } = graphBounds(series, { zeroBaseline })
   const hasData = series.some((s) => s.points.length > 0)
   const line = (points) => graphLine(points, top, height, W, floor)
+  const yPct = (v) => (1 - (v - floor) / (top - floor)) * 100
+  // Optional y-axis gridlines + value labels. Drop ticks within 5% of an edge so
+  // a label can't clip out of the plot.
+  const ticks =
+    yTicks && hasData ? graphTicks(floor, top, yTicks).filter((t) => yPct(t) >= 5 && yPct(t) <= 95) : []
 
   // Position of the peak dot on the first series (kept round via a CSS overlay
   // rather than an SVG <circle>, which the non-uniform x-scaling would distort).
@@ -88,6 +94,9 @@ export function Graph({
   // With a marker, report the marked series' value at that point (consistent with
   // the marker's time label); otherwise the auto-scaled cross-series peak.
   const fmt = (x) => (formatValue ? formatValue(x) : `${Math.round(x)}${unit ? ` ${unit}` : ''}`)
+  // Bare number for y-axis ticks (the unit lives in the readout/legend, so
+  // repeating it on every gridline just adds clutter).
+  const tickLabel = (t) => (formatValue ? formatValue(t) : String(Math.round(t)))
   const readout = dot ? dot.value : peak
   // On a zoomed (non-zero-baseline) chart with no marker, show the actual value
   // window (low–peak) so the line isn't misread as touching zero.
@@ -113,6 +122,17 @@ export function Graph({
       </div>
       <div className="relative">
         {svg}
+        {ticks.map((t) => (
+          <div
+            key={t}
+            className="pointer-events-none absolute inset-x-0 border-t border-slate-700/40"
+            style={{ top: `${yPct(t)}%` }}
+          >
+            <span className="absolute left-0 -translate-y-1/2 rounded-sm bg-slate-950/60 px-1 text-[10px] leading-none tabular-nums text-slate-500">
+              {tickLabel(t)}
+            </span>
+          </div>
+        ))}
         {dot && (
           <span
             className="pointer-events-none absolute h-2 w-2 rounded-full ring-2 ring-slate-950/40"

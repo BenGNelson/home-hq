@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { graphBounds, graphLine } from './graph.js'
+import { graphBounds, graphLine, graphTicks } from './graph.js'
 
 describe('graphBounds', () => {
   it('default (zeroBaseline) keeps the 0→max axis', () => {
@@ -43,6 +43,23 @@ describe('graphBounds', () => {
     // low 1, top 100 → pad ~24.75 would push the floor negative; clamp to 0.
     const { floor } = graphBounds([{ points: [1, 100] }], { zeroBaseline: false })
     expect(floor).toBe(0)
+  })
+})
+
+describe('graphTicks', () => {
+  it('picks round, evenly-spaced values within the bounds', () => {
+    // A zoomed Mbps window like the Speed chart's ~886–961.
+    expect(graphTicks(886, 961, 4)).toEqual([900, 920, 940, 960])
+  })
+
+  it('snaps the step to a 1/2/2.5/5 × 10^n value', () => {
+    expect(graphTicks(0, 100, 4)).toEqual([0, 25, 50, 75, 100])
+    expect(graphTicks(0, 10, 5)).toEqual([0, 2, 4, 6, 8, 10])
+  })
+
+  it('returns nothing for a non-positive range', () => {
+    expect(graphTicks(5, 5, 4)).toEqual([])
+    expect(graphTicks(10, 0, 4)).toEqual([])
   })
 })
 
