@@ -179,11 +179,12 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/plex/show/{key}/episodes` | one show's episodes, in order | SQLite cache |
 | `GET /api/plex/item/{key}` | rich metadata for one item (detail page) | `PlexAPI` (on-demand) |
 | `GET /api/plex/art/{key}` | item poster, proxied so the token stays server-side | downscaled to a small WebP, disk-cached by rating key so repeat loads skip the Plex round-trip |
-| `GET /api/library` | every section + whether it's configured + item count (the hub landing) | scans the per-section content dirs |
+| `GET /api/library` | every section + configured + item count + a few cover `preview` refs (the hub landing) | scans the per-section content dirs; `preview` dresses the hub's peek tiles in one fetch (audiobooks: the unit is the book *folder*, so its count + preview are folders, not chapter files) |
 | `GET /api/library/{section}` | one section's items (the browse list) | recursive scan of the section's dir |
 | `GET /api/library/books/search?q=&limit=` | search Books by title/author | queries the `book_meta` cache (empty `q` = first results alphabetically) |
 | `GET /api/library/books/index-status` | book-indexer progress | from the indexer + cache count (drives the "indexing…" UI) |
-| `GET /api/library/books/cover?id=` | a book's cover art (cached) | extracts the embedded cover from the EPUB/MOBI on first view, downscales to a small WebP, serves locally thereafter (404 → titled placeholder) |
+| `GET /api/library/books/cover?id=` | a book's cover art (cached) | EPUB/MOBI → embedded cover; PDF book → rendered first page (no embedded cover); downscaled to a small WebP on first view, served locally thereafter (404 → titled placeholder) |
+| `GET /api/library/papers/cover?id=` | a magazine/paper's cover (cached) | renders the PDF's first page (a magazine's first page is its cover) to a small WebP on first view, served locally thereafter (404 → titled placeholder) |
 | `GET /api/library/comics/info?id=` | a comic's page count | reads the CBZ/CBR/CB7 archive's image entries (via libarchive) |
 | `GET /api/library/comics/cover?id=` | a comic's cover = page 0 (cached) | extracts the first page, downscales small for the browse grid |
 | `GET /api/library/comics/page?id=&n=` | one comic page (cached) | extracts page `n` from the archive, downscales to a reading-size WebP, serves locally thereafter |
@@ -466,12 +467,32 @@ on any play — when a save state OR an in-game (SRAM) save is written (the on-d
 save dir is a *hash* of the game id, so this table holds the real id + core to
 resume + show art); the game then resumes by booting to its in-game Continue, not
 a save-state slot. Both **roam across
-devices** and ride the backup. The Library hub's **Jump back in** shelf merges
+devices** and ride the backup. The Library hub's resume surface merges
 them — `GET /library/continue` returns in-progress documents (resume to the
 saved page) and recently-played games (boot to their in-game Continue), newest
 first — so one tap skips the drill-down. Each kind's remove clears only its
 marker (`reading_progress` row, or `game_progress` row), never the content or
 the save files; the shelf also skips entries whose underlying file is gone.
+
+**The hub leads with the content, not abstract tiles.** The most-recent
+in-progress item becomes a **radiant spotlight** (the hub's single back-lit
+moment — see the motif section; its cover glows as a light source, accented in
+the item's section colour), with the rest of "Jump back in" on a slim shelf
+beneath it (one resume surface, not two stacked). Below, each section is a
+**peek tile** — its accent icon, count, and a row of real cover art from the
+section's `preview` refs — that stays a calm card (no per-card glow) so the grid
+reads as one surface. This makes the owned-content library look like the wall of
+art it is, the same way the browse pages do.
+
+**Covers for the formats that had none.** Magazines/papers (PDFs) and PDF books
+carry no embedded cover, so their **first page is rendered** (`app/pdfcover.py`,
+PyMuPDF) as the cover — a magazine's first page *is* its cover. This slots into
+the same on-demand cache as the other covers (`_serve_cached_cover`): rendered
+once on first view, downscaled to a WebP, served locally thereafter, a coverless
+item remembered as a miss. `scripts/warm-covers.sh` pre-extracts a section's
+covers so the grids look full immediately instead of filling in lazily. (A small
+fraction of CBR comics use a RAR variant libarchive can't read — those fall back
+to an icon tile, as they always have, since the reader uses the same extraction.)
 
 **Books are search-first, backed by a metadata index.** A large ebook library
 (10k+ files) is unbrowseable as a flat list, so the Books section is a search box

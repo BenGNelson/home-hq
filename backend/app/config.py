@@ -80,6 +80,10 @@ class Settings(BaseSettings):
     # book folder path). The cover comes from a folder image or the first
     # chapter's embedded art, extracted on first view.
     audiobook_covers_dir: str = "/data/audiobook-covers"
+    # Where rendered magazine/paper cover thumbnails are cached (WebP, keyed by a
+    # hash of the item id). A PDF has no embedded cover, so its first page is
+    # rendered on first view (a magazine's first page is its cover).
+    paper_covers_dir: str = "/data/paper-covers"
     # Where extracted comic pages are cached (downscaled WebP, keyed by a hash of
     # the comic id + page index). Same writable volume; a page is pulled from the
     # archive on first view and served locally thereafter, so paging is fast and

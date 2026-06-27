@@ -17,6 +17,9 @@ import {
   formatTime,
   comicPageUrl,
   comicCoverUrl,
+  paperCoverUrl,
+  sectionAccent,
+  continueAccentKey,
   libraryHeadline,
   bookSubtitle,
   libraryNavSections,
@@ -96,6 +99,33 @@ describe('coverUrl', () => {
     expect(coverUrl('Metroid Fusion (USA).gba')).toBe(
       '/api/library/games/cover?id=Metroid%20Fusion%20(USA).gba'
     )
+  })
+})
+
+describe('paperCoverUrl', () => {
+  it('points at the papers cover endpoint with the encoded id', () => {
+    expect(paperCoverUrl('Science News - March 25, 2023.pdf')).toBe(
+      '/api/library/papers/cover?id=Science%20News%20-%20March%2025%2C%202023.pdf'
+    )
+  })
+})
+
+describe('sectionAccent', () => {
+  it('gives each known section a constant-palette accent', () => {
+    expect(sectionAccent('games').text).toBe('text-violet-300')
+    expect(sectionAccent('audiobooks').rgb).toBe('244,63,94')
+  })
+  it('falls back to a neutral accent for an unknown section', () => {
+    expect(sectionAccent('nope').text).toBe('text-slate-300')
+  })
+})
+
+describe('continueAccentKey', () => {
+  it('maps a resume item to its section for the spotlight accent', () => {
+    expect(continueAccentKey({ kind: 'play' })).toBe('games')
+    expect(continueAccentKey({ kind: 'listen' })).toBe('audiobooks')
+    expect(continueAccentKey({ kind: 'read', section: 'comics' })).toBe('comics')
+    expect(continueAccentKey(null)).toBe(null)
   })
 })
 
