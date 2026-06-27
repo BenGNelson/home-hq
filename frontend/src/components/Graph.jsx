@@ -120,34 +120,53 @@ export function Graph({
           </span>
         )}
       </div>
-      <div className="relative">
-        {svg}
-        {ticks.map((t) => (
-          <div
-            key={t}
-            className="pointer-events-none absolute inset-x-0 border-t border-slate-700/40"
-            style={{ top: `${yPct(t)}%` }}
-          >
-            <span className="absolute left-0 -translate-y-1/2 rounded-sm bg-slate-950/60 px-1 text-[10px] leading-none tabular-nums text-slate-500">
-              {tickLabel(t)}
-            </span>
+      <div className="flex">
+        {/* y-axis value labels, in a gutter to the LEFT of the plot */}
+        {ticks.length > 0 && (
+          <div className="relative w-9 shrink-0">
+            {ticks.map((t) => (
+              <span
+                key={t}
+                className="absolute right-1.5 -translate-y-1/2 text-[10px] leading-none tabular-nums text-slate-500"
+                style={{ top: `${yPct(t)}%` }}
+              >
+                {tickLabel(t)}
+              </span>
+            ))}
           </div>
-        ))}
-        {dot && (
-          <span
-            className="pointer-events-none absolute h-2 w-2 rounded-full ring-2 ring-slate-950/40"
-            style={{
-              left: `${dot.left}%`,
-              top: `${dot.top}%`,
-              transform: 'translate(-50%, -50%)',
-              backgroundColor: dot.color,
-              boxShadow: `0 0 6px ${dot.color}`,
-            }}
-          />
         )}
+        <div className="relative flex-1">
+          {svg}
+          {/* gridlines span the plot; their labels live in the gutter above */}
+          {ticks.map((t) => (
+            <div
+              key={t}
+              className="pointer-events-none absolute inset-x-0 border-t border-slate-700/40"
+              style={{ top: `${yPct(t)}%` }}
+            />
+          ))}
+          {dot && (
+            <span
+              className="pointer-events-none absolute h-2 w-2 rounded-full ring-2 ring-slate-950/40"
+              style={{
+                left: `${dot.left}%`,
+                top: `${dot.top}%`,
+                transform: 'translate(-50%, -50%)',
+                backgroundColor: dot.color,
+                boxShadow: `0 0 6px ${dot.color}`,
+              }}
+            />
+          )}
+        </div>
       </div>
       {times ? (
-        <TimeAxis times={times} />
+        // Indent the time axis by the gutter width so it stays under the plot.
+        <div className="flex">
+          {ticks.length > 0 && <div className="w-9 shrink-0" />}
+          <div className="flex-1">
+            <TimeAxis times={times} />
+          </div>
+        </div>
       ) : caption ? (
         <div className="mt-1 text-right text-[10px] text-slate-500">{caption}</div>
       ) : null}
