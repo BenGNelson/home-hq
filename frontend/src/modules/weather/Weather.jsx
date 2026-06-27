@@ -88,7 +88,9 @@ function Live({ d }) {
             <div className="text-sm text-slate-400">{label}</div>
             {hl && <div className="mt-0.5 text-xs tabular-nums text-slate-400">{hl}</div>}
           </div>
-          <div className="ml-auto grid grid-cols-1 gap-1 text-sm text-slate-400">
+          {/* Mobile: the compact right-aligned column (unchanged — this size is
+              the design target on a phone). */}
+          <div className="ml-auto grid grid-cols-1 gap-1 text-sm text-slate-400 sm:hidden">
             <span className="flex items-center justify-end gap-1.5">
               <Thermometer className="h-4 w-4 text-orange-300" aria-hidden="true" />
               Feels {formatTemp(c.feels_like, d.temp_unit)}
@@ -101,6 +103,31 @@ function Live({ d }) {
               <Wind className="h-4 w-4 text-slate-300" aria-hidden="true" />
               {Math.round(c.wind_speed)} {d.wind_unit} {compass(c.wind_dir)}
             </span>
+          </div>
+
+          {/* Tablet/desktop: spread the stats across the banner width as large
+              labeled tiles so they're legible (was tiny — the column had no
+              responsive size). The labels also disambiguate humidity from the
+              rain-chance % shown in the forecast below. */}
+          <div className="ml-2 hidden flex-1 items-center justify-around sm:flex">
+            <StatTile
+              Icon={Thermometer}
+              iconClass="text-orange-300"
+              label="Feels like"
+              value={formatTemp(c.feels_like, d.temp_unit)}
+            />
+            <StatTile
+              Icon={Droplets}
+              iconClass="text-sky-300"
+              label="Humidity"
+              value={`${c.humidity}%`}
+            />
+            <StatTile
+              Icon={Wind}
+              iconClass="text-slate-300"
+              label="Wind"
+              value={`${Math.round(c.wind_speed)} ${d.wind_unit} ${compass(c.wind_dir)}`}
+            />
           </div>
         </div>
 
@@ -157,6 +184,20 @@ function Live({ d }) {
   )
 }
 
+// One enlarged hero stat (tablet/desktop): icon + an uppercase label over a large
+// value. Mirrors the dashboard WeatherWidget's tile so the two surfaces match.
+function StatTile({ Icon, iconClass, label, value }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <Icon className={`h-7 w-7 shrink-0 ${iconClass}`} aria-hidden="true" />
+      <div className="leading-tight">
+        <div className="text-xs uppercase tracking-wide text-slate-400">{label}</div>
+        <div className="text-xl font-medium tabular-nums text-slate-200">{value}</div>
+      </div>
+    </div>
+  )
+}
+
 // A single forecast day: a clickable row that toggles its hourly strip. The row
 // shows day · icon · lo · color range bar · hi · precip%.
 function DayRow({ day, label, unit, weekMin, weekMax, open, onToggle }) {
@@ -183,7 +224,7 @@ function DayRow({ day, label, unit, weekMin, weekMax, open, onToggle }) {
         <span className="flex w-12 shrink-0 items-center justify-end gap-0.5 text-[11px] tabular-nums text-sky-300/90">
           {day.precip_prob != null && day.precip_prob > 0 ? (
             <>
-              <Droplets className="h-3 w-3" aria-hidden="true" />
+              <Umbrella className="h-3 w-3" aria-hidden="true" />
               {day.precip_prob}%
             </>
           ) : null}
@@ -248,8 +289,13 @@ function HourlyStrip({ hours, unit }) {
               >
                 {h.temp == null ? '—' : `${Math.round(h.temp)}°`}
               </span>
-              <span className="flex h-3 items-center text-[10px] text-sky-300/90">
-                {h.precip_prob != null && h.precip_prob > 0 ? `${h.precip_prob}%` : ''}
+              <span className="flex h-3 items-center gap-0.5 text-[10px] text-sky-300/90">
+                {h.precip_prob != null && h.precip_prob > 0 ? (
+                  <>
+                    <Umbrella className="h-2.5 w-2.5" aria-hidden="true" />
+                    {h.precip_prob}%
+                  </>
+                ) : null}
               </span>
             </div>
           )
