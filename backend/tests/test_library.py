@@ -375,6 +375,47 @@ def test_sections_summary_unconfigured(monkeypatch):
     summary = {s["key"]: s for s in library.sections_summary(settings)}
     assert summary["games"]["configured"] is False
     assert summary["games"]["count"] == 0
+    assert summary["games"]["preview"] == []  # nothing to peek at
+
+
+def test_sections_summary_preview_refs(rom_dir):
+    """The hub gets a few cover refs per section (the item ids), capped."""
+    games = {s["key"]: s for s in library.sections_summary(settings)}["games"]
+    assert 0 < len(games["preview"]) <= 6
+    ids = {it["id"] for it in library.list_items(GAMES, settings)}
+    assert all(ref in ids for ref in games["preview"])
+
+
+def test_sections_summary_audiobooks_count_and_preview_are_folders(audiobooks_dir):
+    """An audiobook's unit is the book *folder*, not each chapter file — so the
+    count and the preview refs are the distinct folders (which the cover endpoint
+    keys on), not the mp3s."""
+    # Add a second book so we can tell folders from chapters.
+    second = audiobooks_dir / "Aldous Huxley - Brave New World"
+    second.mkdir(parents=True)
+    for n in (1, 2):
+        (second / f"Chapter {n}.mp3").write_bytes(b"ID3audio")
+
+    summary = {s["key"]: s for s in library.sections_summary(settings)}["audiobooks"]
+    assert summary["count"] == 2  # two books, not five mp3s
+    assert set(summary["preview"]) == {
+        "George Orwell - Animal Farm",
+        "Aldous Huxley - Brave New World",
+    }
+
+
+def test_audiobook_folders_use_chapter_parent_dir():
+    """A book is the folder that directly holds its chapters (a chapter's parent
+    dir), so a book nested under a collection/author folder is keyed by its real
+    folder — what the cover endpoint resolves — not the top segment."""
+    items = [
+        {"id": "Dune/01.mp3"},
+        {"id": "Dune/02.mp3"},
+        {"id": "SciFi Collection/Hyperion/01.mp3"},  # nested under a collection
+        {"id": "SciFi Collection/Hyperion/02.mp3"},
+        {"id": "loose.mp3"},  # no folder → skipped
+    ]
+    assert library._audiobook_folders(items) == ["Dune", "SciFi Collection/Hyperion"]
 
 
 # --- HTTP layer ------------------------------------------------------------
@@ -1013,6 +1054,58 @@ def test_audiobook_cover_missing_is_404_and_remembered(client, audiobooks_dir, a
     assert client.get(
         "/api/library/audiobooks/cover", params={"path": "../etc"}
     ).status_code == 404
+
+
+# --- PDF covers (magazines/papers + PDF books, rendered first page) ---------
+
+@pytest.fixture
+def paper_covers_dir(tmp_path, monkeypatch):
+    d = tmp_path / "paper-covers"
+    monkeypatch.setattr(settings, "paper_covers_dir", str(d))
+    return d
+
+
+def _write_pdf(path, color=(0.2, 0.3, 0.5)):
+    import pymupdf
+
+    doc = pymupdf.open()
+    page = doc.new_page(width=300, height=400)
+    page.draw_rect(page.rect, color=color, fill=color)
+    doc.save(str(path))
+    doc.close()
+
+
+def test_paper_cover_renders_first_page(client, papers_dir, paper_covers_dir):
+    """A magazine's first page is rendered + cached as a WebP cover."""
+    _write_pdf(papers_dir / "Science News - March 25, 2023.pdf")
+    r = client.get(
+        "/api/library/papers/cover", params={"id": "Science News - March 25, 2023.pdf"}
+    )
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/webp"
+    assert list(paper_covers_dir.glob("*.webp"))
+
+
+def test_paper_cover_unreadable_pdf_is_404_and_remembered(client, papers_dir, paper_covers_dir):
+    # The papers_dir fixture's stub files aren't valid PDFs → render fails → miss.
+    r = client.get("/api/library/papers/cover", params={"id": "The Atlantic - April 2023.pdf"})
+    assert r.status_code == 404
+    assert list(paper_covers_dir.glob("*.miss"))
+    # Traversal / unknown id → 404.
+    assert client.get("/api/library/papers/cover", params={"id": "../etc/passwd"}).status_code == 404
+
+
+def test_book_pdf_cover_renders_first_page(client, tmp_path, monkeypatch):
+    """A PDF book has no embedded cover, so its first page is rendered as one
+    (same path the EPUB/MOBI embedded cover takes)."""
+    books = tmp_path / "ebooks"
+    books.mkdir()
+    monkeypatch.setattr(settings, "books_dir", str(books))
+    monkeypatch.setattr(settings, "book_covers_dir", str(tmp_path / "book-covers"))
+    _write_pdf(books / "Networking.pdf")
+    r = client.get("/api/library/books/cover", params={"id": "Networking.pdf"})
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/webp"
 
 
 # --- game cover override + libretro pointer --------------------------------

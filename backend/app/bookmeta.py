@@ -24,6 +24,8 @@ import xml.etree.ElementTree as ET
 import unicodedata
 import zipfile
 
+from app import pdfcover
+
 _DC = "{http://purl.org/dc/elements/1.1/}"
 _CONTAINER_NS = {"c": "urn:oasis:names:tc:opendocument:xmlns:container"}
 
@@ -312,14 +314,17 @@ def _mobi_cover_index(rec0):
 
 
 def extract_cover(path, ext):
-    """The embedded cover image bytes for a book by extension, or None when the
-    format is unsupported (PDF) or has no readable cover — the cover proxy then
-    serves a placeholder."""
+    """The cover image bytes for a book by extension, or None when it has no
+    readable cover — the cover proxy then serves a placeholder. EPUB/MOBI carry
+    an embedded cover; a PDF book has none, so we render its first page (a book
+    PDF's first page is its title/cover page)."""
     ext = (ext or "").lower()
     if ext == ".epub":
         return parse_epub_cover(path)
     if ext in (".mobi", ".azw3", ".prc"):
         return parse_mobi_cover(path)
+    if ext == ".pdf":
+        return pdfcover.render_first_page(path)
     return None
 
 

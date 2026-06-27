@@ -430,13 +430,53 @@ def list_save_states(saves_root, game_id):
     return states
 
 
+# How many cover refs to surface per section for the hub's peek tiles. A handful
+# is enough to dress a card; the frontend renders the first few and any that have
+# no cover fall back to an icon tile.
+_PREVIEW_COUNT = 6
+
+
+def _audiobook_folders(items):
+    """The distinct book folders of audiobook chapter items, in listing order. An
+    audiobook is the folder that directly holds its chapter files, so a book = a
+    chapter's parent dir (`rsplit`, not the top path segment) — that handles books
+    nested under a collection/author dir, and it's exactly what the audiobook
+    cover endpoint keys on. Dedup via a set so this stays O(n) on the hot
+    /library hub poll."""
+    seen = set()
+    folders = []
+    for it in items:
+        cid = it.get("id") or ""
+        folder = cid.rsplit("/", 1)[0] if "/" in cid else ""
+        if folder and folder not in seen:
+            seen.add(folder)
+            folders.append(folder)
+    return folders
+
+
+def _section_units(section, items):
+    """(count, preview-refs) for a section. Most sections count items directly and
+    preview their first few ids. Audiobooks are the exception: their unit is the
+    book *folder* (not each chapter file), and the cover endpoint keys on the
+    folder path — so both the count and the preview refs come from the folders."""
+    if section["key"] == "audiobooks":
+        folders = _audiobook_folders(items)
+        return len(folders), folders[:_PREVIEW_COUNT]
+    refs = [it["id"] for it in items[:_PREVIEW_COUNT] if it.get("id")]
+    return len(items), refs
+
+
 def sections_summary(settings):
-    """For the hub landing: every section with whether it's configured and how
-    many items it currently holds. Hidden/unconfigured sections still appear with
+    """For the hub landing: every section with whether it's configured, how many
+    items it currently holds, and a few cover refs (`preview`) so the hub can show
+    real art in one fetch. Hidden/unconfigured sections still appear with
     configured=False so the hub can show a 'set me up' hint."""
     out = []
     for s in SECTIONS:
         configured = is_configured(s, settings)
+        # One listing pass feeds both the count and the preview refs.
+        items = list_items(s, settings) if configured else []
+        count, preview = _section_units(s, items)
         out.append(
             {
                 "key": s["key"],
@@ -444,7 +484,8 @@ def sections_summary(settings):
                 "icon": s["icon"],
                 "kind": s["kind"],
                 "configured": configured,
-                "count": len(list_items(s, settings)) if configured else 0,
+                "count": count,
+                "preview": preview,
             }
         )
     return out

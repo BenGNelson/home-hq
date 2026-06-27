@@ -42,6 +42,11 @@ libarchive-c>=5.1
 # FLAC pictures) out of its first chapter. Pure Python, no system libs.
 mutagen>=1.47
 
+# PDF rendering — magazines/papers and PDF books carry no embedded cover, so we
+# render their first page as the cover (app/pdfcover.py). Ships a self-contained
+# MuPDF build in the wheel, so no system libs are needed.
+PyMuPDF>=1.27
+
 # Enphase Envoy (solar) local API client for /api/solar. Handles the firmware 7+
 # token auth (mint + ~6-month auto-refresh via the Enlighten cloud), the
 # self-signed local HTTPS, and the metered/non-metered data model. Same library

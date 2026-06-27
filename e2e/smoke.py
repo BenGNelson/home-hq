@@ -25,6 +25,22 @@ BASE_URL = os.environ.get("BASE_URL", "http://localhost:5173").rstrip("/")
 # noise, etc.). Keep this tight — it's the escape hatch, not the rule.
 BENIGN = ()
 
+
+def _benign_response(url, status, rtype):
+    """True for a non-OK response that is a by-design graceful <img onError>
+    fallback, not a page failure. Kept TIGHT and per-route — a broken logo, PWA
+    icon, Plex poster, or a cover route 5xx (e.g. a crashing renderer) is NOT
+    benign and must still fail the smoke. Only:
+      - a cover-route 404 (the cover is missing → placeholder tile), and
+      - the chamber camera during warmup/off (404/503 → last-frame/placeholder)."""
+    if rtype != "image":
+        return False
+    if status == 404 and "/cover" in url:
+        return True
+    if "/printer/camera" in url and status in (404, 503):
+        return True
+    return False
+
 # (path, [text snippets that must be present]). An empty list = assert only that
 # the shell rendered, the content area is non-empty, and there were no console
 # errors. Content snippets are added for pages whose render we want to pin.
@@ -58,6 +74,15 @@ def check_page(page, path, expect):
     page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     page.on("pageerror", lambda e: errors.append(str(e)))
 
+    # Track non-OK responses so we can tell a benign cover-image 404 (the app's
+    # by-design graceful fallback — every cover is an <img onError> that swaps to
+    # an icon tile) from a real one (a failed API/JS/asset fetch is a true bug).
+    bad = []  # (url, status, resource_type)
+    page.on(
+        "response",
+        lambda r: bad.append((r.url, r.status, r.request.resource_type)) if r.status >= 400 else None,
+    )
+
     page.goto(f"{BASE_URL}{path}", wait_until="domcontentloaded")
     # The "Home HQ" brand confirms the shell booted. Wait for it instead of
     # networkidle — the app polls /api continuously, so it's never network-idle.
@@ -70,7 +95,23 @@ def check_page(page, path, expect):
     for text in expect:
         if page.get_by_text(text, exact=False).count() == 0:
             problems.append(f"missing expected text: {text!r}")
-    real = [e for e in errors if not any(b in e for b in BENIGN)]
+
+    # A non-OK response on a known graceful-fallback image route (cover miss,
+    # camera warmup) is by-design; anything else (a 4xx/5xx on an API/script/
+    # document, a broken non-cover image, or a cover-route 5xx) is a real problem.
+    unexpected = [b for b in bad if not _benign_response(*b)]
+    if unexpected:
+        problems.append(f"unexpected non-OK responses: {unexpected}")
+    # The browser logs a generic "Failed to load resource" console error per
+    # non-OK response with no URL — so only treat those as real when there's an
+    # unexpected response behind them (a benign image 404 carries no other signal).
+    real = []
+    for e in errors:
+        if any(b in e for b in BENIGN):
+            continue
+        if "Failed to load resource" in e and not unexpected:
+            continue  # benign cover-image 404
+        real.append(e)
     if real:
         problems.append(f"console errors: {real}")
     return problems

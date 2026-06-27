@@ -23,7 +23,7 @@ from fastapi import APIRouter, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from app import audiobooks, book_sync, bookmeta, comics, db, images, library
+from app import audiobooks, book_sync, bookmeta, comics, db, images, library, pdfcover
 from app.config import settings
 
 router = APIRouter()
@@ -41,6 +41,10 @@ class SectionSummaryModel(BaseModel):
     kind: str = Field(description="How items open: 'play' (emulator) or 'read' (reader)")
     configured: bool = Field(description="False when the section's content dir is unset/missing")
     count: int
+    preview: list[str] = Field(
+        default_factory=list,
+        description="A few cover refs (item ids; audiobooks=folder paths) for the hub peek tile",
+    )
 
 
 class LibraryModel(BaseModel):
@@ -811,12 +815,12 @@ _EXTRACTED_ART_HEADERS = {"Cache-Control": "public, max-age=2592000"}
 
 @router.get("/library/books/cover")
 def get_book_cover(id: str = Query(description="Book item id from the search/listing")):
-    """A book's cover art, extracted from its embedded image once and cached as a
-    small WebP (same cache-and-proxy shape as game box art / Plex posters). On
-    first view we pull the cover out of the EPUB/MOBI, downscale it, and store the
-    WebP keyed by a hash of the id; later views serve that local file. A book with
-    no embedded cover (or a PDF) is remembered as a miss → 404, and the frontend
-    shows a titled placeholder."""
+    """A book's cover art, cached once as a small WebP (same cache-and-proxy shape
+    as game box art / Plex posters). On first view we get the cover from the file
+    — the embedded image for an EPUB/MOBI, or the rendered first page for a PDF
+    book — downscale it, and store the WebP keyed by a hash of the id; later views
+    serve that local file. A book with no readable cover is remembered as a miss →
+    404, and the frontend shows a titled placeholder."""
     books = library.get_section("books")
     if not books:
         return Response(status_code=404)
@@ -825,6 +829,24 @@ def get_book_cover(id: str = Query(description="Book item id from the search/lis
         return Response(status_code=404)
     return _serve_cached_cover(
         settings.book_covers_dir, id, lambda: bookmeta.extract_cover(path, os.path.splitext(id)[1])
+    )
+
+
+@router.get("/library/papers/cover")
+def get_paper_cover(id: str = Query(description="Paper/magazine item id from the listing")):
+    """A magazine/paper's cover = its first page, rendered once and cached as a
+    small WebP (same on-demand cache shape as the book/comic covers). A PDF has no
+    embedded cover, so the first page — which for a magazine is its cover — is
+    rendered on first view; an unreadable PDF is remembered as a miss → 404 and
+    the frontend shows a titled placeholder."""
+    papers = library.get_section("papers")
+    if not papers:
+        return Response(status_code=404)
+    path = library.safe_path(papers, settings, id)
+    if not path:
+        return Response(status_code=404)
+    return _serve_cached_cover(
+        settings.paper_covers_dir, id, lambda: pdfcover.render_first_page(path)
     )
 
 

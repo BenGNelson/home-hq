@@ -39,6 +39,7 @@ pydantic-settings==2.14.2
 pydantic_core==2.46.4
 pyenphase==2.4.9
 PyJWT==2.13.0
+PyMuPDF==1.27.2.3
 python-dotenv==1.2.2
 python-multipart==0.0.32
 PyYAML==6.0.3
