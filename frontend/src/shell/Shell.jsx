@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useApi } from '../lib/useApi.js'
+import { useMediaQuery } from '../lib/useMediaQuery.js'
 import { useOnline } from '../lib/online.jsx'
 import { groupModules, activeModule, FOOTER_GROUP } from '../lib/nav.js'
 import ThemePicker from './ThemePicker.jsx'
@@ -129,17 +130,11 @@ export default function Shell({ modules, children }) {
   // links would otherwise stay focusable + announced. Mark it `inert` in that
   // state only — never on md+ where the same <aside> is the always-visible
   // sidebar. (inert implies aria-hidden, so screen readers skip it too.)
+  const isMobile = useMediaQuery('(max-width: 767px)')
   useEffect(() => {
     const el = sidebarRef.current
-    if (!el) return
-    const mq = window.matchMedia('(max-width: 767px)')
-    const apply = () => {
-      el.inert = mq.matches && !open
-    }
-    apply()
-    mq.addEventListener('change', apply)
-    return () => mq.removeEventListener('change', apply)
-  }, [open])
+    if (el) el.inert = isMobile && !open
+  }, [open, isMobile])
 
   // Group the flat registry into labeled sections. The Docs group renders apart
   // at the bottom (reference material, not functional modules); everything else

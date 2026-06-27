@@ -2,7 +2,7 @@ import { ShieldBan } from 'lucide-react'
 import { useApi } from '../../../lib/useApi.js'
 import { formatPercent, formatCount, topDomainsPreview, adguardUnavailableMessage } from '../../../lib/adguard.js'
 import { containerUrl } from '../../../lib/hostLocal.js'
-import { OpenLink } from '../../../components/ui.jsx'
+import { OpenLink, WidgetSkeleton } from '../../../components/ui.jsx'
 import Widget from './Widget.jsx'
 
 // Compact ad-blocking summary for the dashboard. Hides itself entirely when no
@@ -18,7 +18,14 @@ export default function AdGuardWidget() {
   const link = containerUrl('adguard-home')
 
   return (
-    <Widget title="Ad Blocking" to="/adguard" loading={loading} error={error} action={<OpenLink href={link} />}>
+    <Widget
+      title="Ad Blocking"
+      to="/adguard"
+      loading={loading}
+      error={error}
+      action={<OpenLink href={link} />}
+      skeleton={<WidgetSkeleton rows={4} />}
+    >
       {data &&
         (unavailable ? (
           <p className="text-sm text-amber-400">{adguardUnavailableMessage(data.reason)}</p>

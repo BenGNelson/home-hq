@@ -1,6 +1,7 @@
 import { useApi } from '../../../lib/useApi.js'
 import { entityIcon, entityColor, entityLabel, entityValue, lowBattery } from '../../../lib/ha.js'
 import { homeAssistantUrl } from '../../../lib/hostLocal.js'
+import { WidgetSkeleton } from '../../../components/ui.jsx'
 import Widget from './Widget.jsx'
 
 // A thin, read-only glance at a curated handful of Home Assistant entities, each
@@ -21,8 +22,11 @@ export default function HomeWidget() {
   const unavailable = data && data.available === false
   const entities = data?.entities ?? []
 
+  // The body is the curated HA entity list, so it's the tallest glance on the
+  // board — reserve roughly its real height (the host's allowlist count) so a
+  // slow HA fetch doesn't shove the card below it down a few hundred px.
   return (
-    <Widget title="Home" to="/catalog" loading={loading} error={error}>
+    <Widget title="Home" to="/catalog" loading={loading} error={error} skeleton={<WidgetSkeleton rows={12} />}>
       {data &&
         (unavailable ? (
           <p className="text-sm text-amber-400">Home Assistant unreachable</p>

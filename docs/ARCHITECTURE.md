@@ -1512,7 +1512,7 @@ Short record of *why* things are the way they are, so future changes have contex
   portrait (e.g. an 8.3" tablet ≈ 744px wide) sits *just under* Tailwind's `md`,
   so a `md:`-gated two-column layout would leave it on the cramped single-column
   phone view despite having room for two. The multi-column surfaces — the
-  dashboard widget masonry, the VPN exit-vs-home comparison, and the Containers
+  dashboard widget grid, the VPN exit-vs-home comparison, and the Containers
   list+detail master view — therefore go two-up at `sm`, which covers portrait
   tablets (and large phones in landscape) while narrow phones stay single-column.
   The nav itself intentionally stays a slide-in drawer at that width (the
@@ -1547,3 +1547,22 @@ Short record of *why* things are the way they are, so future changes have contex
   (blocked %, top domains) with pausing/blocklists left to AdGuard's own UI —
   cockpit, not brain. Direct backend REST read (no host privileges needed, like
   Solar), admin login in `.env`.
+- **Dashboard: fixed two-column placement, not CSS multi-column.** The widget
+  grid started as a CSS multi-column (`columns-2`) "masonry". That layout
+  *balances column heights*, so every time a widget finished loading and changed
+  height the browser re-distributed cards **between** the columns — the grid
+  visibly churned while it settled, and balanced-column boxes don't even align
+  their tops. The fix keeps a single ordered `WIDGETS` array (the source of truth
+  for both layouts: array order is the phone/single-column order; a per-widget
+  `col` tag picks left/right on wider screens) and renders it into two explicit
+  flex columns above `sm` via a small `useMediaQuery` hook (`splitColumns`
+  preserves array order within each column). Column membership is now *fixed*, so
+  nothing reflows between columns; the columns start level and balance is tuned
+  by hand via the tags. Paired with universal widget skeletons (every card passes
+  a height-matched `skeleton` to the shared `Widget` frame), the page holds its
+  shape from the first frame instead of jumping as each source resolves. The
+  trade for the JS breakpoint: actually crossing 640px (resizing a desktop window
+  across it, or rotating a phone into a wide landscape) swaps the one-column tree
+  for the two-column one, so the widgets remount and briefly re-skeleton/refetch.
+  Harmless for these read-only glances, and the devices that matter — desktop and
+  tablet — sit well clear of the line in normal use.

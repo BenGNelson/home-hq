@@ -1,6 +1,7 @@
 import { useApi } from '../../../lib/useApi.js'
 import { formatMinutes } from '../../../lib/format.js'
 import { printerUnavailableMessage } from '../../../lib/printer.js'
+import { WidgetSkeleton } from '../../../components/ui.jsx'
 import Widget from './Widget.jsx'
 import StateBadge from '../../printer/StateBadge.jsx'
 import { FilamentList } from '../../printer/Filament.jsx'
@@ -16,7 +17,13 @@ export default function PrinterWidget() {
   const printing = p?.state === 'RUNNING'
 
   return (
-    <Widget title={data?.name ?? 'Printer'} to="/printer" loading={loading} error={error}>
+    <Widget
+      title={data?.name ?? 'Printer'}
+      to="/printer"
+      loading={loading}
+      error={error}
+      skeleton={<WidgetSkeleton rows={3} />}
+    >
       {data &&
         (unavailable ? (
           <p className="text-sm text-amber-400">{printerUnavailableMessage(data.reason)}</p>
