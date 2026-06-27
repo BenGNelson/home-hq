@@ -186,7 +186,7 @@ class Settings(BaseSettings):
     # works regardless. SPEEDTEST_INTERVAL=0 also disables the schedule.
     speedtest_enabled: bool = False
     speedtest_interval: int = 21600  # seconds between scheduled tests (0 = manual-only)
-    speedtest_retention_days: int = 90  # retention window (days)
+    speedtest_retention_days: int = 365  # retention window (days) — a year so the chart's 1y range fills in
     speedtest_min_download: float = 0  # Mbps; >0 → alert when latest download is below it (0 = no alert)
 
     # --- Uptime monitoring (host prober → JSON, powers the Uptime page) ---

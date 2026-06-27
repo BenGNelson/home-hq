@@ -82,6 +82,67 @@ def parse_result(data: dict, now: float | None = None) -> dict:
     }
 
 
+# --- history ranges + downsampling (pure, unit-tested) ----------------------
+
+# The windows the /speedtest/history endpoint offers, as range-key → seconds.
+# Anything outside this set falls back to DEFAULT_RANGE (so a typo'd query is a
+# sane chart, not a 4xx). Keep in sync with the frontend's range selector.
+HISTORY_RANGES = {
+    "24h": 86_400,
+    "7d": 7 * 86_400,
+    "30d": 30 * 86_400,
+    "90d": 90 * 86_400,
+    "1y": 365 * 86_400,
+}
+DEFAULT_RANGE = "30d"
+
+
+def normalize_range(range_key: str | None) -> str:
+    """Clamp a requested range to the allowed set (unknown/None → default). PURE."""
+    return range_key if range_key in HISTORY_RANGES else DEFAULT_RANGE
+
+
+def _mean(values) -> float | None:
+    """Mean of the numeric (non-None) values, or None when there are none."""
+    nums = [v for v in values if isinstance(v, (int, float))]
+    return sum(nums) / len(nums) if nums else None
+
+
+def bucket_samples(rows: list[dict], max_points: int = 120) -> list[dict]:
+    """Downsample a time-ordered list of speedtest rows to at most `max_points`,
+    averaging each contiguous bucket. PURE (no clock, no I/O) so it's unit-tested.
+
+    `rows` are OLDEST-FIRST dicts with ts / download_mbps / upload_mbps / ping_ms.
+    With `<= max_points` rows (or max_points <= 0) it just trims each row to those
+    four keys. Otherwise it splits the ordered rows into `max_points` equal-count
+    buckets and averages each — per field, skipping None (an all-None field in a
+    bucket stays None). A bucket's ts is the mean of its rows' timestamps, so the
+    points stay correctly placed on a time axis. Equal-count buckets suit the
+    regular sampling cadence; the result reads left-to-right in time.
+    """
+    n = len(rows)
+    keys = ("download_mbps", "upload_mbps", "ping_ms")
+    if n == 0:
+        return []
+    if max_points <= 0 or n <= max_points:
+        return [{"ts": r.get("ts"), **{k: r.get(k) for k in keys}} for r in rows]
+
+    out: list[dict] = []
+    for i in range(max_points):
+        lo = i * n // max_points
+        hi = (i + 1) * n // max_points
+        chunk = rows[lo:hi]
+        if not chunk:
+            continue
+        ts_mean = _mean([r.get("ts") for r in chunk])
+        point = {"ts": int(ts_mean) if ts_mean is not None else 0}
+        for k in keys:
+            avg = _mean([r.get(k) for r in chunk])
+            point[k] = round(avg, 1) if avg is not None else None
+        out.append(point)
+    return out
+
+
 def is_running() -> bool:
     """True while a test is in flight (sampler or manual)."""
     return _running

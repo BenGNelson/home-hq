@@ -30,7 +30,7 @@ const ENDPOINTS = [
   ['/api/network', 'Per-interface byte counters (read from the host’s /proc).'],
   ['/api/vpn', 'VPN egress leak check — exit IP vs home IP, from a host timer.'],
   ['/api/tailscale', 'Tailnet devices (online state, exit node, last seen), from a host timer running `tailscale status`.'],
-  ['/api/speedtest', 'ISP down/up/ping — latest + history + stats, from an in-app sampler running the Ookla CLI (POST /api/speedtest/run triggers an on-demand test).'],
+  ['/api/speedtest', 'ISP down/up/ping — latest + history + stats, from an in-app sampler running the Ookla CLI (/api/speedtest/history?range= serves the 24h–1yr trend chart; POST /api/speedtest/run triggers an on-demand test).'],
   ['/api/uptime', 'Per-service availability (status, uptime % 24h/7d, latency), from a host prober that can reach firewall-restricted services.'],
   ['/api/ha', 'A curated, read-only glance at a few Home Assistant entities (deep-linking into HA for control), from a host timer that calls HA’s API.'],
   ['/api/storage/db', 'SQLite file size + per-table row counts — the local DB’s growth, with caps shown.'],
