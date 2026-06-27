@@ -82,6 +82,11 @@ html {
   vertical-align: top;
 }
 .readme-content thead th { background: var(--color-slate-900); color: var(--color-slate-200); }
+/* Honor an explicit align="center" on a table cell — the base td rule forces
+   text-align:left, and Tailwind's preflight makes images display:block, so a
+   sub-full-width image needs auto side-margins (not just text-align) to center. */
+.readme-content td[align="center"] { text-align: center; }
+.readme-content td[align="center"] img { margin-left: auto; margin-right: auto; }
 .readme-content img {
   max-width: 100%;
   height: auto;
