@@ -26,6 +26,25 @@ export function graphBounds(series, { zeroBaseline = true } = {}) {
   return { floor: Math.max(0, low - pad), top: top + pad, peak: top, low }
 }
 
+// "Nice" evenly-spaced y-axis tick values within [floor, top] — roughly `count`
+// of them, snapped to 1 / 2 / 2.5 / 5 × 10^n steps so the labels read as round
+// numbers (920, 940, …) rather than the raw padded bounds. Pure + unit-tested.
+export function graphTicks(floor, top, count = 4) {
+  const range = top - floor
+  if (!(range > 0) || count < 1) return []
+  const rawStep = range / count
+  const mag = 10 ** Math.floor(Math.log10(rawStep))
+  const norm = rawStep / mag
+  const niceNorm = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10
+  const step = niceNorm * mag
+  const ticks = []
+  // Start at the first step at/above the floor; round each to kill FP dust.
+  for (let v = Math.ceil(floor / step) * step; v <= top + step * 1e-9; v += step) {
+    ticks.push(Math.round(v * 1e6) / 1e6)
+  }
+  return ticks
+}
+
 // SVG path string for one series, scaled into [0..width] × [floor..top] with y
 // inverted (floor at the bottom). `floor` defaults to 0 (the classic zero-based
 // axis). Values outside [floor, top] are clamped to the edges. Empty points →

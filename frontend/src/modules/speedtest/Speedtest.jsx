@@ -166,6 +166,7 @@ function HistorySection({ latestTs }) {
           unit="Mbps"
           legend={LEGEND}
           zeroBaseline={false}
+          yTicks={4}
           times={samples.map((h) => h.ts * 1000)}
           series={[
             { color: '#38bdf8', points: download },
