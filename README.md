@@ -63,6 +63,14 @@ anyone evaluating or installing it); **Under the Hood** explains the *software*
 
 ![Home HQ dashboard](docs/img/dashboard.png)
 
+### Solar — live energy flow & a back-lit production gauge
+
+![Solar module](docs/img/solar.png)
+
+### Weather — sunrise→sunset arc, conditions & a 5-day forecast
+
+![Weather module](docs/img/weather.png)
+
 ### 3D printer — live telemetry, controls & chamber camera
 
 ![3D Printer module](docs/img/printer.png)
