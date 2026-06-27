@@ -1,4 +1,4 @@
-import { graphPeak, graphLine } from '../lib/graph.js'
+import { graphBounds, graphLine } from '../lib/graph.js'
 import { TimeAxis } from './TimeAxis.jsx'
 
 // A lightweight live line graph — no charting dependency, just SVG.
@@ -27,11 +27,14 @@ export function Graph({
   times,
   caption,
   peakMarker,
+  zeroBaseline = true,
 }) {
   const W = 100
-  const peak = graphPeak(series)
+  // Bottom/top of the value axis. zeroBaseline:false zooms to the data so a
+  // barely-moving high signal still shows its fluctuation (see graphBounds).
+  const { floor, top, peak, low } = graphBounds(series, { zeroBaseline })
   const hasData = series.some((s) => s.points.length > 0)
-  const line = (points) => graphLine(points, peak, height, W)
+  const line = (points) => graphLine(points, top, height, W, floor)
 
   // Position of the peak dot on the first series (kept round via a CSS overlay
   // rather than an SVG <circle>, which the non-uniform x-scaling would distort).
@@ -43,7 +46,12 @@ export function Graph({
       ? (() => {
           const i = Math.min(Math.max(peakMarker.index ?? 0, 0), pts.length - 1)
           const v = Number(pts[i]) || 0
-          return { left: (i / (pts.length - 1)) * 100, top: (1 - v / peak) * 100, color: series[0].color, value: v }
+          return {
+            left: (i / (pts.length - 1)) * 100,
+            top: (1 - (v - floor) / (top - floor)) * 100,
+            color: series[0].color,
+            value: v,
+          }
         })()
       : null
 
@@ -79,9 +87,14 @@ export function Graph({
 
   // With a marker, report the marked series' value at that point (consistent with
   // the marker's time label); otherwise the auto-scaled cross-series peak.
+  const fmt = (x) => (formatValue ? formatValue(x) : `${Math.round(x)}${unit ? ` ${unit}` : ''}`)
   const readout = dot ? dot.value : peak
-  const peakValue = formatValue ? formatValue(readout) : `${Math.round(readout)}${unit ? ` ${unit}` : ''}`
-  const peakLabel = `peak ${peakValue}${peakMarker?.label ? ` · ${peakMarker.label}` : ''}`
+  // On a zoomed (non-zero-baseline) chart with no marker, show the actual value
+  // window (low–peak) so the line isn't misread as touching zero.
+  const peakLabel =
+    !zeroBaseline && !peakMarker
+      ? `${fmt(low)}–${fmt(peak)}`
+      : `peak ${fmt(readout)}${peakMarker?.label ? ` · ${peakMarker.label}` : ''}`
 
   return (
     <div>
