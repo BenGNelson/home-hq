@@ -1,6 +1,7 @@
 import { Waypoints, TriangleAlert } from 'lucide-react'
 import { useApi } from '../../../lib/useApi.js'
 import { tailscaleVerdict, osIcon } from '../../../lib/tailscale.js'
+import { WidgetSkeleton } from '../../../components/ui.jsx'
 import Widget from './Widget.jsx'
 
 // Compact tailnet summary for the dashboard: the mesh verdict plus the online
@@ -14,7 +15,7 @@ export default function TailscaleWidget() {
   const devices = data?.available ? [data.self, ...(data.peers || [])].filter(Boolean) : []
 
   return (
-    <Widget title="Tailscale" to="/tailscale" loading={loading} error={error}>
+    <Widget title="Tailscale" to="/tailscale" loading={loading} error={error} skeleton={<WidgetSkeleton rows={4} />}>
       {data && (
         <div className="space-y-3 text-sm">
           <div className="flex items-center justify-between">

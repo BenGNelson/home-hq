@@ -1,7 +1,17 @@
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { useApi } from '../../../lib/useApi.js'
 import { formatMbps, formatPing } from '../../../lib/speedtest.js'
+import { SkeletonLine } from '../../../components/ui.jsx'
 import Widget from './Widget.jsx'
+
+// Sized to the real body (a text-2xl download figure over a small ping line) so
+// the card doesn't grow when the first result swaps in.
+const speedtestSkeleton = (
+  <div className="space-y-2 text-sm" aria-hidden="true">
+    <SkeletonLine className="h-8 w-28" />
+    <SkeletonLine className="h-4 w-20" />
+  </div>
+)
 
 // Compact internet-speed summary for the dashboard: latest download / upload /
 // ping. Hides itself entirely when the feature is off (mirrors SolarWidget), so
@@ -14,7 +24,7 @@ export default function SpeedtestWidget() {
   const l = data?.latest
 
   return (
-    <Widget title="Internet Speed" to="/speedtest" loading={loading} error={error}>
+    <Widget title="Internet Speed" to="/speedtest" loading={loading} error={error} skeleton={speedtestSkeleton}>
       {data &&
         (noData ? (
           <p className="text-sm text-slate-400">
