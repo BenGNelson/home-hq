@@ -14,7 +14,7 @@ export default function SpeedtestWidget() {
   const l = data?.latest
 
   return (
-    <Widget title="Internet Speed" loading={loading} error={error}>
+    <Widget title="Internet Speed" to="/speedtest" loading={loading} error={error}>
       {data &&
         (noData ? (
           <p className="text-sm text-slate-400">

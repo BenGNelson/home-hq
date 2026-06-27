@@ -4,6 +4,8 @@ import { useApi } from '../../../lib/useApi.js'
 import { useDelayedFlag } from '../../../lib/useDelayedFlag.js'
 import { weatherInfo, weatherGlow, formatTemp } from '../../../lib/weather.js'
 import { glowFilter, radiantBackdrop } from '../../../lib/glow.js'
+import { moduleAccent, ACCENT_HOVER } from '../../../lib/moduleAccent.js'
+import { AccentArrow } from '../../../components/ui.jsx'
 
 // Wind degrees → 8-point compass abbreviation (mirrors the Weather page).
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
@@ -29,13 +31,14 @@ export default function WeatherWidget() {
   return (
     <Link
       to="/weather"
-      className="group mb-4 block rounded-xl border border-slate-800 bg-slate-900/50 transition-colors hover:border-slate-700 hover:bg-slate-900/80"
-      style={glow ? { background: radiantBackdrop(glow) } : undefined}
+      className={`${ACCENT_HOVER} relative mb-4 block rounded-xl border border-slate-800 bg-slate-900/50`}
+      style={glow ? { background: radiantBackdrop(glow), '--accent': moduleAccent('/weather') } : { '--accent': moduleAccent('/weather') }}
     >
       {/* Stable accessible name that also CONTAINS the visible weather text
           (so it satisfies label-content-name-mismatch), and labels the link
           while the hero is still a loading skeleton. */}
       <span className="sr-only">Weather</span>
+      <AccentArrow className="absolute right-4 top-4" />
       <div className="p-5">
         {error && <p className="text-sm text-rose-400">unavailable — {error}</p>}
         {!error && !data && (showSkeleton ? <HeroSkeleton /> : <div className="h-[3.5rem]" />)}

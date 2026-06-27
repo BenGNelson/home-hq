@@ -16,7 +16,7 @@ export default function PrinterWidget() {
   const printing = p?.state === 'RUNNING'
 
   return (
-    <Widget title={data?.name ?? 'Printer'} loading={loading} error={error}>
+    <Widget title={data?.name ?? 'Printer'} to="/printer" loading={loading} error={error}>
       {data &&
         (unavailable ? (
           <p className="text-sm text-amber-400">{printerUnavailableMessage(data.reason)}</p>

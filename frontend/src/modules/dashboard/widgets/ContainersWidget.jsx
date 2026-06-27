@@ -12,7 +12,7 @@ export default function ContainersWidget() {
   const title = data && !unavailable ? `Containers · ${running}/${list.length}` : 'Containers'
 
   return (
-    <Widget title={title} loading={loading} error={error} skeleton={<WidgetSkeleton rows={6} />}>
+    <Widget title={title} to="/containers" loading={loading} error={error} skeleton={<WidgetSkeleton rows={6} />}>
       {data &&
         (unavailable ? (
           <p className="text-sm text-amber-400">Docker unavailable</p>
@@ -29,7 +29,7 @@ export default function ContainersWidget() {
                         href={link}
                         target="_blank"
                         rel="noreferrer"
-                        className="truncate text-emerald-400 hover:underline"
+                        className="relative z-20 truncate text-emerald-400 hover:underline"
                       >
                         {c.name} ↗
                       </a>

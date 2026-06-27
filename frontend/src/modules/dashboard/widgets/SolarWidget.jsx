@@ -24,7 +24,7 @@ export default function SolarWidget() {
   const glow = glowIntensity(p?.watts_now)
 
   return (
-    <Widget title="Solar" loading={loading} error={error}>
+    <Widget title="Solar" to="/solar" loading={loading} error={error}>
       {data &&
         (unavailable ? (
           <p className="text-sm text-amber-400">{solarUnavailableMessage(data.reason)}</p>

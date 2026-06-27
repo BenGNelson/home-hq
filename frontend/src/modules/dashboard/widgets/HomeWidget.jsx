@@ -22,7 +22,7 @@ export default function HomeWidget() {
   const entities = data?.entities ?? []
 
   return (
-    <Widget title="Home" loading={loading} error={error}>
+    <Widget title="Home" to="/catalog" loading={loading} error={error}>
       {data &&
         (unavailable ? (
           <p className="text-sm text-amber-400">Home Assistant unreachable</p>
@@ -71,7 +71,7 @@ function Row({ e }) {
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="block rounded px-1 py-0.5 -mx-1 hover:bg-slate-800/60"
+          className="relative z-20 block rounded px-1 py-0.5 -mx-1 hover:bg-slate-800/60"
         >
           {body}
         </a>

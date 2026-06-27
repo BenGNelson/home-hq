@@ -323,13 +323,26 @@ highlight, not noise.
 motif lives on full-page **hero** surfaces (Solar, Weather) and the **Weather
 dashboard banner** (`WeatherWidget` applies `radiantBackdrop`/`glowFilter`
 directly, condition-tinted). The standard dashboard widgets (System, Plex,
-Tailscale, Printer, …) are deliberately **flat** — a uniform slate card frame via
-the shared `Widget` wrapper, so the grid reads as one calm surface and the glow
-stays special to the banner above it. (An earlier pass briefly back-lit those
-widgets by a "meaningful accent"; it was reverted 2026-06-26 — the per-card glow
-made the grid busy. If a tuned card tier is ever wanted again, reintroduce a
-`backlitSurface`/`backlitDot` pair in `lib/glow.js` driven by one `BACKLIT` knob
-block and an optional `Widget` `accent` prop.)
+Tailscale, Printer, …) stay **flat at rest** — a uniform slate card frame via the
+shared `Widget` wrapper, so the grid reads as one calm surface and the glow stays
+special to the banner above it. (An earlier pass briefly back-lit those widgets
+*at rest* by a "meaningful accent"; it was reverted 2026-06-26 — the always-on
+per-card glow made the grid busy. The calm-at-rest rule still holds.)
+
+**Clickable widgets (desktop-hover accent only).** Each grid widget links to its
+module page: the shared `Widget` takes an optional `to` prop and renders a
+**stretched-link overlay** — an absolutely-positioned `<Link>` (`z-10`) over the
+card with an `sr-only "View {title}"` accessible name — rather than wrapping the
+card in `<Link>`, so widgets with their *own* inner links keep working (those
+sit above the overlay at `z-20`: Containers' per-row `↗`, Home's HA-history rows,
+AdGuard's "Open ↗" header action). System has no page, so it stays non-clickable;
+Home links to `/catalog` (its rows still deep-link into HA). On **desktop hover
+only** the card lifts ~1px and takes a soft glow + border in its module's accent
+color plus a `↗` affordance — transient and one-card-at-a-time, so it doesn't
+reintroduce the at-rest busyness. The accent rides a `--accent` CSS variable (set
+inline from `lib/moduleAccent.js`, a route→hex map mirroring the nav tints) that
+static Tailwind arbitrary-value `hover:` utilities consume, since Tailwind can't
+compile a runtime color into a class.
 
 ## Plex library browser (the one stateful feature)
 

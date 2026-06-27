@@ -1,4 +1,18 @@
 // Small presentational building blocks reused across widgets.
+import { ArrowUpRight } from 'lucide-react'
+
+// The "go to page" affordance for a clickable card: a ↗ that fades in on hover
+// and tints to the card's `--accent`. Decorative + pointer-events-none, so a
+// click on it still falls through to the card's stretched-link overlay and
+// navigates. Pass `className` for positioning (inline in a header, or absolute).
+export function AccentArrow({ className = '' }) {
+  return (
+    <ArrowUpRight
+      className={`pointer-events-none h-4 w-4 text-slate-600 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-hover:[color:var(--accent)] ${className}`}
+      aria-hidden="true"
+    />
+  )
+}
 
 // A spinning indicator for "this is loading / updating".
 export function Spinner({ label = 'loading…' }) {
