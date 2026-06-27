@@ -52,7 +52,7 @@ export default function PlexWidget() {
   const sessions = npData?.sessions ?? []
 
   return (
-    <Widget title="Plex" loading={loading} error={error} skeleton={<WidgetSkeleton rows={6} />}>
+    <Widget title="Plex" to="/plex" loading={loading} error={error} skeleton={<WidgetSkeleton rows={6} />}>
       {data &&
         (!data.configured ? (
           <p className="text-sm text-amber-400">not configured</p>

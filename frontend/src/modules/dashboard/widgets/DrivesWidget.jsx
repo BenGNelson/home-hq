@@ -16,7 +16,7 @@ export default function DrivesWidget() {
   const empty = drives.length === 0 && !watched
 
   return (
-    <Widget title="Drives" loading={loading} error={error} skeleton={<WidgetSkeleton rows={4} />}>
+    <Widget title="Drives" to="/storage" loading={loading} error={error} skeleton={<WidgetSkeleton rows={4} />}>
       {data && empty && (
         <p className="text-sm text-slate-400">
           No SMART data yet — the host collector hasn’t run.
@@ -49,7 +49,9 @@ export default function DrivesWidget() {
                       </span>
                     )}
                   </span>
-                  <span className={b.cls} title={d.message || ''}>
+                  {/* z-20 so the native SMART-diagnostic tooltip stays reachable
+                      above the card's stretched-link overlay. */}
+                  <span className={`relative z-20 ${b.cls}`} title={d.message || ''}>
                     <span className="mr-1">●</span>
                     {b.label}
                   </span>
@@ -100,7 +102,9 @@ function WatchedDrive({ d }) {
             <span className="ml-2 text-xs font-normal text-slate-400">{d.mount}</span>
           )}
         </span>
-        <span className={b.cls} title={d.note || ''}>
+        {/* z-20 so the watchdog recovery-note tooltip stays reachable above the
+            card's stretched-link overlay. */}
+        <span className={`relative z-20 ${b.cls}`} title={d.note || ''}>
           <span className="mr-1">●</span>
           {b.label}
         </span>

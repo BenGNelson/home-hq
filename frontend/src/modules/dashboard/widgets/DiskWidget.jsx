@@ -10,7 +10,7 @@ export default function DiskWidget() {
   const arrays = raid.data?.available ? raid.data.arrays : []
 
   return (
-    <Widget title="Storage" loading={loading} error={error} skeleton={<WidgetSkeleton bars={1} rows={3} barsFirst />}>
+    <Widget title="Storage" to="/storage" loading={loading} error={error} skeleton={<WidgetSkeleton bars={1} rows={3} barsFirst />}>
       {data &&
         (unavailable ? (
           <p className="text-sm text-amber-400">mount unavailable</p>

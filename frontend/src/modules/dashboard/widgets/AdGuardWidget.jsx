@@ -18,7 +18,7 @@ export default function AdGuardWidget() {
   const link = containerUrl('adguard-home')
 
   return (
-    <Widget title="Ad Blocking" loading={loading} error={error} action={<OpenLink href={link} />}>
+    <Widget title="Ad Blocking" to="/adguard" loading={loading} error={error} action={<OpenLink href={link} />}>
       {data &&
         (unavailable ? (
           <p className="text-sm text-amber-400">{adguardUnavailableMessage(data.reason)}</p>

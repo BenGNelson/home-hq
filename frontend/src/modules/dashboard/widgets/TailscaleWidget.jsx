@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom'
 import { Waypoints, TriangleAlert } from 'lucide-react'
 import { useApi } from '../../../lib/useApi.js'
 import { tailscaleVerdict, osIcon } from '../../../lib/tailscale.js'
@@ -15,7 +14,7 @@ export default function TailscaleWidget() {
   const devices = data?.available ? [data.self, ...(data.peers || [])].filter(Boolean) : []
 
   return (
-    <Widget title="Tailscale" loading={loading} error={error}>
+    <Widget title="Tailscale" to="/tailscale" loading={loading} error={error}>
       {data && (
         <div className="space-y-3 text-sm">
           <div className="flex items-center justify-between">
@@ -55,10 +54,6 @@ export default function TailscaleWidget() {
               })}
             </ul>
           )}
-
-          <Link to="/tailscale" className="block text-xs text-sky-400 hover:underline">
-            View tailnet →
-          </Link>
         </div>
       )}
     </Widget>
