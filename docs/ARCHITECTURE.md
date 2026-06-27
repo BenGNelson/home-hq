@@ -277,7 +277,13 @@ its unit), `legend` (`[{label,color}]` — which line is which), and either `tim
 (epoch-ms → a shared **`<TimeAxis>`** of first/mid/last, used by the ts-backed
 charts: Solar/Speedtest/Plex-insights) or a `caption` (e.g. "live · ~2 min" for
 the client-side moving-window charts: Network/Containers/disk-IO). Daily SMART
-trends pass only `unit` (a clock axis is meaningless at day granularity).
+trends pass only `unit` (a clock axis is meaningless at day granularity). It also
+takes `zeroBaseline` (default true). The honest 0→max axis is right for most
+curves (throughput, production), but a high signal that barely moves relative to
+its magnitude — a rock-solid ~940 Mbps line — hugs the top and hides its
+fluctuation; the Speed history chart passes `zeroBaseline={false}` so `graphBounds`
+**zooms the axis to the data** (padded min→max, floor never < 0) and the label
+shows the value window (low–peak) so the line isn't misread as touching zero.
 
 `lib/hostLocal.js` merges an optional, gitignored `host.local.jsx` at runtime
 (via `import.meta.glob`, so the build works with or without it) — per-container
