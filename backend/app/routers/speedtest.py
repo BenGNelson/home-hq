@@ -15,6 +15,8 @@ available:false with reason "no_data" + running:true so the UI can show a
 "running…" state instead of an empty page.
 """
 
+import time
+
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
@@ -59,8 +61,12 @@ class SpeedtestModel(BaseModel):
     reason: str | None = Field(default=None, description="not_enabled | no_data")
     running: bool | None = None
     latest: LatestModel | None = None
-    history: list[HistoryPointModel] | None = None
-    stats: StatsModel | None = None
+
+
+class HistoryModel(BaseModel):
+    range: str
+    points: list[HistoryPointModel]
+    stats: StatsModel
 
 
 class RunModel(BaseModel):
@@ -69,9 +75,9 @@ class RunModel(BaseModel):
 
 @router.get("/speedtest", response_model=SpeedtestModel, response_model_exclude_none=True)
 def get_speedtest():
-    """Latest internet speed + recent history (for charting) + headline stats.
-
-    Reads only SQLite, so it works regardless of whether a test is in flight.
+    """Latest internet speed reading (the widget + the page headline poll this
+    every 5s). The trend chart lives at GET /speedtest/history, so this hot path
+    stays cheap — just the newest row + the running flag, read from SQLite.
     """
     latest = db.latest_speedtest_sample()
     running = speedtest.is_running()
@@ -84,21 +90,32 @@ def get_speedtest():
             return {"available": False, "reason": "not_enabled"}
         return {"available": False, "reason": "no_data", "running": running}
 
-    history = db.recent_speedtest_samples(limit=30)  # oldest-first for charting
+    return {"available": True, "running": running, "latest": latest}
+
+
+@router.get(
+    "/speedtest/history",
+    response_model=HistoryModel,
+    response_model_exclude_none=True,
+)
+def get_speedtest_history(range: str = speedtest.DEFAULT_RANGE):
+    """Speed trend over a chosen window (24h / 7d / 30d / 90d / 1y) for the chart.
+
+    Kept separate from GET /speedtest (which the dashboard widget polls every 5s
+    for just the latest) so a range switch doesn't bloat that hot path. `range`
+    is clamped to the allowed set, and long windows are downsampled to a chart-
+    friendly point count so a year of 6h samples still renders cheaply.
+    """
+    rng = speedtest.normalize_range(range)
+    since = int(time.time()) - speedtest.HISTORY_RANGES[rng]
+    # Uncapped within the window (limit=None) so a long range isn't truncated to
+    # the newest N — `bucket_samples` then downsamples to a chart-friendly count.
+    # The table's hard row cap bounds the worst case.
+    rows = db.recent_speedtest_samples(limit=None, since_ts=since)
     return {
-        "available": True,
-        "running": running,
-        "latest": latest,
-        "history": [
-            {
-                "ts": h["ts"],
-                "download_mbps": h.get("download_mbps"),
-                "upload_mbps": h.get("upload_mbps"),
-                "ping_ms": h.get("ping_ms"),
-            }
-            for h in history
-        ],
-        "stats": db.speedtest_stats(),
+        "range": rng,
+        "points": speedtest.bucket_samples(rows, max_points=120),
+        "stats": db.speedtest_stats(since_ts=since),
     }
 
 

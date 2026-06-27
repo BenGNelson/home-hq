@@ -136,7 +136,8 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/network` | per-interface byte counters | reads host `/proc/1/net/dev` |
 | `GET /api/vpn` | VPN egress leak check (exit IP vs home IP) | reads a host timer's `vpn.json` |
 | `GET /api/tailscale` | tailnet devices (online state, exit node, last seen) | reads a host timer's `tailscale.json` |
-| `GET /api/speedtest` | latest ISP down/up/ping + history + stats, self-hides until a test runs | in-app sampler runs the Ookla CLI → SQLite |
+| `GET /api/speedtest` | latest ISP down/up/ping + recent history + stats, self-hides until a test runs | in-app sampler runs the Ookla CLI → SQLite |
+| `GET /api/speedtest/history?range=` | down/up trend over a window (`24h`/`7d`/`30d`/`90d`/`1y`) + window stats | reads SQLite, downsamples long ranges (`bucket_samples`) |
 | `POST /api/speedtest/run` | trigger an on-demand test (async; `running` flag polled) | spawns a background `speedtest` run |
 | `GET /api/uptime` | per-service availability — status, uptime % (24h/7d), latency | reads a host prober's `uptime.json` |
 | `GET /api/ha` | curated Home Assistant entities (glance + deep-link), self-hides when unconfigured | reads a host timer's `ha.json` |
@@ -927,9 +928,15 @@ official **Ookla `speedtest` CLI** — baked into the backend image in the
 Dockerfile — every `SPEEDTEST_INTERVAL` seconds, parses the JSON
 (`bandwidth` bytes/s → Mbps), and appends a row to `speedtest_samples` (pruned by
 retention). `/api/speedtest` serves the latest reading + recent history (for the
-chart) + avg/min stats; `POST /api/speedtest/run` triggers an on-demand test in a
-background thread (a module-level lock means the sampler and the manual run never
-overlap, and the `running` flag is polled by the UI — like the Plex-sync job). A
+widget) + avg/min stats; `GET /api/speedtest/history?range=` serves the Speed
+page's trend chart over a chosen window (`24h` / `7d` / `30d` / `90d` / `1y`,
+clamped to that set, default `30d`) — it reuses the `since_ts` query helpers and
+**downsamples** long windows to a chart-friendly point count via the pure,
+unit-tested `bucket_samples()` (equal-count buckets, per-field mean), so a year of
+6 h samples (~1460 points) still renders cheaply. `POST /api/speedtest/run`
+triggers an on-demand test in a background thread (a module-level lock means the
+sampler and the manual run never overlap, and the `running` flag is polled by the
+UI — like the Plex-sync job). A
 `_check_speedtest` alert rule fires when the latest download drops below
 `SPEEDTEST_MIN_DOWNLOAD` (0 = off). The pure `parse_result` is unit-tested without
 the CLI. **Data cost is real** — each gigabit test moves ~3.5 GB — so the

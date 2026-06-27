@@ -4,6 +4,7 @@ import { useApi } from '../lib/useApi.js'
 import { useMediaQuery } from '../lib/useMediaQuery.js'
 import { useOnline } from '../lib/online.jsx'
 import { groupModules, activeModule, FOOTER_GROUP } from '../lib/nav.js'
+import { useScrollRestoration } from './useScrollRestoration.js'
 import ThemePicker from './ThemePicker.jsx'
 import ErrorBoundary from '../components/ErrorBoundary.jsx'
 import { ExternalLink, Plane } from 'lucide-react'
@@ -114,6 +115,11 @@ export default function Shell({ modules, children }) {
   const location = useLocation()
   const { online } = useOnline()
   const sidebarRef = useRef(null)
+  const mainRef = useRef(null)
+
+  // Remember scroll position per history entry so Back/Forward returns you to
+  // where you were (the dashboard scrolls <main>, not the window).
+  useScrollRestoration(mainRef)
 
   // Close the mobile drawer whenever the route changes (after a tap).
   useEffect(() => setOpen(false), [location.pathname])
@@ -230,7 +236,7 @@ export default function Shell({ modules, children }) {
             app to a blank screen. Keyed by pathname + search so navigating to a
             different document clears the error even within a shared route like
             /library/read?id=… (where identity is in the query string). */}
-        <main className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
+        <main ref={mainRef} className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
           <ErrorBoundary key={location.pathname + location.search}>{children}</ErrorBoundary>
         </main>
       </div>

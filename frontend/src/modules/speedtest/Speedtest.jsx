@@ -3,7 +3,12 @@ import { ArrowDown, ArrowUp, Gauge } from 'lucide-react'
 import { useApi, API_BASE } from '../../lib/useApi.js'
 import { formatAgo } from '../../lib/format.js'
 import { Graph } from '../../components/Graph.jsx'
-import { formatMbps, formatPing } from '../../lib/speedtest.js'
+import {
+  formatMbps,
+  formatPing,
+  SPEEDTEST_RANGES,
+  DEFAULT_SPEEDTEST_RANGE,
+} from '../../lib/speedtest.js'
 
 // The Speedtest / ISP monitor: on-demand and scheduled internet speed tests
 // (download / upload / ping) read from the backend, with a history chart. Poll
@@ -81,7 +86,7 @@ function Live({ d }) {
         />
       </div>
 
-      <History history={d.history} stats={d.stats} />
+      <HistorySection latestTs={l?.ts} />
 
       <Footer latest={l} />
     </div>
@@ -100,35 +105,66 @@ function StatCard({ icon, accent, label, value }) {
   )
 }
 
-// Download (and upload) over time. `history` is oldest-first; map each sample's
-// mbps to a points array the shared Graph expects ([{ color, points: [] }]).
-function History({ history, stats }) {
-  const samples = history ?? []
+const LEGEND = [
+  { label: 'Download', color: '#38bdf8' },
+  { label: 'Upload', color: '#34d399' },
+]
+
+// Download/upload over a selectable time window — the "running score" view. Owns
+// its own fetch of /speedtest/history?range= (the backend downsamples long ranges
+// to a chart-friendly point count) so switching range doesn't touch the 5s latest
+// poll. Polls slowly (new samples only land every few hours) but folds the latest
+// sample's ts into the path, so a just-finished "Run test" — picked up by the
+// page's 5s latest poll — refetches the trend at once instead of lagging a minute.
+function HistorySection({ latestTs }) {
+  const [range, setRange] = useState(DEFAULT_SPEEDTEST_RANGE)
+  const bust = latestTs ? `&t=${latestTs}` : '' // backend ignores the extra param
+  const { data, error, loading } = useApi(`/speedtest/history?range=${range}${bust}`, 60000)
+
+  const samples = data?.points ?? []
+  const stats = data?.stats
   const download = samples.map((h) => h.download_mbps ?? 0)
   const upload = samples.map((h) => h.upload_mbps ?? 0)
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-medium text-slate-300">History</h3>
-        <div className="flex items-center gap-3 text-xs">
-          <span className="flex items-center gap-1 text-slate-400">
-            <span className="inline-block h-1.5 w-3 rounded bg-sky-400" /> Download
-          </span>
-          <span className="flex items-center gap-1 text-slate-400">
-            <span className="inline-block h-1.5 w-3 rounded bg-emerald-400" /> Upload
-          </span>
+        <div className="flex gap-1" role="group" aria-label="History range">
+          {SPEEDTEST_RANGES.map((r) => {
+            const active = r.key === range
+            return (
+              <button
+                key={r.key}
+                type="button"
+                onClick={() => setRange(r.key)}
+                aria-pressed={active}
+                className={`rounded-md px-2 py-1 text-xs font-medium transition ${
+                  active
+                    ? 'bg-slate-700 text-white'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                }`}
+              >
+                {r.label}
+              </button>
+            )
+          })}
         </div>
       </div>
-      {samples.length < 2 ? (
+      {error && !data ? (
+        <p className="text-sm text-rose-400">unavailable — {error}</p>
+      ) : samples.length < 2 ? (
         <p className="text-sm text-slate-500">
-          Not enough samples yet — run a few tests and the trend fills in.
+          {loading && !data
+            ? 'loading…'
+            : 'Not enough samples in this range yet — the trend fills in as tests run.'}
         </p>
       ) : (
         <Graph
-          heightClass="h-24"
-          height={96}
+          heightClass="h-32"
+          height={128}
           unit="Mbps"
+          legend={LEGEND}
           times={samples.map((h) => h.ts * 1000)}
           series={[
             { color: '#38bdf8', points: download },
@@ -138,12 +174,8 @@ function History({ history, stats }) {
       )}
       {stats && stats.samples > 0 && (
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-          {stats.avg_download != null && (
-            <span>avg ↓ {formatMbps(stats.avg_download)}</span>
-          )}
-          {stats.min_download != null && (
-            <span>min ↓ {formatMbps(stats.min_download)}</span>
-          )}
+          {stats.avg_download != null && <span>avg ↓ {formatMbps(stats.avg_download)}</span>}
+          {stats.min_download != null && <span>min ↓ {formatMbps(stats.min_download)}</span>}
           {stats.avg_upload != null && <span>avg ↑ {formatMbps(stats.avg_upload)}</span>}
           <span>{stats.samples} samples</span>
         </div>

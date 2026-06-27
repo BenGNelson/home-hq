@@ -449,21 +449,23 @@ def insert_speedtest_sample(record):
 
 def recent_speedtest_samples(limit=30, since_ts=None):
     """The most recent speedtest samples, returned OLDEST-FIRST for charting
-    (we pull the newest `limit` rows, then reverse so a line chart reads left to
-    right in time). Optionally restrict to rows at/after `since_ts`."""
+    (we pull the newest rows, then reverse so a line chart reads left to right in
+    time). Optionally restrict to rows at/after `since_ts`; pass `limit=None` to
+    return the whole (optionally windowed) series uncapped — the trend endpoint
+    does this so a long range isn't silently truncated to the newest N (it then
+    downsamples for the chart). Mirrors recent_solar_samples' windowed mode."""
+    where = "WHERE ts >= ?" if since_ts is not None else ""
+    params = [since_ts] if since_ts is not None else []
+    limit_sql = ""
+    if limit is not None:
+        limit_sql = "LIMIT ?"
+        params.append(limit)
     with get_conn() as conn:
-        if since_ts is not None:
-            rows = conn.execute(
-                f"SELECT {','.join(_SPEEDTEST_COLS)} FROM speedtest_samples "
-                "WHERE ts >= ? ORDER BY ts DESC LIMIT ?",
-                (since_ts, limit),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                f"SELECT {','.join(_SPEEDTEST_COLS)} FROM speedtest_samples "
-                "ORDER BY ts DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
+        rows = conn.execute(
+            f"SELECT {','.join(_SPEEDTEST_COLS)} FROM speedtest_samples "
+            f"{where} ORDER BY ts DESC {limit_sql}",
+            params,
+        ).fetchall()
         return [dict(r) for r in reversed(rows)]
 
 
