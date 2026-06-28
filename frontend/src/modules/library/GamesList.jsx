@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { X } from 'lucide-react'
 import { useApi } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
 import { useDownloaded } from '../../lib/useDownloaded.js'
@@ -13,11 +14,16 @@ import {
   sectionAccent,
 } from '../../lib/library.js'
 import { radiantBackdrop } from '../../lib/glow.js'
-import { getRecent } from '../../lib/recentGames.js'
+import { ACCENT_HOVER } from '../../lib/moduleAccent.js'
+import { getRecent, removeRecent } from '../../lib/recentGames.js'
+import { SkeletonLine } from '../../components/ui.jsx'
 import GameCover from './GameCover.jsx'
 import OfflineSection from './OfflineSection.jsx'
 import SavedBadge from './SavedBadge.jsx'
 import AlphaScrubber from './AlphaScrubber.jsx'
+
+// The games accent (violet) as an "r,g,b" string, for the system cards' glow.
+const GAMES_RGB = sectionAccent('games').rgb
 
 // The Games section browses one system at a time — Game Boy alone has hundreds
 // of titles, so a single stacked grid is unscrollable. The landing shows
@@ -31,14 +37,18 @@ export default function GamesList() {
   const [params] = useSearchParams()
   const system = params.get('system') || ''
   // Read on mount; returning from a game remounts this page, so it stays fresh.
-  const [recent] = useState(() => getRecent())
+  // ✕ on a tile removes it (clears the recently-played marker, not the saves).
+  const [recent, setRecent] = useState(() => getRecent())
+  const removeRecentGame = (g) => setRecent(removeRecent(g.id))
 
   // Offline, the library can't load — show the games you've downloaded.
   if (!online) return <OfflineSection section="games" label="Games" />
 
   return (
     <div className="space-y-5">
-      {loading && !data && <p className="text-sm text-slate-500">loading…</p>}
+      {/* Skeleton (not bare "loading…") so the pills, recently-played row, and
+          systems grid hold their shape on first load — no bounce. */}
+      {loading && !data && (system ? <SystemViewSkeleton /> : <LandingSkeleton />)}
       {error && <p className="text-sm text-rose-400">unavailable — {error}</p>}
 
       {data && data.configured === false && <NotConfigured />}
@@ -48,18 +58,18 @@ export default function GamesList() {
         (system ? (
           <SystemView items={data.items} system={system} />
         ) : (
-          <Landing items={data.items} recent={recent} />
+          <Landing items={data.items} recent={recent} onRemoveRecent={removeRecentGame} />
         ))}
     </div>
   )
 }
 
 // The landing: recently played, then a card per system.
-function Landing({ items, recent }) {
+function Landing({ items, recent, onRemoveRecent }) {
   return (
     <>
       <h2 className="text-xl font-semibold">Games</h2>
-      <RecentlyPlayed recent={recent} items={items} />
+      <RecentlyPlayed recent={recent} items={items} onRemove={onRemoveRecent} />
       <section className="space-y-2">
         <h3 className="text-sm font-medium uppercase tracking-wide text-slate-500">Systems</h3>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -76,12 +86,13 @@ function Landing({ items, recent }) {
 // name + game count, wrapped in the back-lit radiance motif (games accent).
 function SystemCard({ sys }) {
   const navigate = useNavigate()
-  const accent = sectionAccent('games')
   return (
+    // Resting state keeps its faint violet radiance; on desktop hover it lifts +
+    // glows in the games accent (shared ACCENT_HOVER, like the dashboard cards).
     <button
       onClick={() => navigate(`/library/games?system=${encodeURIComponent(sys.label)}`)}
-      className="group rounded-2xl border p-3 text-left transition active:scale-[0.98]"
-      style={{ borderColor: `rgba(${accent.rgb},0.25)`, background: radiantBackdrop(accent.rgb, 0.12) }}
+      className={`rounded-2xl border border-violet-500/25 p-3 text-left active:scale-[0.98] ${ACCENT_HOVER}`}
+      style={{ background: radiantBackdrop(GAMES_RGB, 0.12), '--accent': `rgb(${GAMES_RGB})` }}
     >
       {/* A decorative box-art quilt — raw <img>s (not GameCover) on purpose: the
           tiles want no titled fallback, just a missing cover fading to the slate
@@ -105,7 +116,7 @@ function SystemCard({ sys }) {
           <span className="block truncate font-medium text-slate-100">{sys.label}</span>
           <span className="block text-xs text-slate-500">{sys.count} games</span>
         </span>
-        <span className="shrink-0 text-slate-600 transition group-active:translate-x-0.5">›</span>
+        <span className="shrink-0 text-slate-600 transition group-hover:translate-x-0.5 group-active:translate-x-0.5">›</span>
       </div>
     </button>
   )
@@ -192,43 +203,127 @@ function SearchResults({ games, query }) {
   )
 }
 
-// Show recently-played games that still exist in the library.
-function RecentlyPlayed({ recent, items }) {
+// Show recently-played games that still exist in the library. The ✕ on each tile
+// removes it from the row (same affordance as the hub's "Jump back in" shelf).
+function RecentlyPlayed({ recent, items, onRemove }) {
   const present = new Set(items.map((i) => i.id))
   const games = recent.filter((g) => present.has(g.id)).slice(0, 6)
   if (games.length === 0) return null
   return (
     <section className="space-y-2">
       <h3 className="text-sm font-medium uppercase tracking-wide text-slate-500">Recently played</h3>
-      <GameGrid games={games} />
+      <GameGrid games={games} onRemove={onRemove} />
     </section>
   )
 }
 
 // The shared box-art grid: a cover button per game, with a downloaded badge. Tap
 // opens the game's detail "title page". Reused by recently-played, the per-letter
-// sections, and search results.
-function GameGrid({ games }) {
+// sections, and search results. When `onRemove` is passed (recently-played), each
+// tile gets a ✕ to drop it — and the downloaded badge moves to the top-left so
+// the two don't collide.
+function GameGrid({ games, onRemove }) {
   const navigate = useNavigate()
   const downloaded = useDownloaded()
   return (
     <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
       {games.map((g) => (
-        <button
-          key={g.id}
-          onClick={() => navigate(`/library/games/detail?id=${encodeURIComponent(g.id)}`)}
-          className="group text-left"
-        >
-          <span className="relative block">
-            <GameCover game={g} className="transition-transform group-active:scale-95" />
-            {downloaded?.has(downloadKey('games', g.id)) && (
-              <span className="absolute right-1 top-1">
-                <SavedBadge saved />
-              </span>
-            )}
-          </span>
-          <span className="mt-1 block truncate text-xs text-slate-300">{g.name}</span>
-        </button>
+        <div key={g.id} className="relative">
+          <button
+            onClick={() => navigate(`/library/games/detail?id=${encodeURIComponent(g.id)}`)}
+            className="group block w-full text-left"
+          >
+            <span className="relative block">
+              <GameCover game={g} className="transition-transform group-active:scale-95" />
+              {downloaded?.has(downloadKey('games', g.id)) && (
+                <span className={`absolute top-1 ${onRemove ? 'left-1' : 'right-1'}`}>
+                  <SavedBadge saved />
+                </span>
+              )}
+            </span>
+            <span className="mt-1 block truncate text-xs text-slate-300">{g.name}</span>
+          </button>
+          {onRemove && (
+            <button
+              onClick={() => onRemove(g)}
+              aria-label={`Remove ${g.name} from Recently played`}
+              className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-slate-100 shadow active:bg-black/90"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// --- loading skeletons (mirror the real layout so nothing bounces) ----------
+
+// A box-art cover tile placeholder (cover + title line).
+function CoverTile() {
+  return (
+    <div className="space-y-1">
+      <div className="aspect-[3/4] w-full animate-pulse rounded-lg bg-slate-800" />
+      <SkeletonLine className="h-3 w-full" />
+    </div>
+  )
+}
+
+// A cover grid at the same breakpoints as GameGrid, so it lines up.
+function CoverRow({ count = 6 }) {
+  return (
+    <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+      {Array.from({ length: count }).map((_, i) => (
+        <CoverTile key={i} />
+      ))}
+    </div>
+  )
+}
+
+// The landing placeholder: "Games" heading + recently-played row + systems grid,
+// at the same breakpoints as the live content so phone/iPad/desktop line up.
+function LandingSkeleton() {
+  return (
+    <div className="space-y-5" aria-hidden="true">
+      <SkeletonLine className="h-7 w-28" />
+      <section className="space-y-2">
+        <SkeletonLine className="h-4 w-32" />
+        <CoverRow />
+      </section>
+      <section className="space-y-2">
+        <SkeletonLine className="h-4 w-20" />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="rounded-2xl border border-slate-800 bg-slate-900/40 p-3">
+              <div className="grid grid-cols-2 gap-1">
+                {Array.from({ length: 4 }).map((_, j) => (
+                  <div key={j} className="aspect-[3/4] animate-pulse rounded bg-slate-800" />
+                ))}
+              </div>
+              <div className="mt-2 space-y-1.5">
+                <SkeletonLine className="h-4 w-20" />
+                <SkeletonLine className="h-3 w-12" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  )
+}
+
+// The system-view placeholder: breadcrumb + search box + a couple letter rows.
+function SystemViewSkeleton() {
+  return (
+    <div className="space-y-4 pr-7" aria-hidden="true">
+      <SkeletonLine className="h-4 w-40" />
+      <SkeletonLine className="h-12 w-full rounded-xl" />
+      {Array.from({ length: 2 }).map((_, i) => (
+        <section key={i} className="space-y-2">
+          <SkeletonLine className="h-5 w-6" />
+          <CoverRow />
+        </section>
       ))}
     </div>
   )

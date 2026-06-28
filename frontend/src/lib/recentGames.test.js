@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getRecent, recordPlayed } from './recentGames.js'
+import { getRecent, recordPlayed, removeRecent } from './recentGames.js'
 
 // A tiny in-memory stand-in for localStorage.
 function fakeStorage(initial = {}) {
@@ -46,5 +46,23 @@ describe('recordPlayed', () => {
   it('ignores an item with no id', () => {
     const s = fakeStorage()
     expect(recordPlayed({}, s)).toEqual([])
+  })
+})
+
+describe('removeRecent', () => {
+  it('drops the game with that id and leaves the rest in order', () => {
+    const s = fakeStorage()
+    recordPlayed({ id: 'a.gba', name: 'A' }, s, 1000)
+    recordPlayed({ id: 'b.gba', name: 'B' }, s, 2000)
+    recordPlayed({ id: 'c.gba', name: 'C' }, s, 3000)
+    const list = removeRecent('b.gba', s)
+    expect(list.map((g) => g.id)).toEqual(['c.gba', 'a.gba'])
+    expect(getRecent(s).map((g) => g.id)).toEqual(['c.gba', 'a.gba']) // persisted
+  })
+
+  it('is a no-op for an unknown id', () => {
+    const s = fakeStorage()
+    recordPlayed({ id: 'a.gba', name: 'A' }, s, 1000)
+    expect(removeRecent('zzz.gba', s).map((g) => g.id)).toEqual(['a.gba'])
   })
 })

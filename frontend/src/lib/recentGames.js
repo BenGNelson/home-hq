@@ -35,3 +35,18 @@ export function recordPlayed(item, storage = store(), now = Date.now()) {
   }
   return next
 }
+
+// Remove a game from the recent list (the ✕ on its "Recently played" tile). Only
+// clears the recently-played marker — the game's save files are never touched.
+// Returns the new list.
+export function removeRecent(id, storage = store()) {
+  const next = getRecent(storage).filter((g) => g.id !== id)
+  if (storage) {
+    try {
+      storage.setItem(KEY, JSON.stringify(next))
+    } catch {
+      /* storage full / unavailable — non-fatal */
+    }
+  }
+  return next
+}
