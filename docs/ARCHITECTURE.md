@@ -1449,6 +1449,16 @@ Short record of *why* things are the way they are, so future changes have contex
   reimplement" spirit applied inversely: video stays in Plex; owned, directly-read
   content that Plex handles poorly (ROMs, comics, ebooks, subscription PDFs) lives
   here.
+- **Games browse one system at a time (client-side), no new endpoint.** One
+  system can hold hundreds of ROMs, so the old all-systems stacked grid was
+  unscrollable. The Games page now drills in via a `?system=<label>` search param
+  (same pattern as Comics' `?path=`): the landing lists systems as box-art collage
+  cards, and a system view groups that system's games by first letter (`#` for
+  numeric/other) with sticky letter headers, a per-system search, and a fixed
+  right-edge **A→Z scrubber** (pointer-drag → `scrollIntoView` the letter's
+  header). All shaping is pure client-side over the existing `/api/library/games`
+  items (`listSystems`/`systemGames`/`groupByLetter`/`scrubIndex` in `library.js`)
+  — no backend or endpoint change.
 - **Deep-link out to sibling apps, don't reimplement them.** HQ is the infra
   cockpit; a full smart-home platform (Home Assistant) is a separate, better tool
   for device state and control. So the seam is a one-tap **external nav link**
