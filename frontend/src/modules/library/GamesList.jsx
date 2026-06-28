@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { X } from 'lucide-react'
 import { useApi } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
 import { useDownloaded } from '../../lib/useDownloaded.js'
@@ -21,6 +20,7 @@ import GameCover from './GameCover.jsx'
 import OfflineSection from './OfflineSection.jsx'
 import SavedBadge from './SavedBadge.jsx'
 import AlphaScrubber from './AlphaScrubber.jsx'
+import RemoveButton from './RemoveButton.jsx'
 
 // The games accent (violet) as an "r,g,b" string, for the system cards' glow.
 const GAMES_RGB = sectionAccent('games').rgb
@@ -244,13 +244,11 @@ function GameGrid({ games, onRemove }) {
             <span className="mt-1 block truncate text-xs text-slate-300">{g.name}</span>
           </button>
           {onRemove && (
-            <button
+            <RemoveButton
               onClick={() => onRemove(g)}
-              aria-label={`Remove ${g.name} from Recently played`}
-              className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-slate-100 shadow active:bg-black/90"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
+              label={`Remove ${g.name} from Recently played`}
+              className="absolute right-1 top-1 h-8 w-8"
+            />
           )}
         </div>
       ))}
