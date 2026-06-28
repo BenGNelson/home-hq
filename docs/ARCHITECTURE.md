@@ -185,6 +185,7 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/library/books/search?q=&limit=` | search Books by title/author | queries the `book_meta` cache (empty `q` = first results alphabetically) |
 | `GET /api/library/books/index-status` | book-indexer progress | from the indexer + cache count (drives the "indexing…" UI) |
 | `GET /api/library/books/cover?id=` | a book's cover art (cached) | EPUB/MOBI → embedded cover; PDF book → rendered first page (no embedded cover); downscaled to a small WebP on first view, served locally thereafter (404 → titled placeholder) |
+| `GET /api/library/textbooks/cover?id=` | a textbook's cover art (cached) | same extraction/cache as the book cover (shared `_book_like_cover` helper), in its own cache dir so a textbook and a fiction book sharing a relative path can't collide |
 | `GET /api/library/papers/cover?id=` | a magazine/paper's cover (cached) | renders the PDF's first page (a magazine's first page is its cover) to a small WebP on first view, served locally thereafter (404 → titled placeholder) |
 | `GET /api/library/comics/info?id=` | a comic's page count | reads the CBZ/CBR/CB7 archive's image entries (via libarchive) |
 | `GET /api/library/comics/cover?id=` | a comic's cover = page 0 (cached) | extracts the first page, downscales small for the browse grid |
@@ -389,8 +390,10 @@ table (`src/emulator.js`) so the offline cache fetches the same `.data` the
 online loader does (note Master System defaults to `smsplus`, while
 Genesis/Game Gear use `genesis_plus_gx`). **papers** (Magazines &
 Papers — `.pdf`, read in-browser via PDF.js), **books** (EPUB/MOBI/AZW3 read
-via foliate-js, plus `.pdf` falling back to PDF.js), and **comics**
-(CBZ/CBR/CB7 read page-by-page). A section also carries a
+via foliate-js, plus `.pdf` falling back to PDF.js), **textbooks** (reference /
+informational books — the same file types + readers as books, but organized into
+sub-category folders on disk so they browse as a folder tree, same shape as
+comics), and **comics** (CBZ/CBR/CB7 read page-by-page). A section also carries a
 `title_style` (ROM filenames get the No-Intro cleanup; document names are kept
 verbatim) and a `reader` hint per format (`pdf` | `epub` | `comic`) so the frontend knows
 which engine to open. Adding a content type is a new SECTION entry + a dir
@@ -526,6 +529,18 @@ changed files (by mtime) and prunes rows for deleted files. The cache is
 library. `GET /library/books/search` then matches title OR author
 case-insensitively; naming is normalized for **display only** (the files on disk
 are never touched — the mount is read-only).
+
+**Textbooks are folder-first, not search-first.** Reference books live in a
+separate `TEXTBOOKS_DIR` organized into sub-category folders (Programming,
+Cooking, Game Design, …), so unlike the flat 10k-file Books library they're a
+modest, *structured* set — better browsed than searched. The section reuses the
+**comics folder-browser** (`browseFolder`/`folderCrumbs`/`searchItems` +
+pinned folders) for navigation and the **book readers** (PDF.js / foliate) +
+the shared `_book_like_cover` extractor for items, so it adds almost no new code.
+It is intentionally **not** in the `book_meta` index (its own dir, browse-driven
+discovery). The host-side inbox sorter is what decides textbook-vs-fiction and
+files a book here vs into `BOOKS_DIR`; HQ only reads (the RAID mount is
+read-only, so the cockpit can never move a file).
 
 **Book covers are extracted on demand, not indexed.** Search results show cover
 thumbnails via `GET /library/books/cover?id=`, which pulls the embedded cover out

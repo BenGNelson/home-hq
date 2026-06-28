@@ -14,6 +14,7 @@ import GameDetail from './modules/library/GameDetail.jsx'
 import Player from './modules/library/Player.jsx'
 import PapersList from './modules/library/PapersList.jsx'
 import BooksList from './modules/library/BooksList.jsx'
+import TextbooksList from './modules/library/TextbooksList.jsx'
 import ComicsList from './modules/library/ComicsList.jsx'
 import AudiobooksList from './modules/library/AudiobooksList.jsx'
 import Reader from './modules/library/Reader.jsx'
@@ -128,6 +129,7 @@ export default function App() {
           <Route path="/library/games" element={<GamesList />} />
           <Route path="/library/papers" element={<PapersList />} />
           <Route path="/library/books" element={<BooksList />} />
+          <Route path="/library/textbooks" element={<TextbooksList />} />
           <Route path="/library/comics" element={<ComicsList />} />
           <Route path="/library/audiobooks" element={<AudiobooksList />} />
         </Route>

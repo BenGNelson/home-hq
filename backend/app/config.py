@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     # foliate-js (the MOBI/AZW3 parser is built in — no server-side conversion).
     papers_dir: str = ""
     books_dir: str = ""
+    # Textbooks = reference / informational books (programming, cooking, game
+    # design, music theory, RPG, reference), same file types as Books but
+    # organized into sub-category folders on disk, so the section browses as a
+    # folder tree. Its own content dir under RAID_MOUNT (the host-side sorter
+    # files books here vs into the fiction ebooks dir).
+    textbooks_dir: str = ""
     # Comics = CBZ/CBR/CB7 archives of page images, read page-by-page in the
     # browser (the backend extracts + downscales each page; see app/comics.py).
     comics_dir: str = ""
@@ -76,6 +82,10 @@ class Settings(BaseSettings):
     # first view, downscaled, and served locally thereafter — no covers for books
     # you never open (keeps the cache small even for a huge library).
     book_covers_dir: str = "/data/book-covers"
+    # Textbook cover thumbnails — same on-demand WebP cache as book covers, but a
+    # separate dir so a textbook and a fiction book that happen to share a
+    # relative path can't collide on the same cache key.
+    textbook_covers_dir: str = "/data/textbook-covers"
     # Where audiobook cover thumbnails are cached (WebP, keyed by a hash of the
     # book folder path). The cover comes from a folder image or the first
     # chapter's embedded art, extracted on first view.

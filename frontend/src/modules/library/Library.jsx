@@ -10,6 +10,7 @@ import {
   sectionIcon,
   sectionAccent,
   continueAccentKey,
+  textbookCoverUrl,
 } from '../../lib/library.js'
 import { progressLabel, progressFraction } from '../../lib/reading.js'
 import { formatAgo, formatSize } from '../../lib/format.js'
@@ -37,6 +38,7 @@ function SectionIcon({ id, className }) {
 const SECTION_COVERS = {
   games: (item, cls) => <GameCover game={item} className={cls} />,
   books: (item, cls) => <BookCover book={item} className={cls} />,
+  textbooks: (item, cls) => <BookCover book={item} src={textbookCoverUrl(item.id)} className={cls} />,
   comics: (item, cls) => <ComicCover comic={item} className={cls} />,
   papers: (item, cls) => <PaperCover paper={item} className={cls} />,
   audiobooks: (item, cls) => <AudiobookCover path={item.id} alt={item.name} className={cls} />,

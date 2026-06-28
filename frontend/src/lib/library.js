@@ -1,6 +1,6 @@
 // Pure helpers for the Library (owned-content hub). The pages just render.
 import { API_BASE } from './useApi.js'
-import { Gamepad2, BookOpen, BookImage, Newspaper, Headphones, Library as LibraryIcon } from 'lucide-react'
+import { Gamepad2, BookOpen, BookImage, Newspaper, Headphones, GraduationCap, Library as LibraryIcon } from 'lucide-react'
 
 // The Lucide icon component for a library section, keyed by its `key`
 // (monochrome, themeable — replaces the old per-section emoji). Falls back to
@@ -8,6 +8,7 @@ import { Gamepad2, BookOpen, BookImage, Newspaper, Headphones, Library as Librar
 const SECTION_ICONS = {
   games: Gamepad2,
   books: BookOpen,
+  textbooks: GraduationCap,
   comics: BookImage,
   papers: Newspaper,
   audiobooks: Headphones,
@@ -24,6 +25,7 @@ export function sectionIcon(id) {
 const SECTION_ACCENTS = {
   games: { rgb: '139,92,246', text: 'text-violet-300' },
   books: { rgb: '56,189,248', text: 'text-sky-300' },
+  textbooks: { rgb: '99,102,241', text: 'text-indigo-300' },
   comics: { rgb: '245,158,11', text: 'text-amber-300' },
   papers: { rgb: '16,185,129', text: 'text-emerald-300' },
   audiobooks: { rgb: '244,63,94', text: 'text-rose-300' },
@@ -65,6 +67,12 @@ export function coverUrl(id) {
 // shows a titled placeholder, same as game box art).
 export function bookCoverUrl(id) {
   return `${API_BASE}/library/books/cover?id=${encodeURIComponent(id)}`
+}
+
+// A textbook's cover — same extraction/cache as book covers, its own endpoint +
+// cache dir (404 → caller shows a titled placeholder).
+export function textbookCoverUrl(id) {
+  return `${API_BASE}/library/textbooks/cover?id=${encodeURIComponent(id)}`
 }
 
 // Comics: page count, one downscaled page, and the cover (page 0, smaller). Each
