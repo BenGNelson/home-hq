@@ -302,6 +302,62 @@ def test_books_index_status_endpoint(client, books_dir):
     assert "running" in body and "indexed" in body and "total" in body
 
 
+# --- Textbooks section (folder-organized reference books) -------------------
+TEXTBOOKS = library.get_section("textbooks")
+
+
+@pytest.fixture
+def textbooks_dir(tmp_path, monkeypatch):
+    """A textbooks dir organized into sub-category folders, wired into settings."""
+    (tmp_path / "Programming").mkdir()
+    (tmp_path / "Programming" / "Steve McConnell - Code Complete (2004).pdf").write_bytes(b"%PDF-1")
+    (tmp_path / "Programming" / "Kyle Simpson - You Don't Know JS.epub").write_bytes(b"PK\x03\x04")
+    (tmp_path / "Cooking").mkdir()
+    (tmp_path / "Cooking" / "Samin Nosrat - Salt Fat Acid Heat.mobi").write_bytes(b"mobi")
+    (tmp_path / "cover.jpg").write_bytes(b"not a book")  # ignored
+    monkeypatch.setattr(settings, "textbooks_dir", str(tmp_path))
+    return tmp_path
+
+
+def test_textbooks_section_exists_and_uses_book_readers():
+    # Same file types + reader hints as Books, so the same PDF/EPUB readers open it.
+    assert TEXTBOOKS is not None
+    assert TEXTBOOKS["kind"] == "read"
+    assert library.item_reader(TEXTBOOKS, "x.pdf") == "pdf"
+    assert library.item_reader(TEXTBOOKS, "x.epub") == "epub"
+    assert library.item_reader(TEXTBOOKS, "x.mobi") == "epub"
+
+
+def test_textbooks_section_lists_subfolders_as_tree(textbooks_dir):
+    items = library.list_items(TEXTBOOKS, settings)
+    ids = {it["id"] for it in items}
+    # Ids are POSIX-relative paths, so the frontend folder-browser sees the
+    # sub-category tree (same shape as Comics).
+    assert "Programming/Steve McConnell - Code Complete (2004).pdf" in ids
+    assert "Cooking/Samin Nosrat - Salt Fat Acid Heat.mobi" in ids
+    by_name = {it["name"]: it for it in items}
+    assert by_name["Steve McConnell - Code Complete (2004)"]["reader"] == "pdf"
+    assert "cover" not in by_name  # the .jpg is ignored
+
+
+def test_textbooks_safe_path_blocks_unknown_ext_and_traversal(textbooks_dir):
+    assert library.safe_path(TEXTBOOKS, settings, "Cooking/Samin Nosrat - Salt Fat Acid Heat.mobi")
+    assert library.safe_path(TEXTBOOKS, settings, "cover.jpg") is None
+    assert library.safe_path(TEXTBOOKS, settings, "../etc/passwd") is None
+
+
+def test_textbooks_in_sections_summary(textbooks_dir):
+    summary = {s["key"]: s for s in library.sections_summary(settings)}
+    assert summary["textbooks"]["configured"] is True
+    assert summary["textbooks"]["count"] == 3
+
+
+def test_textbook_cover_endpoint_404_for_unknown(client, textbooks_dir):
+    # An id that isn't a real textbook resolves to no path → 404 (placeholder).
+    resp = client.get("/api/library/textbooks/cover", params={"id": "nope.pdf"})
+    assert resp.status_code == 404
+
+
 @pytest.fixture
 def rom_dir(tmp_path, monkeypatch):
     """A populated ROM dir wired into settings.games_rom_dir."""

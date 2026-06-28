@@ -813,23 +813,34 @@ def books_search(
 _EXTRACTED_ART_HEADERS = {"Cache-Control": "public, max-age=2592000"}
 
 
-@router.get("/library/books/cover")
-def get_book_cover(id: str = Query(description="Book item id from the search/listing")):
-    """A book's cover art, cached once as a small WebP (same cache-and-proxy shape
-    as game box art / Plex posters). On first view we get the cover from the file
-    — the embedded image for an EPUB/MOBI, or the rendered first page for a PDF
-    book — downscale it, and store the WebP keyed by a hash of the id; later views
-    serve that local file. A book with no readable cover is remembered as a miss →
-    404, and the frontend shows a titled placeholder."""
-    books = library.get_section("books")
-    if not books:
+def _book_like_cover(section_key: str, cache_dir: str, id: str):
+    """A cover for a book-like section (Books or Textbooks): the embedded image for
+    an EPUB/MOBI, or the rendered first page for a PDF, downscaled + cached as a
+    small WebP keyed by a hash of the id (same cache-and-proxy shape as game box
+    art / Plex posters). A no-cover item is remembered as a miss → 404 and the
+    frontend shows a titled placeholder. Shared so Books and Textbooks can't drift."""
+    section = library.get_section(section_key)
+    if not section:
         return Response(status_code=404)
-    path = library.safe_path(books, settings, id)
+    path = library.safe_path(section, settings, id)
     if not path:
         return Response(status_code=404)
     return _serve_cached_cover(
-        settings.book_covers_dir, id, lambda: bookmeta.extract_cover(path, os.path.splitext(id)[1])
+        cache_dir, id, lambda: bookmeta.extract_cover(path, os.path.splitext(id)[1])
     )
+
+
+@router.get("/library/books/cover")
+def get_book_cover(id: str = Query(description="Book item id from the search/listing")):
+    """A book's cover art (see _book_like_cover)."""
+    return _book_like_cover("books", settings.book_covers_dir, id)
+
+
+@router.get("/library/textbooks/cover")
+def get_textbook_cover(id: str = Query(description="Textbook item id from the listing")):
+    """A textbook's cover art — same extraction/cache as book covers, in its own
+    cache dir (see _book_like_cover)."""
+    return _book_like_cover("textbooks", settings.textbook_covers_dir, id)
 
 
 @router.get("/library/papers/cover")

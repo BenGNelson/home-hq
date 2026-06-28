@@ -101,6 +101,28 @@ SECTIONS = [
         },
     },
     {
+        "key": "textbooks",
+        "label": "Textbooks",
+        "icon": "📚",
+        "kind": "read",
+        "dir_setting": "textbooks_dir",
+        # Reference / informational books (programming, cooking, game design,
+        # music theory, RPG, general reference) — the same file types as Books,
+        # opened by the same readers (EPUB/MOBI/AZW3 → foliate; PDF → PDF.js).
+        # Unlike the (huge, flat, search-first) Books section, Textbooks is
+        # organized into sub-category folders on disk, so it browses as a folder
+        # tree (same shape as Comics). The host-side inbox sorter is what files
+        # new books here vs into fiction; HQ only reads.
+        "title_style": "plain",
+        "formats": {
+            ".pdf": {"label": "PDF", "reader": "pdf"},
+            ".epub": {"label": "EPUB", "reader": "epub"},
+            ".mobi": {"label": "MOBI", "reader": "epub"},
+            ".azw3": {"label": "AZW3", "reader": "epub"},
+            ".prc": {"label": "MOBI", "reader": "epub"},
+        },
+    },
+    {
         "key": "audiobooks",
         "label": "Audiobooks",
         "icon": "🎧",

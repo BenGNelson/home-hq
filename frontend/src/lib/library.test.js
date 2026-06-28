@@ -18,6 +18,7 @@ import {
   comicPageUrl,
   comicCoverUrl,
   paperCoverUrl,
+  textbookCoverUrl,
   sectionAccent,
   continueAccentKey,
   libraryHeadline,
@@ -116,10 +117,19 @@ describe('paperCoverUrl', () => {
   })
 })
 
+describe('textbookCoverUrl', () => {
+  it('points at the textbooks cover endpoint with the encoded id', () => {
+    expect(textbookCoverUrl('Programming/Code Complete (2004).pdf')).toBe(
+      '/api/library/textbooks/cover?id=Programming%2FCode%20Complete%20(2004).pdf'
+    )
+  })
+})
+
 describe('sectionAccent', () => {
   it('gives each known section a constant-palette accent', () => {
     expect(sectionAccent('games').text).toBe('text-violet-300')
     expect(sectionAccent('audiobooks').rgb).toBe('244,63,94')
+    expect(sectionAccent('textbooks').text).toBe('text-indigo-300')
   })
   it('falls back to a neutral accent for an unknown section', () => {
     expect(sectionAccent('nope').text).toBe('text-slate-300')

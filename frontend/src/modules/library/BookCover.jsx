@@ -5,7 +5,9 @@ import { bookCoverUrl } from '../../lib/library.js'
 // A book's cover thumbnail with a graceful fallback: many books have no embedded
 // cover (the proxy 404s), so we show a small icon tile instead of a broken image.
 // Sized small for the search-result rows; pass className to resize elsewhere.
-export default function BookCover({ book, className = '' }) {
+// `src` overrides the cover URL (e.g. textbookCoverUrl) so the same component
+// serves both the Books and Textbooks sections without drifting.
+export default function BookCover({ book, src, className = '' }) {
   const [failed, setFailed] = useState(false)
   return (
     <div
@@ -17,7 +19,7 @@ export default function BookCover({ book, className = '' }) {
         </div>
       ) : (
         <img
-          src={bookCoverUrl(book.id)}
+          src={src || bookCoverUrl(book.id)}
           alt={book.title || book.name}
           loading="lazy"
           decoding="async"
