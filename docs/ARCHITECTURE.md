@@ -182,6 +182,7 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/plex/art/{key}` | item poster, proxied so the token stays server-side | downscaled to a small WebP, disk-cached by rating key so repeat loads skip the Plex round-trip |
 | `GET /api/library` | every section + configured + item count + a few cover `preview` refs (the hub landing) | scans the per-section content dirs; `preview` dresses the hub's peek tiles in one fetch (audiobooks: the unit is the book *folder*, so its count + preview are folders, not chapter files) |
 | `GET /api/library/{section}` | one section's items (the browse list) | recursive scan of the section's dir |
+| `GET /api/library/inbox-status` | the host-side sorter's drop zone + review pile (read-only) | lists `INBOX_DIR` + `NEEDS_REVIEW_DIR` (under the read-only RAID mount); each parked item's reason comes from its `.review.json` sidecar. HQ observes only — it never moves files |
 | `GET /api/library/books/search?q=&limit=` | search Books by title/author | queries the `book_meta` cache (empty `q` = first results alphabetically) |
 | `GET /api/library/books/index-status` | book-indexer progress | from the indexer + cache count (drives the "indexing…" UI) |
 | `GET /api/library/books/cover?id=` | a book's cover art (cached) | EPUB/MOBI → embedded cover; PDF book → rendered first page (no embedded cover); downscaled to a small WebP on first view, served locally thereafter (404 → titled placeholder) |
@@ -541,6 +542,19 @@ It is intentionally **not** in the `book_meta` index (its own dir, browse-driven
 discovery). The host-side inbox sorter is what decides textbook-vs-fiction and
 files a book here vs into `BOOKS_DIR`; HQ only reads (the RAID mount is
 read-only, so the cockpit can never move a file).
+
+**The inbox sorter lives host-side, not in HQ — by design.** Filing a drop means
+*moving + renaming* files, but the backend mounts the RAID **read-only** (the
+hardening posture). So the sorter is a host-side toolkit (`~/library-inbox/`): a
+`sort.py` driven by a user systemd timer (`library-sort.timer`) files
+high-confidence drops from `INBOX_DIR` and parks ambiguous ones in
+`NEEDS_REVIEW_DIR` with a `.review.json` sidecar; an interactive `/sort-inbox`
+step clears the residue. Both read one shared taxonomy (`categories.yaml`) so they
+file identically. This is the **cockpit-vs-brain** split applied to files: HQ is
+the cockpit (reads the library + shows inbox status via `/library/inbox-status`),
+the host-side sorter is the actor (moves files, keeps the checksummed
+`manifest.jsonl` audit/undo log). The full design + rulebook lives on the host
+(`~/library-inbox/SORTING.md`), out of this repo.
 
 **Book covers are extracted on demand, not indexed.** Search results show cover
 thumbnails via `GET /library/books/cover?id=`, which pulls the embedded cover out

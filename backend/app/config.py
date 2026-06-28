@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     # folder tree. Its own content dir under RAID_MOUNT (the host-side sorter
     # files books here vs into the fiction ebooks dir).
     textbooks_dir: str = ""
+    # The host-side inbox sorter's drop zone + review pile (under RAID_MOUNT, read
+    # via the existing read-only mount). HQ only OBSERVES these — it shows what's
+    # waiting and what the sorter parked for review; it never moves files (that's
+    # the host-side sorter's job). Unset = the inbox status card hides.
+    inbox_dir: str = ""
+    needs_review_dir: str = ""
     # Comics = CBZ/CBR/CB7 archives of page images, read page-by-page in the
     # browser (the backend extracts + downscales each page; see app/comics.py).
     comics_dir: str = ""
