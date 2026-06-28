@@ -488,6 +488,62 @@ def _section_units(section, items):
     return len(items), refs
 
 
+def inbox_status(settings):
+    """Read-only view of the host-side sorter's drop zone + review pile, for the
+    Library hub's status card. HQ never moves files (the RAID mount is read-only,
+    by design) — this only reports what's waiting in the inbox and what the sorter
+    parked in _needs_review/ (with the reason from each item's sidecar).
+
+    Returns {configured, inbox_count, review_count, inbox: [...names], review:
+    [{name, reason}]}. `configured` is False when neither dir is set, so the card
+    can hide."""
+    inbox_dir = getattr(settings, "inbox_dir", "") or ""
+    review_dir = getattr(settings, "needs_review_dir", "") or ""
+    if not inbox_dir and not review_dir:
+        return {"configured": False, "inbox_count": 0, "review_count": 0,
+                "inbox": [], "review": []}
+
+    inbox = _list_inbox_entries(inbox_dir)
+    review = []
+    if review_dir and os.path.isdir(review_dir):
+        for name in sorted(os.listdir(review_dir)):
+            if name.startswith(".") or name.endswith((".review.json", ".part")):
+                continue
+            review.append({"name": name, "reason": _review_reason(review_dir, name)})
+    return {
+        "configured": True,
+        "inbox_count": len(inbox),
+        "review_count": len(review),
+        "inbox": inbox,
+        "review": review,
+    }
+
+
+def _list_inbox_entries(inbox_dir):
+    """Top-level inbox entry names (files + folders), skipping hidden files and
+    the sorter's own scratch files."""
+    if not inbox_dir or not os.path.isdir(inbox_dir):
+        return []
+    return [
+        name
+        for name in sorted(os.listdir(inbox_dir))
+        if not name.startswith(".") and not name.endswith((".review.json", ".part"))
+    ]
+
+
+def _review_reason(review_dir, name):
+    """The sorter's reason for parking `name`, from its '<name>.review.json'
+    sidecar — or None if there isn't one."""
+    sidecar = os.path.join(review_dir, name + ".review.json")
+    try:
+        with open(sidecar) as fh:
+            import json
+
+            return json.load(fh).get("reason")
+    except (OSError, ValueError):
+        return None
+
+
 def sections_summary(settings):
     """For the hub landing: every section with whether it's configured, how many
     items it currently holds, and a few cover refs (`preview`) so the hub can show

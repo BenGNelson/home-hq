@@ -964,6 +964,27 @@ def books_index_status():
     return {"configured": configured, **base}
 
 
+class InboxReviewItem(BaseModel):
+    name: str
+    reason: str | None = Field(default=None, description="Why the sorter parked it (from its sidecar)")
+
+
+class InboxStatusModel(BaseModel):
+    configured: bool = Field(description="False when no inbox/review dir is set — the card hides")
+    inbox_count: int = Field(description="Items waiting in the drop zone (not yet sorted)")
+    review_count: int = Field(description="Items the sorter parked as ambiguous")
+    inbox: list[str] = Field(default_factory=list, description="Inbox entry names")
+    review: list[InboxReviewItem] = Field(default_factory=list)
+
+
+@router.get("/library/inbox-status", response_model=InboxStatusModel)
+def inbox_status():
+    """The host-side sorter's drop zone + review pile, read-only — powers the
+    Library hub's inbox card. HQ observes; the host-side sorter acts. Declared
+    BEFORE the /library/{section} catch-all so it isn't shadowed."""
+    return library.inbox_status(settings)
+
+
 @router.get("/library/{section}", response_model=SectionModel)
 def get_section(section: str):
     """One section's browse list (or a configured=False shell if unset)."""

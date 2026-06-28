@@ -358,6 +358,49 @@ def test_textbook_cover_endpoint_404_for_unknown(client, textbooks_dir):
     assert resp.status_code == 404
 
 
+# --- inbox status (read-only view of the host-side sorter) ------------------
+@pytest.fixture
+def inbox_dirs(tmp_path, monkeypatch):
+    inbox = tmp_path / "inbox"
+    review = tmp_path / "_needs_review"
+    inbox.mkdir()
+    review.mkdir()
+    (inbox / "Dropped Backup.epub").write_bytes(b"x")
+    (inbox / ".hidden").write_bytes(b"x")  # skipped
+    (review / "Mystery Book.pdf").write_bytes(b"x")
+    (review / "Mystery Book.pdf.review.json").write_text(
+        '{"reason": "weak signal — needs a human call", "type": "textbook?"}'
+    )
+    monkeypatch.setattr(settings, "inbox_dir", str(inbox))
+    monkeypatch.setattr(settings, "needs_review_dir", str(review))
+    return tmp_path
+
+
+def test_inbox_status_counts_and_reasons(inbox_dirs):
+    st = library.inbox_status(settings)
+    assert st["configured"] is True
+    assert st["inbox_count"] == 1 and st["inbox"] == ["Dropped Backup.epub"]
+    assert st["review_count"] == 1
+    item = st["review"][0]
+    assert item["name"] == "Mystery Book.pdf"
+    assert item["reason"] == "weak signal — needs a human call"
+
+
+def test_inbox_status_unconfigured(monkeypatch):
+    monkeypatch.setattr(settings, "inbox_dir", "")
+    monkeypatch.setattr(settings, "needs_review_dir", "")
+    st = library.inbox_status(settings)
+    assert st["configured"] is False
+    assert st["inbox_count"] == 0 and st["review_count"] == 0
+
+
+def test_inbox_status_endpoint(client, inbox_dirs):
+    body = client.get("/api/library/inbox-status").json()
+    assert body["configured"] is True
+    assert body["inbox_count"] == 1
+    assert body["review"][0]["reason"].startswith("weak signal")
+
+
 @pytest.fixture
 def rom_dir(tmp_path, monkeypatch):
     """A populated ROM dir wired into settings.games_rom_dir."""

@@ -17,6 +17,7 @@ import { formatAgo, formatSize } from '../../lib/format.js'
 import { radiantBackdrop, glowFilter } from '../../lib/glow.js'
 import { ACCENT_HOVER } from '../../lib/moduleAccent.js'
 import { SkeletonLine, AccentArrow } from '../../components/ui.jsx'
+import { Inbox, FileQuestion } from 'lucide-react'
 import RemoveButton from './RemoveButton.jsx'
 import GameCover from './GameCover.jsx'
 import BookCover from './BookCover.jsx'
@@ -69,6 +70,11 @@ export default function Library() {
       {/* The resume surface: spotlight hero + the rest of "jump back in". Self-
           hides when nothing is in progress. */}
       <JumpBackIn />
+
+      {/* Inbox status — what the host-side sorter has waiting / parked for
+          review. Read-only (HQ observes, the host-side sorter acts). Self-hides
+          when the inbox is clear. */}
+      <InboxStatus />
 
       {loading && !data ? (
         <SectionsSkeleton />
@@ -139,6 +145,54 @@ function DownloadedSkeleton() {
             <SkeletonLine className="h-3 w-full" />
           </div>
         ))}
+      </div>
+    </section>
+  )
+}
+
+// The host-side inbox sorter's status, read-only. Shows what's still waiting in
+// the drop zone and what the sorter parked as ambiguous (with its reason) so you
+// know there's something to clear via the host-side /sort-inbox step. HQ never moves
+// files — the RAID is mounted read-only here, by design. Self-hides when the
+// inbox + review pile are both empty (or the dirs aren't configured).
+function InboxStatus() {
+  const { data } = useApi('/library/inbox-status', 30000)
+  if (!data || !data.configured) return null
+  const { inbox_count, review_count, review } = data
+  if (inbox_count === 0 && review_count === 0) return null
+
+  return (
+    <section className="space-y-2">
+      <ShelfHeading>Inbox</ShelfHeading>
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
+          <span className="flex items-center gap-2 text-slate-200">
+            <Inbox className="h-4 w-4 text-amber-400" aria-hidden="true" />
+            <span className="font-medium tabular-nums">{inbox_count}</span> waiting to sort
+          </span>
+          {review_count > 0 && (
+            <span className="flex items-center gap-2 text-slate-200">
+              <FileQuestion className="h-4 w-4 text-rose-400" aria-hidden="true" />
+              <span className="font-medium tabular-nums">{review_count}</span> need a review
+            </span>
+          )}
+        </div>
+        {review_count > 0 && (
+          <ul className="mt-3 space-y-1.5">
+            {review.slice(0, 6).map((it) => (
+              <li key={it.name} className="text-xs">
+                <span className="block truncate text-slate-300">{it.name}</span>
+                {it.reason && <span className="block truncate text-slate-500">{it.reason}</span>}
+              </li>
+            ))}
+            {review.length > 6 && (
+              <li className="text-xs text-slate-500">+{review.length - 6} more…</li>
+            )}
+          </ul>
+        )}
+        <p className="mt-3 text-xs text-slate-500">
+          New drops are filed automatically; ambiguous items wait here for a manual sort.
+        </p>
       </div>
     </section>
   )
