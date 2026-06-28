@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronRight, X } from 'lucide-react'
 import { useApi, API_BASE } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
 import { allEntries } from '../../lib/offlineStore.js'
@@ -17,6 +16,7 @@ import { formatAgo, formatSize } from '../../lib/format.js'
 import { radiantBackdrop, glowFilter } from '../../lib/glow.js'
 import { ACCENT_HOVER } from '../../lib/moduleAccent.js'
 import { SkeletonLine, AccentArrow } from '../../components/ui.jsx'
+import RemoveButton from './RemoveButton.jsx'
 import GameCover from './GameCover.jsx'
 import BookCover from './BookCover.jsx'
 import ComicCover from './ComicCover.jsx'
@@ -257,16 +257,7 @@ function SpotlightHero({ entry, onResume, onRemove }) {
           )}
         </div>
       </button>
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          onRemove()
-        }}
-        aria-label="Remove from Jump back in"
-        className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-slate-100 active:bg-black/80"
-      >
-        <X className="h-4 w-4" aria-hidden="true" />
-      </button>
+      <RemoveButton onClick={onRemove} label="Remove from Jump back in" className="absolute right-2 top-2 h-9 w-9" />
     </div>
   )
 }
@@ -345,16 +336,7 @@ function ContinueCard({ entry, onResume, onRemove }) {
           </span>
         )}
       </button>
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          onRemove()
-        }}
-        aria-label="Remove from Jump back in"
-        className="absolute right-1 top-1 flex h-9 w-9 items-center justify-center rounded-full bg-black/70 text-slate-100 shadow active:bg-black/90"
-      >
-        <X className="h-4 w-4" aria-hidden="true" />
-      </button>
+      <RemoveButton onClick={onRemove} label="Remove from Jump back in" className="absolute right-1 top-1 h-9 w-9" />
     </div>
   )
 }
