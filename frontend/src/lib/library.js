@@ -294,6 +294,62 @@ export function groupByLabel(items) {
   return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b))
 }
 
+// --- Games: per-system drill-in + A→Z scrubber ------------------------------
+// The Games section browses one system at a time (Game Boy alone has hundreds of
+// titles, so one giant stacked grid is unscrollable). The landing lists systems
+// as collage cards; tapping one opens that system's games alphabetically with an
+// alphabet scrubber. These helpers are the pure data shaping behind that.
+
+// The scrubber's buckets, in display order: A–Z then '#' (numeric/other titles)
+// last. The single source of truth shared by groupByLetter and AlphaScrubber.
+export const ALPHABET = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ', '#']
+
+// Distinct systems (by label) with their game count and a few representative
+// cover ids (first N in-system alphabetical) for the landing's collage tiles.
+// Ordered alphabetically by label, same as groupByLabel. → [{ label, count, covers }]
+export function listSystems(items, maxCovers = 4) {
+  return groupByLabel(items).map(([label, list]) => {
+    const sorted = [...list].sort((a, b) => naturalCompare(a.name, b.name))
+    return { label, count: sorted.length, covers: sorted.slice(0, maxCovers).map((it) => it.id) }
+  })
+}
+
+// One system's games, alphabetised by title (natural compare so "Pokemon 2"
+// orders before "Pokemon 10"). → items[]
+export function systemGames(items, label) {
+  return (items ?? [])
+    .filter((it) => (it.label || 'Other') === label)
+    .sort((a, b) => naturalCompare(a.name, b.name))
+}
+
+// The scrubber bucket for a title: its uppercase first A–Z letter, else '#'
+// (numbers, symbols, non-latin, empty). Diacritics are stripped first (NFD
+// decomposes 'É' → 'E' + combining mark) so an accented title buckets under its
+// base letter — matching how systemGames natural-sorts it (sensitivity 'base').
+// → 'A'..'Z' | '#'
+export function letterOf(name) {
+  const c = (name || '').trim().normalize('NFD').charAt(0).toUpperCase()
+  return c >= 'A' && c <= 'Z' ? c : '#'
+}
+
+// Group already-alpha-sorted items into letter sections, in ALPHABET order
+// ('#' last). Only non-empty buckets are returned. → [{ letter, items }]
+export function groupByLetter(items) {
+  const buckets = {}
+  for (const it of items ?? []) (buckets[letterOf(it.name)] ??= []).push(it)
+  return ALPHABET.filter((l) => buckets[l]).map((letter) => ({ letter, items: buckets[letter] }))
+}
+
+// Pure Y→index map for the scrubber, extracted so the math is testable without a
+// DOM. Maps a pointer's clientY against the bar's { top, height } rect to a
+// letter index, clamped to [0, count-1].
+export function scrubIndex(clientY, rect, count) {
+  if (count <= 0) return 0
+  const frac = (clientY - rect.top) / (rect.height || 1)
+  const idx = Math.floor(frac * count)
+  return Math.max(0, Math.min(count - 1, idx))
+}
+
 // Subtitle line for a Books search result — the author, or a clear fallback
 // when a book had no embedded author (so the row never looks blank/broken).
 export function bookSubtitle(item) {

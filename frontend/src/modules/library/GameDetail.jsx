@@ -51,7 +51,9 @@ export default function GameDetail() {
 
   return (
     <div className="space-y-5">
-      <BackLink to="/library/games">Games</BackLink>
+      {/* Back to the game's own system view (not the top-level systems landing),
+          so returning from a game lands you where you were browsing. */}
+      <BackLink to={`/library/games?system=${encodeURIComponent(game.label || 'Other')}`}>Games</BackLink>
 
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
         <GameCover game={game} className="w-40 shrink-0 self-center sm:self-start" />

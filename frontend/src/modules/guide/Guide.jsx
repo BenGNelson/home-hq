@@ -281,8 +281,13 @@ export default function Guide() {
           {' '}(so its globals never leak into the app) and self-hosted at a pinned
           version. <strong>Box art</strong> is matched to each ROM by name and cached
           locally (proxied like Plex artwork); titles are cleaned up from raw filenames,
-          each game has a detail page, and a <strong>Recently played</strong> row lives
-          in the browser. <strong>Two kinds of save, both roam across your devices</strong>
+          and each game has a detail page. Because one system can hold hundreds of
+          titles, Games <strong>browse one system at a time</strong>: the landing shows a{' '}
+          <strong>Recently played</strong> row and a box-art card per system, and tapping a
+          system lists its games alphabetically with sticky letter headers, an{' '}
+          <strong>A→Z scrubber</strong> (drag your thumb down the right edge to jump to a
+          letter), and a search box scoped to that system.{' '}
+          <strong>Two kinds of save, both roam across your devices</strong>
           (and ride the off-site backup): your <strong>in-game save</strong> — the game’s
           own “Save” → “Continue” — is the everyday one. The app captures it as you play
           (and seeds it back when you open the game), so you resume where you left off on

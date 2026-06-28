@@ -24,6 +24,12 @@ import {
   bookSubtitle,
   libraryNavSections,
   gameOfflineUrls,
+  ALPHABET,
+  listSystems,
+  systemGames,
+  letterOf,
+  groupByLetter,
+  scrubIndex,
 } from './library.js'
 
 describe('bookSubtitle', () => {
@@ -176,6 +182,90 @@ describe('groupByLabel', () => {
   })
   it('handles empty/undefined', () => {
     expect(groupByLabel(undefined)).toEqual([])
+  })
+})
+
+describe('listSystems', () => {
+  const items = [
+    { id: 'b.gb', name: 'Bonk', label: 'Game Boy' },
+    { id: 'a.gb', name: 'Alleyway', label: 'Game Boy' },
+    { id: 'z.gbc', name: 'Zelda', label: 'Game Boy Color' },
+  ]
+  it('lists systems alphabetically with counts + capped, in-system-alpha covers', () => {
+    expect(listSystems(items, 1)).toEqual([
+      { label: 'Game Boy', count: 2, covers: ['a.gb'] }, // 'Alleyway' before 'Bonk'
+      { label: 'Game Boy Color', count: 1, covers: ['z.gbc'] },
+    ])
+  })
+  it('caps covers at maxCovers', () => {
+    expect(listSystems(items, 4)[0].covers).toEqual(['a.gb', 'b.gb'])
+  })
+  it('handles empty/undefined', () => {
+    expect(listSystems(undefined)).toEqual([])
+  })
+})
+
+describe('systemGames', () => {
+  const items = [
+    { id: 'p10.gb', name: 'Pokemon 10', label: 'Game Boy' },
+    { id: 'p2.gb', name: 'Pokemon 2', label: 'Game Boy' },
+    { id: 'z.gbc', name: 'Zelda', label: 'Game Boy Color' },
+  ]
+  it('filters to the system and natural-sorts by name', () => {
+    expect(systemGames(items, 'Game Boy').map((g) => g.name)).toEqual(['Pokemon 2', 'Pokemon 10'])
+  })
+  it('unknown system → []', () => {
+    expect(systemGames(items, 'SNES')).toEqual([])
+  })
+})
+
+describe('letterOf', () => {
+  it('uppercases the first letter', () => {
+    expect(letterOf('Zelda')).toBe('Z')
+    expect(letterOf('mario')).toBe('M')
+  })
+  it('buckets numbers, symbols, and empties under #', () => {
+    expect(letterOf('007')).toBe('#')
+    expect(letterOf('  spaced')).toBe('S') // leading space trimmed
+    expect(letterOf('!bang')).toBe('#')
+    expect(letterOf('')).toBe('#')
+    expect(letterOf(undefined)).toBe('#')
+  })
+  it('buckets accented titles under their base letter (matches the sort)', () => {
+    expect(letterOf('Élevator')).toBe('E')
+    expect(letterOf('Über Blaster')).toBe('U')
+    expect(letterOf('Ñu')).toBe('N')
+  })
+})
+
+describe('groupByLetter', () => {
+  it('keeps only non-empty buckets, # last, in ALPHABET order', () => {
+    const groups = groupByLetter([
+      { name: 'Alpha' },
+      { name: '99 Bullets' },
+      { name: 'Castlevania' },
+      { name: 'Asteroids' },
+    ])
+    expect(groups.map((g) => g.letter)).toEqual(['A', 'C', '#'])
+    expect(groups[0].items.map((i) => i.name)).toEqual(['Alpha', 'Asteroids'])
+  })
+  it('handles empty/undefined', () => {
+    expect(groupByLetter(undefined)).toEqual([])
+  })
+})
+
+describe('scrubIndex', () => {
+  const rect = { top: 100, height: 270 } // 27 letters → 10px each
+  it('clamps above the top to 0 and below the bottom to count-1', () => {
+    expect(scrubIndex(50, rect, ALPHABET.length)).toBe(0)
+    expect(scrubIndex(9999, rect, ALPHABET.length)).toBe(ALPHABET.length - 1)
+  })
+  it('maps a midpoint to a middle index', () => {
+    expect(scrubIndex(100 + 135, rect, ALPHABET.length)).toBe(13) // halfway → 13 of 27
+  })
+  it('respects rect.top offset', () => {
+    expect(scrubIndex(105, rect, ALPHABET.length)).toBe(0) // 5px in → first letter
+    expect(scrubIndex(115, rect, ALPHABET.length)).toBe(1) // 15px in → second
   })
 })
 
