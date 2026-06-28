@@ -15,7 +15,8 @@ import {
 import { progressLabel, progressFraction } from '../../lib/reading.js'
 import { formatAgo, formatSize } from '../../lib/format.js'
 import { radiantBackdrop, glowFilter } from '../../lib/glow.js'
-import { SkeletonLine } from '../../components/ui.jsx'
+import { ACCENT_HOVER } from '../../lib/moduleAccent.js'
+import { SkeletonLine, AccentArrow } from '../../components/ui.jsx'
 import GameCover from './GameCover.jsx'
 import BookCover from './BookCover.jsx'
 import ComicCover from './ComicCover.jsx'
@@ -95,11 +96,11 @@ function ShelfHeading({ children }) {
   return <h3 className="text-sm font-medium uppercase tracking-wide text-slate-500">{children}</h3>
 }
 
-// The spotlight + section-cards grid placeholder.
+// The section-cards grid placeholder (the resume spotlight skeleton is owned by
+// JumpBackIn, so it isn't repeated here).
 function SectionsSkeleton() {
   return (
     <div className="space-y-5">
-      <div className="h-28 animate-pulse rounded-2xl border border-slate-800 bg-slate-900/40" />
       <SkeletonLine className="h-4 w-40" />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {Array.from({ length: 5 }).map((_, i) => (
@@ -153,7 +154,13 @@ function JumpBackIn() {
 
   const key = (it) => `${it.kind}:${it.id}`
   const items = (data?.items ?? []).filter((it) => !removed.has(key(it)))
-  if (loading && !data) return <div className="h-28 animate-pulse rounded-2xl border border-slate-800 bg-slate-900/40" />
+  if (loading && !data)
+    return (
+      <section className="space-y-3">
+        <ShelfHeading>Jump back in</ShelfHeading>
+        <div className="h-28 animate-pulse rounded-2xl border border-slate-800 bg-slate-900/40" />
+      </section>
+    )
   if (items.length === 0) return null
 
   const remove = (it) => {
@@ -173,6 +180,7 @@ function JumpBackIn() {
 
   return (
     <section className="space-y-3">
+      <ShelfHeading>Jump back in</ShelfHeading>
       <SpotlightHero entry={hero} onResume={() => navigate(resumeHref(hero))} onRemove={() => remove(hero)} />
       {rest.length > 0 && (
         <div className="flex gap-3 overflow-x-auto pb-1">
@@ -362,16 +370,25 @@ function SectionCard({ s }) {
   const sub = !s.configured ? 'not set up yet' : s.count === 0 ? 'empty' : null
 
   const inner = (
+    // On desktop hover the card lifts + glows in its section's accent (the same
+    // treatment the dashboard widgets use, via ACCENT_HOVER + the --accent var).
+    // Touch just navigates on tap (active:bg). Disabled sections stay calm.
     <div
-      className={`overflow-hidden rounded-2xl border p-4 transition-colors ${
-        enabled ? 'border-slate-800 bg-slate-900/60 active:bg-slate-800' : 'border-slate-800 bg-slate-900/30'
+      className={`overflow-hidden rounded-2xl border p-4 ${
+        enabled
+          ? `border-slate-800 bg-slate-900/60 active:bg-slate-800 ${ACCENT_HOVER}`
+          : 'border-slate-800 bg-slate-900/30 transition-colors'
       }`}
+      style={enabled ? { '--accent': `rgb(${accent.rgb})` } : undefined}
     >
       <div className="flex items-center gap-3">
         <SectionIcon id={s.key} className={`h-5 w-5 shrink-0 ${enabled ? accent.text : 'text-slate-500'}`} />
         <span className="font-medium text-slate-100">{s.label}</span>
         {enabled ? (
-          <span className="ml-auto text-lg font-semibold tabular-nums text-slate-300">{s.count}</span>
+          <>
+            <span className="ml-auto text-lg font-semibold tabular-nums text-slate-300">{s.count}</span>
+            <AccentArrow className="ml-1.5" />
+          </>
         ) : (
           <span className="ml-auto text-sm text-slate-500">{sub}</span>
         )}

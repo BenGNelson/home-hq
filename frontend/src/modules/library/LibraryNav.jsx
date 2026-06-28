@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useApi } from '../../lib/useApi.js'
 import { libraryNavSections } from '../../lib/library.js'
+import { SkeletonLine } from '../../components/ui.jsx'
 
 // A horizontal section switcher for the Library area, so you can hop between
 // Games / Books / Comics / Audiobooks / Papers (and back to the hub) without
@@ -25,8 +26,19 @@ function Pill({ to, end, children }) {
 }
 
 export default function LibraryNav() {
-  const { data } = useApi('/library', 30000)
+  const { data, loading } = useApi('/library', 30000)
   const sections = libraryNavSections(data)
+  // First cold load: hold the pill row's shape (so the page below doesn't jump
+  // when the real pills resolve). Pill heights match the real `px-3 py-1 text-sm`.
+  if (loading && !data) {
+    return (
+      <nav className="flex flex-wrap gap-2" aria-hidden="true">
+        {['w-10', 'w-16', 'w-16', 'w-20', 'w-24', 'w-20'].map((w, i) => (
+          <SkeletonLine key={i} className={`h-7 rounded-full ${w}`} />
+        ))}
+      </nav>
+    )
+  }
   if (sections.length === 0) return null
   return (
     <nav className="flex flex-wrap gap-2">

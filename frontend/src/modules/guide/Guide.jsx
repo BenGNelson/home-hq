@@ -286,7 +286,8 @@ export default function Guide() {
           <strong>Recently played</strong> row and a box-art card per system, and tapping a
           system lists its games alphabetically with sticky letter headers, an{' '}
           <strong>A→Z scrubber</strong> (drag your thumb down the right edge to jump to a
-          letter), and a search box scoped to that system.{' '}
+          letter), and a search box scoped to that system. The Recently played row drops a
+          game with its <strong>✕</strong> (just the marker — your saves are untouched).{' '}
           <strong>Two kinds of save, both roam across your devices</strong>
           (and ride the off-site backup): your <strong>in-game save</strong> — the game’s
           own “Save” → “Continue” — is the everyday one. The app captures it as you play
