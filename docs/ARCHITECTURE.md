@@ -89,7 +89,14 @@ reverse-proxy as the API and need no extra proxy rule):
 Each `include_router` passes a `tags=[...]` so the endpoints group by domain
 (System / Storage / Network / Plex / Printer / Alerts / Docs) instead of one
 flat list; the tag descriptions live in `main.py`'s `tags_metadata`. The
-sidebar's Docs group has an "API" link to `/api/docs`.
+sidebar's Docs group has an "API" link. It points at an **in-app route**
+(`/api-docs`) that embeds the Swagger UI in an iframe *under the shell* — not a
+bare `target="_blank"` link to `/api/docs`. In a standalone (installed) PWA
+there's no browser chrome, so an external nav would strand you on the docs page
+with no way back to Home HQ; embedding it keeps the persistent top bar and the
+mobile hamburger nav available. The route path is `/api-docs` (not `/api`) so it
+can't collide with the `/api/` reverse-proxy prefix; the page's toolbar still
+offers an "Open in new tab" escape hatch to the raw `/api/docs`.
 
 **Typed responses (incremental).** Most endpoints return plain dicts (and many
 *degrade* to `{available: false}` when a source is down), so the schema would

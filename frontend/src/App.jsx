@@ -36,6 +36,7 @@ import Catalog from './modules/catalog/Catalog.jsx'
 import Guide from './modules/guide/Guide.jsx'
 import Readme from './modules/readme/Readme.jsx'
 import ServerGuide from './modules/server-guide/ServerGuide.jsx'
+import ApiDocs from './modules/apidocs/ApiDocs.jsx'
 import { hostNavLinks } from './lib/hostLocal.js'
 import {
   Home,
@@ -93,11 +94,13 @@ const builtinModules = [
   { id: 'uptime', label: 'Uptime', path: '/uptime', icon: Activity, group: 'Monitoring', tint: 'bg-lime-500/15 text-lime-400' },
   { id: 'guide', label: 'Under the Hood', path: '/guide', icon: Wrench, group: 'Docs' },
   { id: 'server-guide', label: 'Your Server Guide', path: '/server-guide', icon: BookText, group: 'Docs' },
-  // External: the backend's own interactive OpenAPI docs (Swagger UI), served
-  // at /api/docs through the same proxy as the API. `external` makes Shell
-  // render a plain <a> that opens in a new tab — it's not a React route, so
-  // there's no matching <Route> below.
-  { id: 'api', label: 'API', path: '/api/docs', icon: Braces, group: 'Docs', external: true },
+  // The backend's interactive OpenAPI docs (Swagger UI), served at /api/docs.
+  // We render it as an IN-APP route (an iframe under the shell), not an external
+  // target=_blank link: a standalone PWA has no browser chrome, so an external
+  // nav strands you on the bare docs page with no way back. Keeping it under the
+  // shell means the top bar / mobile hamburger is always there to return. (Route
+  // path is /api-docs — not /api — so it can't collide with the /api/ proxy.)
+  { id: 'api', label: 'API', path: '/api-docs', icon: Braces, group: 'Docs' },
   { id: 'readme', label: 'README', path: '/readme', icon: FileText, group: 'Docs' },
 ]
 
@@ -154,6 +157,7 @@ export default function App() {
         <Route path="/guide" element={<Guide />} />
         <Route path="/readme" element={<Readme />} />
         <Route path="/server-guide" element={<ServerGuide />} />
+        <Route path="/api-docs" element={<ApiDocs />} />
       </Routes>
     </Shell>
   )
