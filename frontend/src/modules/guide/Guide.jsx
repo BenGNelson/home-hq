@@ -208,9 +208,11 @@ export default function Guide() {
         </p>
         <p>
           FastAPI builds an interactive <Code>OpenAPI</Code> reference from the
-          routes for free — explore every endpoint (grouped by domain) at{' '}
-          <Code>/api/docs</Code>, or via the <strong>API</strong> link in the
-          sidebar’s Docs section.
+          routes for free — explore every endpoint (grouped by domain) via the{' '}
+          <strong>API</strong> link in the sidebar’s Docs section, which embeds
+          the Swagger UI right inside the app (so the nav is always there to get
+          back — handy in the installed PWA, which has no browser controls), or
+          open it standalone at <Code>/api/docs</Code>.
         </p>
         <div className="overflow-hidden rounded-lg border border-slate-800">
           <table className="w-full text-xs">
