@@ -65,6 +65,10 @@ PAGES = [
     ("/guide", []),
     ("/readme", []),
     ("/server-guide", []),
+    # Pin our own chrome text, not the embedded Swagger UI — the assertion stays
+    # green regardless of the iframe's third-party (CDN-served) contents, but a
+    # blank/crashed render of the page itself still fails the gate.
+    ("/api-docs", ["interactive API reference"]),
 ]
 
 
