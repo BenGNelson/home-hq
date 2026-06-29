@@ -94,12 +94,9 @@ const builtinModules = [
   { id: 'uptime', label: 'Uptime', path: '/uptime', icon: Activity, group: 'Monitoring', tint: 'bg-lime-500/15 text-lime-400' },
   { id: 'guide', label: 'Under the Hood', path: '/guide', icon: Wrench, group: 'Docs' },
   { id: 'server-guide', label: 'Your Server Guide', path: '/server-guide', icon: BookText, group: 'Docs' },
-  // The backend's interactive OpenAPI docs (Swagger UI), served at /api/docs.
-  // We render it as an IN-APP route (an iframe under the shell), not an external
-  // target=_blank link: a standalone PWA has no browser chrome, so an external
-  // nav strands you on the bare docs page with no way back. Keeping it under the
-  // shell means the top bar / mobile hamburger is always there to return. (Route
-  // path is /api-docs — not /api — so it can't collide with the /api/ proxy.)
+  // The backend's OpenAPI docs, rendered in-app (iframe under the shell) rather
+  // than an external target=_blank link — see ApiDocs.jsx for the why. Route
+  // path is /api-docs (not /api) so it can't collide with the /api/ proxy.
   { id: 'api', label: 'API', path: '/api-docs', icon: Braces, group: 'Docs' },
   { id: 'readme', label: 'README', path: '/readme', icon: FileText, group: 'Docs' },
 ]
