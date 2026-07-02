@@ -9,6 +9,27 @@
 // functional modules. Everything else is a top-of-sidebar nav section.
 export const FOOTER_GROUP = 'Docs'
 
+// Query params that are in-page VIEW STATE (a filter / search box), NOT part of
+// a screen's identity. The shell keys its per-route ErrorBoundary on the URL so
+// that opening a different document within a shared route (e.g.
+// /library/read?id=…) resets a crashed screen — but a filter param changes on
+// every keystroke, and rekeying on it would remount the whole page each stroke
+// (tearing down + rebuilding the search box → the mobile keyboard drops). So
+// these are stripped from the identity key: same document + changed filter →
+// same key → no remount.
+export const VIEW_STATE_PARAMS = ['q']
+
+// The identity of the current screen for remount purposes: the path plus only
+// the search params that actually pick a document, with view-state (filter /
+// search) params removed and the rest sorted so key equality is order-stable.
+export function routeIdentityKey(pathname, search) {
+  const params = new URLSearchParams(search || '')
+  for (const p of VIEW_STATE_PARAMS) params.delete(p)
+  params.sort()
+  const rest = params.toString()
+  return rest ? `${pathname}?${rest}` : pathname
+}
+
 export function groupModules(modules) {
   const order = []
   const byGroup = new Map()
