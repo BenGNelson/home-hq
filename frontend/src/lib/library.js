@@ -330,6 +330,32 @@ export function systemGames(items, label) {
     .sort((a, b) => naturalCompare(a.name, b.name))
 }
 
+// The Games view keeps its browse state in the URL (like `?system=`), so the
+// search text survives opening a game + coming back — and refresh/share/back all
+// restore the same view. `system` picks the console; `query` (→ `q`) is the
+// in-system search box. Omitting query leaves `q` off the URL entirely.
+export function gamesSystemHref(system, query) {
+  let href = `/library/games?system=${encodeURIComponent(system)}`
+  if (query) href += `&q=${encodeURIComponent(query)}`
+  return href
+}
+
+// A game's detail "title page". `ret` is the full return location (path+search)
+// of wherever the tile was tapped — carried along so the detail page's Back link
+// lands exactly there (with the search still typed), not on a fresh Games page.
+export function gameDetailHref(id, ret) {
+  let href = `/library/games/detail?id=${encodeURIComponent(id)}`
+  if (ret) href += `&ret=${encodeURIComponent(ret)}`
+  return href
+}
+
+// Where a game's Back link goes: the exact page it was opened from (`ret`) when
+// we have it, else fall back to that game's own system view (so a direct link /
+// old bookmark still lands somewhere sensible instead of the systems landing).
+export function gameBackHref(ret, label) {
+  return ret || gamesSystemHref(label || 'Other')
+}
+
 // The scrubber bucket for a title: its uppercase first A–Z letter, else '#'
 // (numbers, symbols, non-latin, empty). Diacritics are stripped first (NFD
 // decomposes 'É' → 'E' + combining mark) so an accented title buckets under its
