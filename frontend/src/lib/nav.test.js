@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { groupModules, activeModule, goBackTarget, FOOTER_GROUP } from './nav.js'
+import { groupModules, activeModule, goBackTarget, FOOTER_GROUP, routeIdentityKey } from './nav.js'
 
 describe('goBackTarget', () => {
   it('goes back one entry when there is in-app history', () => {
@@ -89,5 +89,26 @@ describe('activeModule', () => {
 
   it('does not treat a sibling prefix as a match (/plexier ≠ /plex)', () => {
     expect(activeModule(mods, '/plexier')).toBeNull()
+  })
+})
+
+describe('routeIdentityKey', () => {
+  it('is just the pathname when there are no search params', () => {
+    expect(routeIdentityKey('/library/games', '')).toBe('/library/games')
+    expect(routeIdentityKey('/dashboard', undefined)).toBe('/dashboard')
+  })
+  it('drops the view-state search param (q) so typing does not change the key', () => {
+    const a = routeIdentityKey('/library/games', '?system=Game%20Boy%20Advance&q=poke')
+    const b = routeIdentityKey('/library/games', '?system=Game%20Boy%20Advance&q=pokemon')
+    expect(a).toBe(b) // same document, different filter → same identity → no remount
+    expect(a).toBe('/library/games?system=Game+Boy+Advance')
+  })
+  it('keeps identity params so a different document still rekeys', () => {
+    const a = routeIdentityKey('/library/games/detail', '?id=A&q=x')
+    const b = routeIdentityKey('/library/games/detail', '?id=B&q=x')
+    expect(a).not.toBe(b)
+  })
+  it('is order-stable (param order in the URL does not affect the key)', () => {
+    expect(routeIdentityKey('/x', '?b=2&a=1')).toBe(routeIdentityKey('/x', '?a=1&b=2'))
   })
 })

@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useApi } from '../lib/useApi.js'
 import { useMediaQuery } from '../lib/useMediaQuery.js'
 import { useOnline } from '../lib/online.jsx'
-import { groupModules, activeModule, FOOTER_GROUP } from '../lib/nav.js'
+import { groupModules, activeModule, FOOTER_GROUP, routeIdentityKey } from '../lib/nav.js'
 import { useScrollRestoration } from './useScrollRestoration.js'
 import ThemePicker from './ThemePicker.jsx'
 import ErrorBoundary from '../components/ErrorBoundary.jsx'
@@ -233,11 +233,14 @@ export default function Shell({ modules, children }) {
 
         {/* Per-route error boundary: a crash in one screen (e.g. a reader engine
             throwing) shows a contained fallback instead of unmounting the whole
-            app to a blank screen. Keyed by pathname + search so navigating to a
-            different document clears the error even within a shared route like
-            /library/read?id=… (where identity is in the query string). */}
+            app to a blank screen. Keyed by the route IDENTITY (pathname + the
+            document-selecting search params) so navigating to a different
+            document clears the error even within a shared route like
+            /library/read?id=… — but in-page filter/search params (e.g. the games
+            search box `?q=`) are excluded, so typing there doesn't remount the
+            page and drop the keyboard. See routeIdentityKey / VIEW_STATE_PARAMS. */}
         <main ref={mainRef} className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
-          <ErrorBoundary key={location.pathname + location.search}>{children}</ErrorBoundary>
+          <ErrorBoundary key={routeIdentityKey(location.pathname, location.search)}>{children}</ErrorBoundary>
         </main>
       </div>
     </div>
