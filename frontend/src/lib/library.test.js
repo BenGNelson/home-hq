@@ -28,6 +28,9 @@ import {
   ALPHABET,
   listSystems,
   systemGames,
+  gamesSystemHref,
+  gameDetailHref,
+  gameBackHref,
   letterOf,
   groupByLetter,
   scrubIndex,
@@ -226,6 +229,41 @@ describe('systemGames', () => {
   })
   it('unknown system → []', () => {
     expect(systemGames(items, 'SNES')).toEqual([])
+  })
+})
+
+describe('games browse-state hrefs', () => {
+  it('gamesSystemHref encodes the system and omits q when there is no query', () => {
+    expect(gamesSystemHref('Game Boy Advance')).toBe(
+      '/library/games?system=Game%20Boy%20Advance'
+    )
+  })
+  it('gamesSystemHref appends an encoded search query', () => {
+    expect(gamesSystemHref('Game Boy Advance', 'pokemon x')).toBe(
+      '/library/games?system=Game%20Boy%20Advance&q=pokemon%20x'
+    )
+  })
+  it('gameDetailHref carries an encoded return location', () => {
+    const ret = '/library/games?system=Game Boy Advance&q=pokemon'
+    expect(gameDetailHref('NintendoGameBoyAdvance/Pokemon - Emerald.gba', ret)).toBe(
+      '/library/games/detail?id=NintendoGameBoyAdvance%2FPokemon%20-%20Emerald.gba' +
+        '&ret=%2Flibrary%2Fgames%3Fsystem%3DGame%20Boy%20Advance%26q%3Dpokemon'
+    )
+  })
+  it('gameDetailHref omits ret when not provided', () => {
+    expect(gameDetailHref('a.gba')).toBe('/library/games/detail?id=a.gba')
+  })
+  it('gameBackHref prefers the return location, verbatim', () => {
+    const ret = '/library/games?system=Game Boy Advance&q=pokemon'
+    expect(gameBackHref(ret, 'Game Boy Advance')).toBe(ret)
+  })
+  it('gameBackHref falls back to the system view when ret is missing', () => {
+    expect(gameBackHref(null, 'Game Boy Advance')).toBe(
+      '/library/games?system=Game%20Boy%20Advance'
+    )
+  })
+  it('gameBackHref falls back to "Other" when the label is missing too', () => {
+    expect(gameBackHref(null, undefined)).toBe('/library/games?system=Other')
   })
 })
 

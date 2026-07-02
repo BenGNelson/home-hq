@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useApi } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
 import { useDownloaded } from '../../lib/useDownloaded.js'
@@ -11,6 +11,8 @@ import {
   searchItems,
   coverUrl,
   sectionAccent,
+  gamesSystemHref,
+  gameDetailHref,
 } from '../../lib/library.js'
 import { radiantBackdrop } from '../../lib/glow.js'
 import { ACCENT_HOVER } from '../../lib/moduleAccent.js'
@@ -90,7 +92,7 @@ function SystemCard({ sys }) {
     // Resting state keeps its faint violet radiance; on desktop hover it lifts +
     // glows in the games accent (shared ACCENT_HOVER, like the dashboard cards).
     <button
-      onClick={() => navigate(`/library/games?system=${encodeURIComponent(sys.label)}`)}
+      onClick={() => navigate(gamesSystemHref(sys.label))}
       className={`rounded-2xl border border-violet-500/25 p-3 text-left active:scale-[0.98] ${ACCENT_HOVER}`}
       style={{ background: radiantBackdrop(GAMES_RGB, 0.12), '--accent': `rgb(${GAMES_RGB})` }}
     >
@@ -126,7 +128,18 @@ function SystemCard({ sys }) {
 // system, then either flat search results or letter-grouped sections with the
 // A→Z scrubber. Letter section headers are sticky and carry the scroll-target id.
 function SystemView({ items, system }) {
-  const [query, setQuery] = useState('')
+  // Search text lives in the URL (`?system=…&q=…`), not local state, so it
+  // survives opening a game + coming back (this view remounts on return) and is
+  // refresh/share-safe. Each keystroke replaces (not pushes) history so typing
+  // doesn't stack Back entries; clearing the box drops `q` from the URL.
+  const [params, setParams] = useSearchParams()
+  const query = params.get('q') || ''
+  const setQuery = (val) => {
+    const next = new URLSearchParams(params)
+    if (val) next.set('q', val)
+    else next.delete('q')
+    setParams(next, { replace: true })
+  }
   // Memoised: a big system (hundreds of titles) is filtered + natural-sorted, so
   // don't redo it on every keystroke; the letter grouping is only needed when
   // not searching (the search branch shows a flat result grid instead).
@@ -224,13 +237,17 @@ function RecentlyPlayed({ recent, items, onRemove }) {
 // the two don't collide.
 function GameGrid({ games, onRemove }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const downloaded = useDownloaded()
+  // Remember exactly where this grid is (system + typed search) so the game's
+  // Back link returns here mid-search, not to a fresh Games page.
+  const ret = location.pathname + location.search
   return (
     <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
       {games.map((g) => (
         <div key={g.id} className="relative">
           <button
-            onClick={() => navigate(`/library/games/detail?id=${encodeURIComponent(g.id)}`)}
+            onClick={() => navigate(gameDetailHref(g.id, ret))}
             className="group block w-full text-left"
           >
             <span className="relative block">

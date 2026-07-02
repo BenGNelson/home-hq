@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import BackLink from '../../components/BackLink.jsx'
 import { useApi } from '../../lib/useApi.js'
 import { formatSize, formatAgo } from '../../lib/format.js'
-import { saveStatesUrl, saveStateShotUrl, gameOfflineUrls } from '../../lib/library.js'
+import { saveStatesUrl, saveStateShotUrl, gameOfflineUrls, gameBackHref } from '../../lib/library.js'
 import { ensureEmulatorEngine, cacheGameSram } from '../../lib/offlineStore.js'
 import { recordPlayed } from '../../lib/recentGames.js'
 import GameCover from './GameCover.jsx'
@@ -17,6 +17,8 @@ export default function GameDetail() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
   const id = params.get('id')
+  // Where the tile was tapped (system + typed search), so Back returns there.
+  const ret = params.get('ret')
   const { data, loading } = useApi('/library/games', 0)
   const [refresh, setRefresh] = useState(0)
   const states = useApi(`/library/games/save-states?id=${encodeURIComponent(id)}&_=${refresh}`, 0)
@@ -28,7 +30,7 @@ export default function GameDetail() {
     return (
       <div className="space-y-3">
         <p className="text-slate-300">That game isn’t in the library.</p>
-        <BackLink to="/library/games">Back to Games</BackLink>
+        <BackLink to={ret || '/library/games'}>Back to Games</BackLink>
       </div>
     )
   }
@@ -51,9 +53,9 @@ export default function GameDetail() {
 
   return (
     <div className="space-y-5">
-      {/* Back to the game's own system view (not the top-level systems landing),
-          so returning from a game lands you where you were browsing. */}
-      <BackLink to={`/library/games?system=${encodeURIComponent(game.label || 'Other')}`}>Games</BackLink>
+      {/* Back to exactly where you were browsing — the system view with your
+          search still typed (ret), falling back to the game's own system view. */}
+      <BackLink to={gameBackHref(ret, game.label)}>Games</BackLink>
 
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
         <GameCover game={game} className="w-40 shrink-0 self-center sm:self-start" />
