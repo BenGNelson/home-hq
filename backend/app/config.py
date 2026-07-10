@@ -106,6 +106,37 @@ class Settings(BaseSettings):
     # only comics you open take cache space.
     comic_pages_dir: str = "/data/comic-pages"
 
+    # --- Pokémon Cards (self-hosted TCG collection browser) ---
+    # The IN-CONTAINER path of the pokemon-tcg-data clone (sets/en.json +
+    # cards/en/*.json — the whole English catalog as static JSON). The compose
+    # file mounts the host clone here read-only (default: the committed tiny
+    # example; set CARD_DATA_SRC in .env to your full `git clone`). A background
+    # indexer (card_sync.py) ingests it into SQLite. Empty/missing dir = the Cards
+    # module reports "not configured". Read-only: the app only parses it.
+    # (Named differently from the CARD_DATA_SRC mount var on purpose, so the host
+    # path never overrides this container path — same split as CATALOG_FILE vs
+    # catalog_path.)
+    card_data_dir: str = "/card-data"
+    # OPTIONAL local originals of the card face images (archival full-res dump on
+    # the RAID, read-only). When set and a file is present the image endpoint
+    # serves it; otherwise it proxies images.pokemontcg.io. Unset by default —
+    # images are proxied + cached on demand, so no upfront 15–20 GB download.
+    cards_dir: str = ""
+    # Where downscaled card face thumbnails are cached (WebP, keyed by a hash of
+    # the card id + size). Same writable volume as the DB, so it rides the backup.
+    card_art_dir: str = "/data/card-art"
+    # The catalog indexer: parses the pokemon-tcg-data clone into SQLite. Set
+    # false to disable; interval is how often it re-scans for a refreshed clone
+    # (unchanged set files are skipped by mtime). Default daily.
+    cards_index_enabled: bool = True
+    cards_index_interval: int = 86400
+    # OPTIONAL free pokemontcg.io API key (dev.pokemontcg.io). Present = the
+    # indexer refreshes market prices for the cards you OWN (a bounded set) on its
+    # daily cadence, so collection value stays ≤1 day stale. Absent = no prices
+    # (the value tiles hide). It's a rate-limit key, not a secret, but lives in
+    # .env like the rest.
+    pokemontcg_api_key: str = ""
+
     # --- Backend ---
     api_port: int = 8000
     docker_socket: str = "/var/run/docker.sock"

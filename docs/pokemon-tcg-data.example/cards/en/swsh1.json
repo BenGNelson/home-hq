@@ -1,0 +1,36 @@
+[
+  {
+    "id": "swsh1-1",
+    "name": "Celebi V",
+    "supertype": "Pokémon",
+    "subtypes": ["Basic", "V"],
+    "hp": "180",
+    "types": ["Grass"],
+    "number": "1",
+    "artist": "PLANETA Mochizuki",
+    "rarity": "Rare Holo V",
+    "nationalPokedexNumbers": [251],
+    "images": {
+      "small": "https://images.pokemontcg.io/swsh1/1.png",
+      "large": "https://images.pokemontcg.io/swsh1/1_hires.png"
+    },
+    "set": { "id": "swsh1" }
+  },
+  {
+    "id": "swsh1-25",
+    "name": "Snom",
+    "supertype": "Pokémon",
+    "subtypes": ["Basic"],
+    "hp": "70",
+    "types": ["Water"],
+    "number": "25",
+    "artist": "Sanosuke Sakuma",
+    "rarity": "Common",
+    "nationalPokedexNumbers": [872],
+    "images": {
+      "small": "https://images.pokemontcg.io/swsh1/25.png",
+      "large": "https://images.pokemontcg.io/swsh1/25_hires.png"
+    },
+    "set": { "id": "swsh1" }
+  }
+]

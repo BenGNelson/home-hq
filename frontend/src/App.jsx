@@ -19,6 +19,9 @@ import ComicsList from './modules/library/ComicsList.jsx'
 import AudiobooksList from './modules/library/AudiobooksList.jsx'
 import Reader from './modules/library/Reader.jsx'
 import Downloads from './modules/library/Downloads.jsx'
+import Cards from './modules/cards/Cards.jsx'
+import SetView from './modules/cards/SetView.jsx'
+import CardsSearch from './modules/cards/Search.jsx'
 import Containers from './modules/containers/Containers.jsx'
 import Printer from './modules/printer/Printer.jsx'
 import Network from './modules/network/Network.jsx'
@@ -60,6 +63,7 @@ import {
   Braces,
   FileText,
   Boxes,
+  Sparkles,
 } from 'lucide-react'
 
 // The module registry. Each module declares its nav entry here and a matching
@@ -80,6 +84,7 @@ const builtinModules = [
   { id: 'solar', label: 'Solar', path: '/solar', icon: Sun, group: 'Overview', tint: 'bg-yellow-500/15 text-yellow-400' },
   { id: 'plex', label: 'Plex', path: '/plex', icon: Clapperboard, group: 'Media', tint: 'bg-rose-500/15 text-rose-400' },
   { id: 'library', label: 'Library', path: '/library', icon: LibraryIcon, group: 'Media', tint: 'bg-amber-500/15 text-amber-400' },
+  { id: 'cards', label: 'Cards', path: '/cards', icon: Sparkles, group: 'Media', tint: 'bg-fuchsia-500/15 text-fuchsia-400' },
   { id: 'containers', label: 'Containers', path: '/containers', icon: Container, group: 'System', tint: 'bg-sky-500/15 text-sky-400' },
   { id: 'storage', label: 'Storage', path: '/storage', icon: HardDrive, group: 'System', tint: 'bg-indigo-500/15 text-indigo-400' },
   { id: 'backups', label: 'Backups', path: '/backups', icon: Archive, group: 'System', tint: 'bg-violet-500/15 text-violet-400' },
@@ -137,6 +142,9 @@ export default function App() {
         <Route path="/library/play" element={<Player />} />
         <Route path="/library/read" element={<Reader />} />
         <Route path="/library/downloads" element={<Downloads />} />
+        <Route path="/cards" element={<Cards />} />
+        <Route path="/cards/search" element={<CardsSearch />} />
+        <Route path="/cards/sets/:setid" element={<SetView />} />
         <Route path="/containers" element={<Containers />} />
         <Route path="/catalog" element={<Catalog />} />
         <Route path="/printer" element={<Printer />} />

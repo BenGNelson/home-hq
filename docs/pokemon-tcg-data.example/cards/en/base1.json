@@ -1,0 +1,53 @@
+[
+  {
+    "id": "base1-2",
+    "name": "Blastoise",
+    "supertype": "Pokémon",
+    "subtypes": ["Stage 2"],
+    "hp": "100",
+    "types": ["Water"],
+    "number": "2",
+    "artist": "Ken Sugimori",
+    "rarity": "Rare Holo",
+    "nationalPokedexNumbers": [9],
+    "images": {
+      "small": "https://images.pokemontcg.io/base1/2.png",
+      "large": "https://images.pokemontcg.io/base1/2_hires.png"
+    },
+    "set": { "id": "base1" }
+  },
+  {
+    "id": "base1-4",
+    "name": "Charizard",
+    "supertype": "Pokémon",
+    "subtypes": ["Stage 2"],
+    "hp": "120",
+    "types": ["Fire"],
+    "number": "4",
+    "artist": "Mitsuhiro Arita",
+    "rarity": "Rare Holo",
+    "nationalPokedexNumbers": [6],
+    "images": {
+      "small": "https://images.pokemontcg.io/base1/4.png",
+      "large": "https://images.pokemontcg.io/base1/4_hires.png"
+    },
+    "set": { "id": "base1" }
+  },
+  {
+    "id": "base1-58",
+    "name": "Pikachu",
+    "supertype": "Pokémon",
+    "subtypes": ["Basic"],
+    "hp": "40",
+    "types": ["Lightning"],
+    "number": "58",
+    "artist": "Mitsuhiro Arita",
+    "rarity": "Common",
+    "nationalPokedexNumbers": [25],
+    "images": {
+      "small": "https://images.pokemontcg.io/base1/58.png",
+      "large": "https://images.pokemontcg.io/base1/58_hires.png"
+    },
+    "set": { "id": "base1" }
+  }
+]
