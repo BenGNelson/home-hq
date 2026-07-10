@@ -159,6 +159,23 @@ def extract_prices(api_card: dict) -> tuple[float | None, float | None]:
     return usd, eur
 
 
+# --- TCGplayer Mass Entry want-list (the buy-helper) ------------------------
+
+
+def massentry_line(name: str, ptcgo_code: str | None, number: str, qty: int = 1) -> str:
+    """One TCGplayer Mass Entry line for a card: ``<qty> <name> <setcode> <number>``
+    (e.g. ``1 Charizard ex SSP 199``). The set code is the ptcgo code — pasted into
+    tcgplayer.com/massentry, then the Cart Optimizer minimizes sellers/shipping. A
+    set with no ptcgo code omits it (Mass Entry still matches on name + number; the
+    user tweaks the few that don't resolve)."""
+    parts = [str(qty), name.strip()]
+    if ptcgo_code:
+        parts.append(ptcgo_code.strip())
+    if number:
+        parts.append(str(number).strip())
+    return " ".join(p for p in parts if p)
+
+
 # --- owned-cards import file (Pokéllector export → ownership rows) ----------
 
 _TRUE = {"1", "true", "yes", "y", "want", "wishlist"}

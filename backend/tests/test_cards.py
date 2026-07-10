@@ -64,6 +64,12 @@ def test_parse_ownership_csv_and_json_and_dedupe():
     assert len(json_rows) == 2
 
 
+def test_massentry_line_format():
+    assert cards_mod.massentry_line("Charizard ex", "SSP", "199") == "1 Charizard ex SSP 199"
+    assert cards_mod.massentry_line("Alakazam", None, "1") == "1 Alakazam 1"  # set w/o a code
+    assert cards_mod.massentry_line("Pikachu", "BS", "58", qty=2) == "2 Pikachu BS 58"
+
+
 def test_extract_prices_prefers_holofoil_market():
     api_card = {
         "tcgplayer": {"prices": {
@@ -81,9 +87,9 @@ def test_extract_prices_prefers_holofoil_market():
 
 _SETS = [
     {"id": "base1", "name": "Base", "series": "Base", "printedTotal": 102,
-     "total": 102, "releaseDate": "1999/01/09", "images": {"logo": "lg"}},
+     "total": 102, "ptcgoCode": "BS", "releaseDate": "1999/01/09", "images": {"logo": "lg"}},
     {"id": "swsh1", "name": "Sword & Shield", "series": "Sword & Shield",
-     "printedTotal": 202, "total": 216, "releaseDate": "2020/02/07", "images": {}},
+     "printedTotal": 202, "total": 216, "ptcgoCode": "SSH", "releaseDate": "2020/02/07", "images": {}},
 ]
 _CARDS = {
     "base1": [
@@ -276,6 +282,23 @@ def test_endpoints_over_client(client, catalog):
     assert card["types"] == ["Fire"]
 
     assert client.get("/api/cards/card/nope-1").status_code == 404
+
+
+def test_wantlist_endpoints(client, catalog):
+    # Own one Base card → the other two are the want-list; swsh1 owns nothing.
+    db.replace_ownership("pokellector", [{"card_id": "base1-4", "variant": "normal", "qty": 1}])
+
+    per_set = client.get("/api/cards/sets/base1/wantlist").json()
+    assert per_set["total"] == 3 and per_set["missing"] == 2
+    assert "1 Blastoise BS 2" in per_set["lines"]
+    assert all("Charizard" not in ln for ln in per_set["lines"])  # owned → not in want-list
+    assert client.get("/api/cards/sets/nope/wantlist").status_code == 404
+
+    # Collection-wide: only sets you've started (base1) — swsh1 (0 owned) excluded.
+    coll = client.get("/api/cards/wantlist").json()
+    assert coll["total"] == 3  # base1's 3 cards; swsh1 not counted
+    assert coll["missing"] == 2
+    assert coll.get("setid") is None  # whole-collection list → no setid (exclude_none drops it)
 
 
 def test_import_endpoint_reports_unmatched(client, catalog):

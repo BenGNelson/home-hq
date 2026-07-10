@@ -6,6 +6,7 @@ import { SkeletonLine } from '../../components/ui.jsx'
 import { CARDS_RGB, setHref, cardsSearchHref, completionPct, formatUsd } from '../../lib/cards.js'
 import CardImage from './CardImage.jsx'
 import CardModal from './CardModal.jsx'
+import WantlistModal from './WantlistModal.jsx'
 
 // The Cards hub: your Pokémon TCG collection. A back-lit stats hero (the one
 // radiance moment), a show-off wall of the cards you own, and a grid of every
@@ -20,6 +21,7 @@ export default function Cards() {
   const { data: showcase } = useApi('/cards/search?owned=1&limit=24', 60000)
   const [modalId, setModalId] = useState(null)
   const [importResult, setImportResult] = useState(null)
+  const [showWantlist, setShowWantlist] = useState(false)
   const navigate = useNavigate()
 
   // The catalog clone isn't mounted — nothing to browse yet.
@@ -37,6 +39,14 @@ export default function Cards() {
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-xl font-semibold">Pokémon Cards</h2>
         <div className="ml-auto flex items-center gap-2">
+          {(stats?.owned_unique ?? 0) > 0 && (
+            <button
+              onClick={() => setShowWantlist(true)}
+              className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm font-medium text-slate-200 active:scale-95"
+            >
+              Shopping list
+            </button>
+          )}
           <ImportButton onResult={setImportResult} />
         </div>
       </div>
@@ -72,6 +82,13 @@ export default function Cards() {
       )}
 
       {modalId && <CardModal cardId={modalId} onClose={() => setModalId(null)} />}
+      {showWantlist && (
+        <WantlistModal
+          url="/cards/wantlist"
+          title="Every card you’re missing from the sets you’re collecting"
+          onClose={() => setShowWantlist(false)}
+        />
+      )}
     </div>
   )
 }

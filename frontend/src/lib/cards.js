@@ -15,6 +15,11 @@ export function setHref(setid) {
   return `/cards/sets/${encodeURIComponent(setid)}`
 }
 
+// TCGplayer's bulk-entry tool: paste a want-list, then optimize the cart to the
+// fewest sellers to minimize shipping. The buy-helper hands off to it (no
+// pre-fill URL exists, so it's copy-list → paste).
+export const MASSENTRY_URL = 'https://www.tcgplayer.com/massentry'
+
 export function cardsSearchHref(q = '') {
   return q ? `/cards/search?q=${encodeURIComponent(q)}` : '/cards/search'
 }
