@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { cardImageUrl, setHref, cardsSearchHref, completionPct, formatUsd } from './cards.js'
+import { cardImageUrl, setHref, cardsSearchHref, completionPct, formatUsd, MASSENTRY_URL } from './cards.js'
 
 describe('cards helpers', () => {
   it('builds a same-origin card image url with size + encoded id', () => {
@@ -20,6 +20,10 @@ describe('cards helpers', () => {
     expect(completionPct(0, 0)).toBe(0)
     expect(completionPct(1, 4)).toBe(25)
     expect(completionPct(3, 3)).toBe(100)
+  })
+
+  it('points the buy-helper at TCGplayer Mass Entry', () => {
+    expect(MASSENTRY_URL).toBe('https://www.tcgplayer.com/massentry')
   })
 
   it('formats USD, returning null when there is nothing to show', () => {

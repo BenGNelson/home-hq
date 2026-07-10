@@ -158,6 +158,14 @@ class OwnershipUpdate(BaseModel):
     notes: str | None = None
 
 
+class WantlistModel(BaseModel):
+    setid: str | None = Field(default=None, description="The set, or null for a whole-collection list")
+    set_name: str | None = None
+    missing: int = Field(description="Cards you don't own in scope")
+    total: int = Field(description="Cards in scope")
+    lines: list[str] = Field(description="TCGplayer Mass Entry lines (<qty> <name> <code> <number>)")
+
+
 class SyncStatusModel(BaseModel):
     configured: bool = Field(description="False when CARD_DATA_DIR is unset/missing")
     enabled: bool
@@ -216,6 +224,41 @@ def cards_set_detail(setid: str):
     meta["owned"] = owned
     meta["completion_pct"] = _completion_pct(owned, len(cards))
     return {"set": meta, "cards": [_brief(c) for c in cards]}
+
+
+@router.get("/cards/sets/{setid}/wantlist", response_model=WantlistModel, response_model_exclude_none=True)
+def cards_set_wantlist(setid: str):
+    """The cards you're MISSING from a set, formatted for TCGplayer Mass Entry —
+    paste the lines at tcgplayer.com/massentry, then optimize the cart to the
+    fewest sellers to minimize shipping."""
+    meta = db.get_card_set(setid)
+    if not meta:
+        return Response(status_code=404)
+    cards = db.list_set_cards(setid)
+    lines = [
+        cards_mod.massentry_line(c["name"], meta.get("ptcgo_code"), c["number"])
+        for c in cards if not c.get("owned")
+    ]
+    return {"setid": setid, "set_name": meta["name"], "missing": len(lines),
+            "total": len(cards), "lines": lines}
+
+
+@router.get("/cards/wantlist", response_model=WantlistModel, response_model_exclude_none=True)
+def cards_collection_wantlist():
+    """Every card you're missing across the sets you're COLLECTING (own ≥1 card in),
+    as one TCGplayer Mass Entry list — so the cart optimizer can minimize sellers
+    across your whole want-list at once."""
+    lines, total = [], 0
+    for s in db.list_card_sets_with_counts():
+        if s["owned"] <= 0:  # only sets you've actually started
+            continue
+        cards = db.list_set_cards(s["setid"])
+        total += len(cards)
+        lines.extend(
+            cards_mod.massentry_line(c["name"], s.get("ptcgo_code"), c["number"])
+            for c in cards if not c.get("owned")
+        )
+    return {"setid": None, "set_name": None, "missing": len(lines), "total": total, "lines": lines}
 
 
 @router.get("/cards/search", response_model=SearchModel, response_model_exclude_none=True)

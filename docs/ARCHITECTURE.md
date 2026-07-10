@@ -223,6 +223,8 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/cards/sets` | every set with card count + owned + completion %, newest first | `LEFT JOIN card_ownership` grouped by set |
 | `GET /api/cards/sets/{setid}` | one set + all its cards with an owned/unowned overlay | catalog cards + aggregated ownership |
 | `GET /api/cards/search?q=&owned=` | search all cards by name, with an owned overlay + filter | `LIKE` on the indexed name (empty `q` = first alphabetically) |
+| `GET /api/cards/sets/{setid}/wantlist` | the cards you're MISSING from a set, as TCGplayer Mass Entry lines | unowned cards → `<qty> <name> <ptcgo_code> <number>` for paste-and-optimize |
+| `GET /api/cards/wantlist` | every missing card across the sets you're collecting (own ≥1 in), as one Mass Entry list | so TCGplayer's cart optimizer minimizes sellers across the whole want-list |
 | `GET /api/cards/card/{id}` | one card's full metadata, market price, and your ownership | reads `cards` + its `card_ownership` rows |
 | `GET /api/cards/image?id=&size=` | a card face (small/large), proxied + cached as WebP | local original under `CARDS_DIR` if present, else `images.pokemontcg.io`; downscaled, cached (404 → placeholder, no miss cached so a CDN blip retries) |
 | `POST /api/cards/ownership/import` | seed/refresh ownership from a Pokéllector export (CSV/JSON) | keyed on set+number → catalog id; replaces `pokellector` rows, preserves `manual` edits, reports `unmatched` |
@@ -704,6 +706,15 @@ indexer refreshes TCGplayer/Cardmarket prices **only for cards you own** (a
 bounded set) on its daily cadence — so whole-collection and per-card value stay
 ≤1 day stale without ever pricing all 20k cards. No key → prices stay null and
 the value tiles hide (graceful degradation, like every optional source).
+
+**Buy-helper (want-list → TCGplayer).** A set's "Buy missing (N)" (and a hub-wide
+"Shopping list") turns the cards you *don't* own into a **TCGplayer Mass Entry**
+list — `<qty> <name> <ptcgo_code> <number>` per line (the ptcgo code is TCGplayer's
+set code). You copy it, paste it at `tcgplayer.com/massentry`, and let TCGplayer's
+**Cart Optimizer** pick the fewest sellers to minimize shipping — so the seller-
+matching (the hard, would-need-scraping part) is *theirs*, and HQ just generates the
+list. No scraping, no TCGplayer API. `GET /cards/sets/{id}/wantlist` +
+`/cards/wantlist` (across the sets you're collecting) return the lines.
 
 The hub reuses the **back-lit radiance** motif: a glowing stats hero + a show-off
 wall of owned cards are the one radiant surface; the dense set grid stays calm

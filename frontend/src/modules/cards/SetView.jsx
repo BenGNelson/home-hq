@@ -5,6 +5,7 @@ import { SkeletonLine } from '../../components/ui.jsx'
 import { CARDS_RGB, completionPct } from '../../lib/cards.js'
 import CardImage from './CardImage.jsx'
 import CardModal from './CardModal.jsx'
+import WantlistModal from './WantlistModal.jsx'
 
 // One set: its completion header + a grid of EVERY card, with the ones you own in
 // full colour and the ones you don't dimmed — so the gaps in your collection read
@@ -15,6 +16,7 @@ export default function SetView() {
   const [params, setParams] = useSearchParams()
   const ownedOnly = params.get('owned') === '1'
   const [modalId, setModalId] = useState(null)
+  const [showWantlist, setShowWantlist] = useState(false)
 
   const setOwnedOnly = (on) => {
     const next = new URLSearchParams(params)
@@ -61,15 +63,25 @@ export default function SetView() {
                 }}
               />
             </span>
-            <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-slate-300">
-              <input
-                type="checkbox"
-                checked={ownedOnly}
-                onChange={(e) => setOwnedOnly(e.target.checked)}
-                className="accent-fuchsia-500"
-              />
-              Owned only
-            </label>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={ownedOnly}
+                  onChange={(e) => setOwnedOnly(e.target.checked)}
+                  className="accent-fuchsia-500"
+                />
+                Owned only
+              </label>
+              {meta.card_count - meta.owned > 0 && (
+                <button
+                  onClick={() => setShowWantlist(true)}
+                  className="rounded-lg border border-fuchsia-500/30 bg-fuchsia-500/10 px-3 py-1.5 text-sm font-medium text-fuchsia-200 active:scale-95"
+                >
+                  Buy missing ({(meta.card_count - meta.owned).toLocaleString()})
+                </button>
+              )}
+            </div>
           </header>
 
           {cards.length === 0 ? (
@@ -95,6 +107,13 @@ export default function SetView() {
       )}
 
       {modalId && <CardModal cardId={modalId} onClose={() => setModalId(null)} />}
+      {showWantlist && meta && (
+        <WantlistModal
+          url={`/cards/sets/${encodeURIComponent(setid)}/wantlist`}
+          title={`${meta.name} — cards you don’t own yet`}
+          onClose={() => setShowWantlist(false)}
+        />
+      )}
     </div>
   )
 }
