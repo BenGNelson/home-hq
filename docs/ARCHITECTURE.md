@@ -219,6 +219,16 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `DELETE /api/library/listen-progress?book=` | drop an audiobook from the shelf | clears its position |
 | `GET /api/library/audiobooks/cover?path=` | a book's cover (cached) | a folder image, else the first chapter's embedded art (mutagen), downscaled to WebP (404 → 🎧 placeholder) |
 | `DELETE /api/library/games/last-played?id=` | remove a game from the shelf | clears the marker; keeps the save files |
+| `GET /api/cards/stats` | collection headline (owned unique/copies, sets completed, catalog %, value) | aggregates the `card_ownership` overlay against the catalog; `total_value_usd` null until prices configured |
+| `GET /api/cards/sets` | every set with card count + owned + completion %, newest first | `LEFT JOIN card_ownership` grouped by set |
+| `GET /api/cards/sets/{setid}` | one set + all its cards with an owned/unowned overlay | catalog cards + aggregated ownership |
+| `GET /api/cards/search?q=&owned=` | search all cards by name, with an owned overlay + filter | `LIKE` on the indexed name (empty `q` = first alphabetically) |
+| `GET /api/cards/card/{id}` | one card's full metadata, market price, and your ownership | reads `cards` + its `card_ownership` rows |
+| `GET /api/cards/image?id=&size=` | a card face (small/large), proxied + cached as WebP | local original under `CARDS_DIR` if present, else `images.pokemontcg.io`; downscaled, cached (404 → placeholder, no miss cached so a CDN blip retries) |
+| `POST /api/cards/ownership/import` | seed/refresh ownership from a Pokéllector export (CSV/JSON) | keyed on set+number → catalog id; replaces `pokellector` rows, preserves `manual` edits, reports `unmatched` |
+| `PUT /api/cards/ownership` | mark owned / edit qty·condition·wishlist (an in-HQ `manual` edit) | upsert one `(card_id, variant)`; survives a re-import |
+| `DELETE /api/cards/ownership?card_id=&variant=` | un-own a card | removes one ownership row |
+| `GET /api/cards/sync-status` | catalog indexer progress (for the first-run "building…" UI) | from the indexer + catalog counts |
 
 **Graceful degradation:** every endpoint that touches an external system
 (Docker, Plex, a mount) catches failures and returns a friendly
@@ -649,6 +659,57 @@ backup), one per-game folder keyed by a hash of the id.
   (screenshot thumbnails), and **Resume** relaunches with `EJS_loadStateURL`
   pointed at the chosen state's bytes. Slot ids are backend-assigned millisecond
   timestamps (digits only) — also the traversal guard for the file paths.
+
+## Cards (Pokémon TCG collection)
+
+A second "Library", for a collection that isn't files on disk: browse every
+Pokémon TCG set, see which cards you own overlaid on each, and show off your
+collection. Router `routers/cards.py` (thin HTTP), parsing in `cards.py` (pure,
+tested), queries in `db.py`, ingest in `card_sync.py`, frontend in
+`modules/cards/`.
+
+**Catalog = a local clone of the public dataset, ingested to SQLite.** The
+whole English catalog (~170 sets / ~20k cards) is the static JSON of the
+[`pokemon-tcg-data`](https://github.com/PokemonTCG/pokemon-tcg-data) repo. The
+host `git clone`s it once (`CARD_DATA_SRC`, mounted read-only at `/card-data`;
+default = a committed 2-set example so the page renders on a fresh clone/CI). A
+background indexer (`card_sync.py`, same daemon-thread shape as `book_sync.py`)
+parses `sets/en.json` + `cards/en/*.json` into the `card_sets` + `cards` tables,
+skipping unchanged set files by mtime and pruning what's gone — so it re-ingests
+a `git pull`'d dataset cheaply and works fully offline.
+
+**Card face images are proxied + cached, never bulk-downloaded.** The backend is
+mounted **read-only** on the RAID, so it can't stash a 15–20 GB image dump there;
+instead `GET /cards/image` fetches a viewed card's face from `images.pokemontcg.io`
+once, downscales it to a WebP under `/data/card-art`, and serves that thereafter
+(the same proxy-and-cache idea as game box art). Only cards you actually view
+take cache space. An optional local full-res dump (`CARDS_DIR`) is served in
+preference to the network when present (Phase 5, archival). Unlike book covers, a
+fetch failure does **not** cache a permanent "miss" — a card effectively always
+has a working image URL, so a transient CDN blip must retry rather than stick a
+placeholder forever.
+
+**Ownership: HQ is the living source of truth.** Pokéllector (the prior tracker)
+has no export/API, so the collection is **imported once** — `POST
+/cards/ownership/import` takes a CSV/JSON keyed on **set code + card number**
+(the reliable join key), resolves each to a catalog id (`<setid>-<number>`), and
+reports any `unmatched`. Rows carry a `source`: an import replaces the
+`pokellector` rows but **preserves `manual` rows** (in-HQ edits via `PUT/DELETE
+/cards/ownership`), so re-importing can never undo a change you made in HQ.
+Completion, owned counts, and value are pure SQL joins over `card_ownership` — no
+denormalized counters.
+
+**Market value stays fresh cheaply.** With a free `POKEMONTCG_API_KEY` set, the
+indexer refreshes TCGplayer/Cardmarket prices **only for cards you own** (a
+bounded set) on its daily cadence — so whole-collection and per-card value stay
+≤1 day stale without ever pricing all 20k cards. No key → prices stay null and
+the value tiles hide (graceful degradation, like every optional source).
+
+The hub reuses the **back-lit radiance** motif: a glowing stats hero + a show-off
+wall of owned cards are the one radiant surface; the dense set grid stays calm
+(highlight, not a blanket). Card faces load through the same-origin proxy because
+the app's CSP is `img-src 'self'` — external CDN URLs (incl. set logos) are
+blocked by design, so set tiles are typographic.
 
 ## Config backup (host script, app only lists)
 
@@ -1485,6 +1546,20 @@ Short record of *why* things are the way they are, so future changes have contex
   reimplement" spirit applied inversely: video stays in Plex; owned, directly-read
   content that Plex handles poorly (ROMs, comics, ebooks, subscription PDFs) lives
   here.
+- **Cards: catalog-from-a-clone, images proxied, HQ owns the collection.** The
+  Pokémon Cards module reuses the Library's machinery (SQLite cache, background
+  indexer, on-demand WebP art) for a collection that *isn't* files on disk. Three
+  decisions shaped it: (1) the catalog is a local `git clone` of the public
+  `pokemon-tcg-data` dataset ingested to SQLite (offline-capable source of truth,
+  survives the hosted API going away), (2) card faces are **proxied + cached on
+  demand** rather than bulk-downloaded — forced by the backend's read-only RAID
+  mount, and the lighter design anyway (~20 GB avoided, only viewed cards
+  cached), and (3) since the prior tracker (Pokéllector) has **no export/API**,
+  ownership is imported once keyed on set+number and then HQ becomes the living
+  source of truth — a `source` column preserves in-HQ edits across re-imports.
+  Value is refreshed **owned-only, daily** so it stays ≤1 day stale for pennies of
+  API budget. Same "cockpit, not brain" fit as the rest: a viewer/tracker, no
+  external control.
 - **Games browse one system at a time (client-side), no new endpoint.** One
   system can hold hundreds of ROMs, so the old all-systems stacked grid was
   unscrollable. The Games page now drills in via a `?system=<label>` search param
