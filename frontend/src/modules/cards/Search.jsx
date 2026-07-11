@@ -12,6 +12,8 @@ export default function Search() {
   const query = params.get('q') || ''
   const ownedOnly = params.get('owned') === '1'
   const [modalId, setModalId] = useState(null)
+  // Optimistic ownership edits overlaid on results (instant dim/un-dim, no re-fetch).
+  const [edits, setEdits] = useState({})
 
   const patch = (mut) => {
     const next = new URLSearchParams(params)
@@ -25,7 +27,9 @@ export default function Search() {
   // column; the endpoint caps results. Poll off (0): re-runs on URL change only.
   const q = encodeURIComponent(query.trim())
   const { data, loading } = useApi(`/cards/search?q=${q}&owned=${ownedOnly ? 1 : 0}`, 0)
-  const items = data?.items ?? []
+  const items = (data?.items ?? []).map((c) =>
+    edits[c.id] ? { ...c, owned: edits[c.id].owned } : c,
+  )
 
   return (
     <div className="space-y-4">
@@ -78,7 +82,13 @@ export default function Search() {
         </div>
       )}
 
-      {modalId && <CardModal cardId={modalId} onClose={() => setModalId(null)} />}
+      {modalId && (
+        <CardModal
+          cardId={modalId}
+          onClose={() => setModalId(null)}
+          onMutated={(id, patch) => setEdits((e) => ({ ...e, [id]: patch }))}
+        />
+      )}
     </div>
   )
 }

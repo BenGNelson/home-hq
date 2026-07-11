@@ -697,7 +697,10 @@ has no export/API, so the collection is **imported once** — `POST
 (the reliable join key), resolves each to a catalog id (`<setid>-<number>`), and
 reports any `unmatched`. Rows carry a `source`: an import replaces the
 `pokellector` rows but **preserves `manual` rows** (in-HQ edits via `PUT/DELETE
-/cards/ownership`), so re-importing can never undo a change you made in HQ.
+/cards/ownership`), so re-importing can never undo a change you made in HQ. The
+card modal edits ownership directly (mark owned, qty stepper, wishlist toggle) with
+**optimistic updates** — the grid/completion update instantly with no re-fetch
+(the mutation persists in the background and rolls back on failure).
 Completion, owned counts, and value are pure SQL joins over `card_ownership` — no
 denormalized counters.
 
