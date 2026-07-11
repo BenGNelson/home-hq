@@ -64,16 +64,6 @@ services:
       # point at your own (gitignored, host-specific) catalog instead. No host
       # path is ever committed — only the generic default lives here.
       - "${CATALOG_FILE:-./docs/home-catalog.example.yaml}:/catalog/home-catalog.yaml:ro"
-      # The Pokémon TCG catalog (a pokemon-tcg-data clone), read-only — powers the
-      # Cards module. Defaults to the committed tiny example (a couple of sets so
-      # the page renders on a fresh clone / in CI); set CARD_DATA_SRC in .env to
-      # your full `git clone` of the public dataset. No host path is committed.
-      - "${CARD_DATA_SRC:-./docs/pokemon-tcg-data.example}:/card-data:ro"
-      # OPTIONAL: a local full-res card-image dump on the RAID (archival), so
-      # faces serve fully offline. Off by default — images are proxied + cached on
-      # demand, so no upfront 15–20 GB download. To enable, uncomment and set
-      # CARDS_DIR=/card-images in .env (see .env.example).
-      # - "${CARD_IMAGES_SRC:-/dev/null}:/card-images:ro"
     restart: unless-stopped
     logging: *default-logging
 

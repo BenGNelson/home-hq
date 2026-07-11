@@ -35,7 +35,7 @@ def _benign_response(url, status, rtype):
       - the chamber camera during warmup/off (404/503 → last-frame/placeholder)."""
     if rtype != "image":
         return False
-    if status == 404 and ("/cover" in url or "/cards/image" in url):
+    if status == 404 and "/cover" in url:
         return True
     if "/printer/camera" in url and status in (404, 503):
         return True
@@ -50,8 +50,6 @@ PAGES = [
     ("/weather", ["Weather"]),
     ("/plex", []),
     ("/library", []),
-    ("/cards", ["Pokémon Cards"]),
-    ("/cards/search", []),
     ("/containers", []),
     ("/storage", []),
     ("/network", []),

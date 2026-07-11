@@ -24,13 +24,11 @@ from app.speedtest import init_sampler as init_speedtest_sampler
 from app.storage_history import init_sampler
 from app.space_usage import init_scanner
 from app.book_sync import init_indexer
-from app.card_sync import init_indexer as init_card_indexer
 from app import weather as weather_svc
 from app.routers import (
     adguard,
     alerts,
     backups,
-    cards,
     catalog,
     containers,
     disk,
@@ -124,11 +122,6 @@ async def lifespan(app: FastAPI):
     # cache so the Books section is searchable (no-op unless Books is configured).
     book_indexer = init_indexer(settings.books_index_enabled, settings.books_index_interval)
     book_indexer.start()
-    # Card catalog indexer: parses the pokemon-tcg-data clone into SQLite so the
-    # Cards module can browse every set (no-op unless CARD_DATA_DIR is present).
-    # Also runs the owned-only daily price refresh when an API key is set.
-    card_indexer = init_card_indexer(settings.cards_index_enabled, settings.cards_index_interval)
-    card_indexer.start()
     # Pre-warm the weather cache in the background so the first /api/weather hit
     # after a restart is instant instead of blocking on the ~4.5s Open-Meteo poll
     # (the read itself is stale-while-revalidate; this just seeds the cold cache).
@@ -145,7 +138,6 @@ async def lifespan(app: FastAPI):
         solar_sampler.stop()
         scanner.stop()
         book_indexer.stop()
-        card_indexer.stop()
 
 
 # Tag metadata groups the auto-generated API docs (/api/docs, /api/redoc) by
@@ -157,7 +149,6 @@ tags_metadata = [
     {"name": "Network", "description": "Per-interface throughput read from the host network counters."},
     {"name": "Plex", "description": "Plex server status, now-playing sessions, and the cached library browser."},
     {"name": "Library", "description": "Owned-content hub — games (and later comics/books/papers) listed + streamed from disk."},
-    {"name": "Cards", "description": "Pokémon TCG collection — browse every set, track what you own, and show off your collection."},
     {"name": "Printer", "description": "3D-printer telemetry, controls, chamber camera, and print history."},
     {"name": "Alerts", "description": "Push-notification engine — rule status, history, and a test trigger."},
     {"name": "Monitoring", "description": "Service-availability probing — per-target uptime % and latency."},
@@ -229,7 +220,6 @@ app.include_router(speedtest.router, prefix="/api", tags=["Network"])
 app.include_router(backups.router, prefix="/api", tags=["System"])
 app.include_router(plex.router, prefix="/api", tags=["Plex"])
 app.include_router(library.router, prefix="/api", tags=["Library"])
-app.include_router(cards.router, prefix="/api", tags=["Cards"])
 app.include_router(printer.router, prefix="/api", tags=["Printer"])
 app.include_router(raid.router, prefix="/api", tags=["Storage"])
 app.include_router(readme.router, prefix="/api", tags=["Docs"])
