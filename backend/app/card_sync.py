@@ -37,7 +37,12 @@ log = logging.getLogger("home-hq.card-index")
 _INDEX_VERSION = "1"
 
 _PRICE_API = "https://api.pokemontcg.io/v2/cards"
-_PRICE_BATCH = 40  # card ids per API request (kept well under URL/rate limits)
+# Card ids per API request. Kept modest — a big `id:x OR id:y OR …` query is slow
+# on pokemontcg.io and times out past ~20 ids, so smaller batches are more
+# reliable than they are chatty (a whole collection is still only tens of calls).
+_PRICE_BATCH = 20
+_PRICE_TIMEOUT = 30  # seconds; the OR-query can be slow under load
+_PRICE_TRIES = 2  # one retry before giving up on a batch (retried again next pass)
 _PRICE_STALE_S = 20 * 3600  # only refresh prices older than ~20h (daily cadence)
 
 
@@ -184,19 +189,25 @@ class CardIndexer:
                 break
             batch = ids[i:i + _PRICE_BATCH]
             query = " OR ".join(f'id:"{cid}"' for cid in batch)
-            try:
-                resp = requests.get(
-                    _PRICE_API,
-                    params={"q": query, "select": "id,tcgplayer,cardmarket", "pageSize": _PRICE_BATCH},
-                    headers=headers,
-                    timeout=20,
-                )
-                if resp.status_code != 200:
-                    continue  # transient/error — retry next pass, don't stamp
-                data = resp.json().get("data", [])
-            except (requests.RequestException, ValueError) as exc:
-                log.warning("card-index: price batch failed: %s", exc)
-                continue
+            data = None
+            for attempt in range(_PRICE_TRIES):
+                if self._stop.is_set():
+                    return repriced
+                try:
+                    resp = requests.get(
+                        _PRICE_API,
+                        params={"q": query, "select": "id,tcgplayer,cardmarket", "pageSize": _PRICE_BATCH},
+                        headers=headers,
+                        timeout=_PRICE_TIMEOUT,
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json().get("data", [])
+                        break
+                except (requests.RequestException, ValueError) as exc:
+                    if attempt == _PRICE_TRIES - 1:
+                        log.warning("card-index: price batch failed: %s", exc)
+            if data is None:
+                continue  # transient/error — leave stale, retry next pass (don't stamp)
             returned = set()
             for api_card in data:
                 cid = api_card.get("id")
