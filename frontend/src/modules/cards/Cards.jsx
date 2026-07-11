@@ -15,10 +15,14 @@ import WantlistModal from './WantlistModal.jsx'
 export default function Cards() {
   // The indexer status polls a little faster so the first-run "building the
   // catalog…" state clears promptly once the ~20k-card ingest finishes.
+  // Bumped after an ownership edit (or import) to re-fetch stats/sets/showcase so
+  // the hub reflects it immediately (the `_r` param is ignored by the backend).
+  const [reloadKey, setReloadKey] = useState(0)
+  const refresh = () => setReloadKey((k) => k + 1)
   const { data: sync } = useApi('/cards/sync-status', 10000)
-  const { data: stats } = useApi('/cards/stats', 60000)
-  const { data: setsData, loading, error } = useApi('/cards/sets', 60000)
-  const { data: showcase } = useApi('/cards/search?owned=1&limit=24', 60000)
+  const { data: stats } = useApi(`/cards/stats?_r=${reloadKey}`, 60000)
+  const { data: setsData, loading, error } = useApi(`/cards/sets?_r=${reloadKey}`, 60000)
+  const { data: showcase } = useApi(`/cards/search?owned=1&limit=24&_r=${reloadKey}`, 60000)
   const [modalId, setModalId] = useState(null)
   const [importResult, setImportResult] = useState(null)
   const [showWantlist, setShowWantlist] = useState(false)
@@ -47,7 +51,12 @@ export default function Cards() {
               Shopping list
             </button>
           )}
-          <ImportButton onResult={setImportResult} />
+          <ImportButton
+            onResult={(r) => {
+              setImportResult(r)
+              refresh() // reflect the imported cards immediately
+            }}
+          />
         </div>
       </div>
 
@@ -81,7 +90,9 @@ export default function Cards() {
         </>
       )}
 
-      {modalId && <CardModal cardId={modalId} onClose={() => setModalId(null)} />}
+      {modalId && (
+        <CardModal cardId={modalId} onClose={() => setModalId(null)} onMutated={refresh} />
+      )}
       {showWantlist && (
         <WantlistModal
           url="/cards/wantlist"

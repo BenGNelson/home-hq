@@ -17,6 +17,9 @@ export default function SetView() {
   const ownedOnly = params.get('owned') === '1'
   const [modalId, setModalId] = useState(null)
   const [showWantlist, setShowWantlist] = useState(false)
+  // Optimistic ownership edits ({cardId: {owned, qty}}) overlaid on the fetched
+  // cards, so marking a card owned is instant with no grid re-fetch/flash.
+  const [edits, setEdits] = useState({})
 
   const setOwnedOnly = (on) => {
     const next = new URLSearchParams(params)
@@ -26,10 +29,16 @@ export default function SetView() {
   }
 
   const meta = data?.set
-  const cards = useMemo(() => {
-    const all = data?.cards ?? []
-    return ownedOnly ? all.filter((c) => c.owned) : all
-  }, [data, ownedOnly])
+  // Overlay optimistic edits, then derive the (live) owned count + filtered grid.
+  const allCards = useMemo(
+    () =>
+      (data?.cards ?? []).map((c) =>
+        edits[c.id] ? { ...c, owned: edits[c.id].owned, owned_qty: edits[c.id].qty } : c,
+      ),
+    [data, edits],
+  )
+  const ownedCount = allCards.filter((c) => c.owned).length
+  const cards = ownedOnly ? allCards.filter((c) => c.owned) : allCards
 
   return (
     <div className="space-y-4">
@@ -50,15 +59,15 @@ export default function SetView() {
             <div className="flex items-baseline justify-between gap-3">
               <h2 className="text-xl font-semibold">{meta.name}</h2>
               <span className="shrink-0 text-sm tabular-nums text-slate-400">
-                {meta.owned.toLocaleString()} / {meta.card_count.toLocaleString()} ·{' '}
-                {completionPct(meta.owned, meta.card_count)}%
+                {ownedCount.toLocaleString()} / {meta.card_count.toLocaleString()} ·{' '}
+                {completionPct(ownedCount, meta.card_count)}%
               </span>
             </div>
             <span className="block h-1.5 overflow-hidden rounded bg-slate-800">
               <span
                 className="block h-full"
                 style={{
-                  width: `${completionPct(meta.owned, meta.card_count)}%`,
+                  width: `${completionPct(ownedCount, meta.card_count)}%`,
                   background: `rgb(${CARDS_RGB})`,
                 }}
               />
@@ -73,12 +82,12 @@ export default function SetView() {
                 />
                 Owned only
               </label>
-              {meta.card_count - meta.owned > 0 && (
+              {meta.card_count - ownedCount > 0 && (
                 <button
                   onClick={() => setShowWantlist(true)}
                   className="rounded-lg border border-fuchsia-500/30 bg-fuchsia-500/10 px-3 py-1.5 text-sm font-medium text-fuchsia-200 active:scale-95"
                 >
-                  Buy missing ({(meta.card_count - meta.owned).toLocaleString()})
+                  Buy missing ({(meta.card_count - ownedCount).toLocaleString()})
                 </button>
               )}
             </div>
@@ -106,7 +115,13 @@ export default function SetView() {
         </>
       )}
 
-      {modalId && <CardModal cardId={modalId} onClose={() => setModalId(null)} />}
+      {modalId && (
+        <CardModal
+          cardId={modalId}
+          onClose={() => setModalId(null)}
+          onMutated={(id, patch) => setEdits((e) => ({ ...e, [id]: patch }))}
+        />
+      )}
       {showWantlist && meta && (
         <WantlistModal
           url={`/cards/sets/${encodeURIComponent(setid)}/wantlist`}

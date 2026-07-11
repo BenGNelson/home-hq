@@ -1,14 +1,23 @@
-import { useEffect } from 'react'
-import { useApi } from '../../lib/useApi.js'
+import { useEffect, useState } from 'react'
+import { useApi, API_BASE } from '../../lib/useApi.js'
 import { formatUsd, CARDS_RGB } from '../../lib/cards.js'
 import { glowFilter } from '../../lib/glow.js'
 import { formatAgo } from '../../lib/format.js'
 import CardImage from './CardImage.jsx'
 
 // A card detail overlay, opened over a grid. Fetches the full card (metadata +
-// market price + your ownership) on open. Closes on backdrop click or Escape.
-export default function CardModal({ cardId, onClose }) {
+// market price + your ownership) and lets you edit your ownership — mark it
+// owned, set a quantity, or add it to your wishlist. Those edits are `manual`
+// (they survive a later Pokéllector re-import). Closes on backdrop click / Escape.
+// `onMutated` lets the parent refresh its grid/stats after a change.
+export default function CardModal({ cardId, onClose, onMutated }) {
   const { data, loading } = useApi(cardId ? `/cards/card/${encodeURIComponent(cardId)}` : null, 0)
+  const [busy, setBusy] = useState(false)
+  // Optimistic override of the `normal`-variant ownership ({qty, wishlist}), so
+  // toggling is instant with no re-fetch/flash. Null = show the server's state.
+  // Reset when the modal switches cards (the component stays mounted).
+  const [local, setLocal] = useState(null)
+  useEffect(() => setLocal(null), [cardId])
 
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose()
@@ -18,7 +27,58 @@ export default function CardModal({ cardId, onClose }) {
 
   if (!cardId) return null
   const usd = data ? formatUsd(data.tcgplayer_usd) : null
-  const owned = data?.ownership?.filter((o) => o.qty > 0) ?? []
+  // Editing operates on the `normal` variant (what the Pokéllector import uses);
+  // any other owned variants (e.g. an imported holofoil) show read-only below.
+  const baseNormal = data?.ownership?.find((o) => o.variant === 'normal')
+  const eff = local ?? {
+    qty: baseNormal?.qty ?? 0,
+    wishlist: !!(baseNormal && baseNormal.qty === 0 && baseNormal.wishlist),
+  }
+  const isOwned = eff.qty > 0
+  const isWishlist = eff.qty === 0 && eff.wishlist
+  const qty = eff.qty
+  const others = data?.ownership?.filter((o) => o.variant !== 'normal' && o.qty > 0) ?? []
+
+  // Optimistically apply `next` ({qty, wishlist}) to the UI + parent grid, then
+  // persist. On failure, roll the optimistic state back.
+  const apply = async (next, method, body) => {
+    if (busy) return
+    const prev = local
+    setLocal(next)
+    setBusy(true)
+    onMutated?.(cardId, { owned: next.qty > 0, qty: next.qty })
+    try {
+      let url = `${API_BASE}/cards/ownership`
+      const opts = { method }
+      if (method === 'PUT') {
+        opts.headers = { 'Content-Type': 'application/json' }
+        opts.body = JSON.stringify(body)
+      } else {
+        url += `?card_id=${encodeURIComponent(body.card_id)}&variant=${encodeURIComponent(body.variant)}`
+      }
+      const res = await fetch(url, opts)
+      if (!res.ok && res.status !== 404) throw new Error(`HTTP ${res.status}`)
+    } catch {
+      setLocal(prev) // revert on failure
+      const back = prev ?? { qty: baseNormal?.qty ?? 0 }
+      onMutated?.(cardId, { owned: (back.qty ?? 0) > 0, qty: back.qty ?? 0 })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const markOwned = () =>
+    apply({ qty: 1, wishlist: false }, 'PUT', { card_id: cardId, variant: 'normal', qty: 1, wishlist: false })
+  const unown = () =>
+    apply({ qty: 0, wishlist: false }, 'DELETE', { card_id: cardId, variant: 'normal' })
+  const setQty = (n) =>
+    n <= 0
+      ? unown()
+      : apply({ qty: n, wishlist: false }, 'PUT', { card_id: cardId, variant: 'normal', qty: n, wishlist: false })
+  const toggleWishlist = () =>
+    isWishlist
+      ? unown()
+      : apply({ qty: 0, wishlist: true }, 'PUT', { card_id: cardId, variant: 'normal', qty: 0, wishlist: true })
 
   return (
     <div
@@ -66,29 +126,69 @@ export default function CardModal({ cardId, onClose }) {
                   <div className="text-xs uppercase tracking-wide text-slate-500">Market value</div>
                   <div className="text-xl font-semibold text-slate-100">{usd}</div>
                   {data.price_updated && (
-                    <div className="text-[11px] text-slate-500">
-                      as of {formatAgo(data.price_updated)}
-                    </div>
+                    <div className="text-[11px] text-slate-500">as of {formatAgo(data.price_updated)}</div>
                   )}
                 </div>
               )}
 
-              <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3 text-sm">
-                {owned.length > 0 ? (
-                  <>
-                    <div className="text-xs uppercase tracking-wide text-fuchsia-400">In your collection</div>
-                    <ul className="mt-1 space-y-0.5 text-slate-300">
-                      {owned.map((o) => (
-                        <li key={o.variant}>
-                          {o.qty}× {o.variant}
-                          {o.condition ? ` · ${o.condition}` : ''}
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                ) : (
-                  <span className="text-slate-500">Not in your collection yet.</span>
+              {/* Editable ownership. */}
+              <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+                <div className="text-xs uppercase tracking-wide text-fuchsia-400">Your collection</div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {isOwned ? (
+                    <>
+                      <span className="rounded-lg bg-fuchsia-500/15 px-2.5 py-1 text-sm font-medium text-fuchsia-200">
+                        Owned
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <StepBtn onClick={() => setQty(qty - 1)} disabled={busy} label="−" aria="Decrease quantity" />
+                        <span className="w-6 text-center text-sm tabular-nums text-slate-200">{qty}</span>
+                        <StepBtn onClick={() => setQty(qty + 1)} disabled={busy} label="+" aria="Increase quantity" />
+                      </div>
+                      <button
+                        onClick={unown}
+                        disabled={busy}
+                        className="rounded-lg border border-slate-700 px-2.5 py-1 text-sm text-slate-300 active:scale-95 disabled:opacity-50"
+                      >
+                        Remove
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={markOwned}
+                        disabled={busy}
+                        className="rounded-lg border border-fuchsia-500/30 bg-fuchsia-500/10 px-3 py-1.5 text-sm font-medium text-fuchsia-200 active:scale-95 disabled:opacity-50"
+                      >
+                        Mark owned
+                      </button>
+                      <button
+                        onClick={toggleWishlist}
+                        disabled={busy}
+                        className={`rounded-lg border px-3 py-1.5 text-sm font-medium active:scale-95 disabled:opacity-50 ${
+                          isWishlist
+                            ? 'border-amber-500/40 bg-amber-500/15 text-amber-200'
+                            : 'border-slate-700 text-slate-300'
+                        }`}
+                      >
+                        {isWishlist ? 'On wishlist ✓' : 'Wishlist'}
+                      </button>
+                    </>
+                  )}
+                </div>
+                {others.length > 0 && (
+                  <ul className="mt-2 text-xs text-slate-500">
+                    {others.map((o) => (
+                      <li key={o.variant}>
+                        also owned: {o.qty}× {o.variant}
+                        {o.condition ? ` · ${o.condition}` : ''}
+                      </li>
+                    ))}
+                  </ul>
                 )}
+                <p className="mt-2 text-[11px] text-slate-500">
+                  Your edits here survive a Pokéllector re-import.
+                </p>
               </div>
             </div>
           </div>
@@ -97,6 +197,19 @@ export default function CardModal({ cardId, onClose }) {
         )}
       </div>
     </div>
+  )
+}
+
+function StepBtn({ onClick, disabled, label, aria }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={aria}
+      className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-700 text-slate-200 active:scale-95 disabled:opacity-50"
+    >
+      {label}
+    </button>
   )
 }
 
