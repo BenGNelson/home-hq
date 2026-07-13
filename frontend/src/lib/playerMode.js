@@ -31,8 +31,12 @@ export function nextPadActive(padActive, event) {
 // Touch mode has a real portrait layout (game on top, thumb controls below), so
 // only the controller needs landscape — with no on-screen controls there's
 // nothing to reflow, and a portrait letterbox wastes most of the screen.
-export function shouldPromptRotate({ mode, portrait }) {
-  return mode === 'pad' && !!portrait
+//
+// It takes a REAL controller, not just "mode === 'pad'": a desktop browser with
+// no touchscreen also resolves to 'pad', and telling someone to rotate their
+// monitor because they made the window tall is absurd.
+export function shouldPromptRotate({ mode, portrait, padActive }) {
+  return mode === 'pad' && !!padActive && !!portrait
 }
 
 export const INITIAL_PLAYER_STATE = 'BOOT'
@@ -88,6 +92,13 @@ export function isRunning(state) {
 
 // The engine must be left alone until the user has tapped its Start button, so
 // the touch overlay can't mount before then (it would swallow that tap).
+//
+// PLAYING only — deliberately not PAUSED. Pausing releases every button in the
+// core (`flushInputs`), but the overlay keeps its own record of what's held; if
+// it stayed mounted across a pause, a direction still under a finger would be
+// released in the core while the overlay still believed it was down, and it would
+// never press it again. Unmounting throws that record away, so the two can't
+// disagree.
 export function overlayVisible(state, mode) {
-  return mode === 'touch' && (state === 'PLAYING' || state === 'PAUSED')
+  return mode === 'touch' && state === 'PLAYING'
 }

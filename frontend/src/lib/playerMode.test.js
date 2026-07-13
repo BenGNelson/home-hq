@@ -49,15 +49,22 @@ describe('nextPadActive', () => {
 
 describe('shouldPromptRotate', () => {
   it('asks a controller user to rotate', () => {
-    expect(shouldPromptRotate({ mode: 'pad', portrait: true })).toBe(true)
+    expect(shouldPromptRotate({ mode: 'pad', portrait: true, padActive: true })).toBe(true)
   })
 
   it('never interrupts touch play, which has a real portrait layout', () => {
-    expect(shouldPromptRotate({ mode: 'touch', portrait: true })).toBe(false)
+    expect(shouldPromptRotate({ mode: 'touch', portrait: true, padActive: true })).toBe(false)
   })
 
   it('says nothing in landscape', () => {
-    expect(shouldPromptRotate({ mode: 'pad', portrait: false })).toBe(false)
+    expect(shouldPromptRotate({ mode: 'pad', portrait: false, padActive: true })).toBe(false)
+  })
+
+  it('does not tell a desktop user to rotate their monitor', () => {
+    // A desktop browser has no touchscreen, so it resolves to mode 'pad' — but
+    // there's no controller. Make the window tall and narrow and it would
+    // otherwise pause the game and demand you turn your screen sideways.
+    expect(shouldPromptRotate({ mode: 'pad', portrait: true, padActive: false })).toBe(false)
   })
 })
 
@@ -118,6 +125,15 @@ describe('isRunning / overlayVisible', () => {
     // boot silent on iOS.
     expect(overlayVisible('AWAIT_START', 'touch')).toBe(false)
     expect(overlayVisible('PLAYING', 'touch')).toBe(true)
+  })
+
+  it('unmounts the touch overlay while paused, so it cannot desync from the core', () => {
+    // Pausing releases every button in the core. The overlay keeps its own record
+    // of what's held — if it survived the pause, a direction still under a finger
+    // would be released in the core while the overlay still thought it was down,
+    // and it would never press it again.
+    expect(overlayVisible('PAUSED', 'touch')).toBe(false)
+    expect(overlayVisible('ROTATE', 'touch')).toBe(false)
   })
 
   it('never mounts the touch overlay in controller mode', () => {

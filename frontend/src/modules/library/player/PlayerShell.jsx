@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Maximize, Minimize } from 'lucide-react'
+import { X, Menu, Maximize, Minimize } from 'lucide-react'
 import { playerSrc } from '../../../lib/library.js'
 import { useOnline } from '../../../lib/online.jsx'
 import { goBack } from '../../../lib/nav.js'
@@ -291,7 +291,11 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
     // the HQ menu.
     onMenuAction: (action) => {
       if (action === 'pauseMenu') {
-        if (menuOpenRef.current) dispatch('resume')
+        // Back out one layer at a time. Resuming straight from the shelf would
+        // un-pause the game while the save-state list is still covering it (and
+        // leave the engine's gamepad gated, so the pad would drive nothing).
+        if (shelfOpen) setShelfOpen(false)
+        else if (paused) dispatch('resume')
         else openMenu()
       } else if (action === 'start' && !menuOpenRef.current) {
         tap(emuRef.current, RETROPAD.START)
@@ -332,10 +336,26 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
   // experimental flag. Touch play is left alone — it has a real portrait layout.
   const portrait = useMediaQuery('(orientation: portrait)')
   useEffect(() => {
+    // `state` is in the deps on purpose: this bails out until the engine exists,
+    // and neither `portrait` nor `mode` changes when the game finally starts — so
+    // without it, a device already held in portrait at boot is never prompted.
     if (!emuRef.current) return
-    if (shouldPromptRotate({ mode, portrait })) dispatch('rotate-portrait')
+    if (shouldPromptRotate({ mode, portrait, padActive })) dispatch('rotate-portrait')
     else dispatch('rotate-landscape')
-  }, [portrait, mode])
+  }, [portrait, mode, padActive, state])
+
+  // Escape opens the pause menu from the keyboard, so a desktop player has the
+  // same way in as the pad's Menu button. (Once it's open, PauseMenu owns the
+  // keys — arrows to move, Enter to pick, Escape to resume.)
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || !isRunning(state)) return
+      e.preventDefault()
+      openMenu()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [state, openMenu])
 
   // Pause when the app goes to the background, and flush the battery save on the
   // way out — an iOS tab can be discarded without warning, and an unsaved SRAM is
@@ -453,6 +473,21 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
             onInput={onTouchInput}
             onAction={onTouchAction}
           />
+        )}
+
+        {/* The way into the pause menu when there's no touch overlay to carry the
+            ☰ button and no controller to hold Menu on — i.e. an ordinary desktop
+            browser. Without this there is NO way to save, load, restart or
+            fast-forward there at all. */}
+        {isRunning(state) && !overlayVisible(state, mode) && !padActive && (
+          <button
+            onClick={openMenu}
+            aria-label="Game menu"
+            className="absolute left-2 top-2 z-10 rounded-full bg-slate-900/70 p-2 text-slate-200 backdrop-blur-sm hover:bg-slate-800 active:bg-slate-800"
+            style={{ marginTop: 'env(safe-area-inset-top)', marginLeft: 'env(safe-area-inset-left)' }}
+          >
+            <Menu className="h-5 w-5" aria-hidden="true" />
+          </button>
         )}
 
         {/* Tells you the pad took over — and, crucially, how to get back out,
