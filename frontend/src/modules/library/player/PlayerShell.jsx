@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Menu, Maximize, Minimize } from 'lucide-react'
+import { X, Maximize, Minimize } from 'lucide-react'
 import { playerSrc } from '../../../lib/library.js'
 import { useOnline } from '../../../lib/online.jsx'
 import { goBack } from '../../../lib/nav.js'
@@ -23,6 +23,7 @@ import {
   isRunning,
   resolveInputMode,
   shouldPromptRotate,
+  overlayVisible,
 } from '../../../lib/playerMode.js'
 import { readSettings, migrateLegacyEjsKeys } from '../../../lib/playerSettings.js'
 import { useGamepad } from '../../../lib/useGamepad.js'
@@ -34,6 +35,7 @@ import PauseMenu, { pauseItems, PAUSE_COLS } from './PauseMenu.jsx'
 import SaveStatePanel from './SaveStatePanel.jsx'
 import ButtonLegend from './ButtonLegend.jsx'
 import RotatePrompt from './RotatePrompt.jsx'
+import TouchOverlay from './TouchOverlay.jsx'
 
 // The game player. Hosts the emulator iframe and everything layered over it.
 //
@@ -128,7 +130,9 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
     killEngineChrome(frameRef.current, {
       menuBar: true,
       contextMenu: true,
-      virtualGamepad: mode === 'pad',
+      // The engine's touch pad is gone for good now: on a controller there are no
+      // on-screen controls at all, and on touch our own overlay replaces it.
+      virtualGamepad: true,
     })
   }, [mode, state])
 
@@ -239,6 +243,27 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
   }, [])
 
   const paused = state === 'PAUSED'
+
+  // --- the touch controls ---------------------------------------------------
+
+  // Straight through to the core. Stable identities: TouchOverlay re-installs its
+  // native listeners when these change, and doing that on every render would drop
+  // touches mid-press.
+  const onTouchInput = useCallback((index, down) => {
+    press(emuRef.current, index, down)
+  }, [])
+
+  const onTouchAction = useCallback(
+    (action) => {
+      if (action === 'pauseMenu') openMenu()
+      else if (action === 'fastForward') {
+        const on = !fastForward
+        setFastForward(emuRef.current, on)
+        setFF(on)
+      }
+    },
+    [fastForward, openMenu]
+  )
 
   // --- the physical controller ---------------------------------------------
 
@@ -417,19 +442,17 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
           allowFullScreen
         />
 
-        {/* The menu button only appears once the game is actually running, so it
-            can never sit over the engine's Start button and steal the tap that
-            unlocks audio on iOS. On a controller it's redundant — the pad's own
-            Menu button does this — so it stays out of the way there. */}
-        {isRunning(state) && mode === 'touch' && (
-          <button
-            onClick={openMenu}
-            aria-label="Game menu"
-            className="absolute left-2 top-2 z-10 rounded-full bg-slate-900/70 p-2 text-slate-200 backdrop-blur-sm active:bg-slate-800"
-            style={{ marginTop: 'env(safe-area-inset-top)', marginLeft: 'env(safe-area-inset-left)' }}
-          >
-            <Menu className="h-5 w-5" aria-hidden="true" />
-          </button>
+        {/* The touch controls. Mounted only once the game is actually RUNNING —
+            any earlier and this surface would swallow the tap on the engine's own
+            Start button, which is the gesture that unlocks audio on iOS. */}
+        {overlayVisible(state, mode) && (
+          <TouchOverlay
+            core={core}
+            opacity={settings.touchOpacity}
+            fastForward={fastForward}
+            onInput={onTouchInput}
+            onAction={onTouchAction}
+          />
         )}
 
         {/* Tells you the pad took over — and, crucially, how to get back out,
