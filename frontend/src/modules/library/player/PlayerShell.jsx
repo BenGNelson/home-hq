@@ -244,6 +244,16 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
 
   const paused = state === 'PAUSED'
 
+  // Hide the top bar while you're actually playing on a phone or a controller, and
+  // give the game the whole screen. It's ~48px, which is a lot on a 393px-tall
+  // landscape phone: with the bar up, the controls letterbox down to a scale where
+  // the menu button lands under the 44pt minimum touch target.
+  //
+  // Safe because it isn't the only way out: the overlay carries a ☰, the pad has
+  // its Menu button, both open the pause menu, and the pause menu has Quit. (On a
+  // desktop, with neither, the bar stays.)
+  const chromeless = isRunning(state) && (mode === 'touch' || padActive)
+
   // --- the touch controls ---------------------------------------------------
 
   // Straight through to the core. Stable identities: TouchOverlay re-installs its
@@ -408,6 +418,10 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
       // pull-to-refreshes the app mid-game, and a long press pops the iOS
       // text-selection callout over the controls.
       className="fixed inset-0 z-50 flex touch-none select-none flex-col overscroll-none bg-black [-webkit-touch-callout:none]"
+      // Deliberately NOT padded when chromeless: the game should bleed full-bleed
+      // under the notch, and it's the CONTROLS that keep clear of it — TouchOverlay
+      // pads itself and letterboxes inside that. Padding here as well would inset
+      // the safe area twice and shrink everything right back down again.
       style={
         immersive
           ? {
@@ -419,7 +433,7 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
           : undefined
       }
     >
-      {immersive ? (
+      {chromeless ? null : immersive ? (
         <div className="flex items-center px-2 pb-1">
           <button
             onClick={() => setImmersive(false)}

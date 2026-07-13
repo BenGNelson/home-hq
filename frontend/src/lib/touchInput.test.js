@@ -221,6 +221,28 @@ describe('layoutFor', () => {
     }
   })
 
+  it('keeps every tap target at or above the 44pt minimum, even on the smallest phone', () => {
+    // The layout is letterboxed, so the real size of a button depends on the
+    // screen. The tightest case is the narrowest landscape phone (an iPhone SE at
+    // 667x375), which scales everything down the most.
+    //
+    // What has to clear 44pt is the TAP TARGET — the hit rect — not the drawn
+    // button. That's the whole point of extendedEdges: SELECT/START look like slim
+    // pills but are tapped through a target nearly twice as tall.
+    const MIN_TAP = 44
+    const viewport = { w: 667, h: 375 }
+
+    for (const core of ['gb', 'gba', 'nes', 'snes', 'segaMD', 'segaMS', 'segaGG']) {
+      const layout = layoutFor(core)
+      const { scale } = fitTransform(layout.space, viewport)
+      for (const item of layout.items) {
+        const r = hitRect(item)
+        expect(r.w * scale, `${core}/${item.id} tap target too narrow`).toBeGreaterThanOrEqual(MIN_TAP)
+        expect(r.h * scale, `${core}/${item.id} tap target too short`).toBeGreaterThanOrEqual(MIN_TAP)
+      }
+    }
+  })
+
   it('keeps every button inside its coordinate space', () => {
     // A button placed off the edge would be scaled off-screen on every device.
     for (const core of ['gb', 'gba', 'snes', 'segaMD']) {

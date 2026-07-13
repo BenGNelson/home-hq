@@ -18,7 +18,16 @@ import { RETROPAD } from './retropad.js'
 
 // Landscape is the real playing orientation: game full-bleed, controls floating
 // over it at the edges where the thumbs already are.
-const SPACE = { w: 1000, h: 460 }
+//
+// The space's aspect ratio decides how much the layout gets scaled down: it's
+// letterboxed to fit, so a space that's taller than the screen wastes the width.
+// 1000x470 is close to a phone's landscape aspect once the safe-area insets are
+// taken out, which keeps the scale near 1:1 rather than shrinking everything.
+//
+// Sizes below are set so that, on the narrowest phone we care about, nothing lands
+// under the ~44pt minimum touch target. If you shrink one, check it against a real
+// screen — the numbers are not arbitrary.
+const SPACE = { w: 1000, h: 470 }
 
 // Thumbs land low, so the bottom edge is the generous one.
 //
@@ -36,7 +45,7 @@ const DPAD_EDGES = { t: 24, r: 24, b: 34, l: 24 }
 const dpad = () => ({
   type: 'dpad',
   id: 'dpad',
-  frame: { x: 40, y: 210, w: 200, h: 200 },
+  frame: { x: 30, y: 200, w: 240, h: 240 },
   extendedEdges: DPAD_EDGES,
   deadzone: 0.18,
   slide: true, // the thumb slides between directions without ever lifting
@@ -48,7 +57,7 @@ const dpad = () => ({
   },
 })
 
-const face = (id, label, input, x, y, size = 78) => ({
+const face = (id, label, input, x, y, size = 96) => ({
   type: 'button',
   id,
   label,
@@ -63,7 +72,7 @@ const pill = (id, label, input, x) => ({
   id,
   label,
   input,
-  frame: { x, y: 400, w: 96, h: 34 },
+  frame: { x, y: 415, w: 120, h: 44 },
   extendedEdges: EDGES,
 })
 
@@ -72,7 +81,7 @@ const shoulder = (id, label, input, x) => ({
   id,
   label,
   input,
-  frame: { x, y: 30, w: 116, h: 46 },
+  frame: { x, y: 20, w: 150, h: 60 },
   extendedEdges: EDGES,
 })
 
@@ -82,8 +91,8 @@ const shoulder = (id, label, input, x) => ({
 // they shipped 50px apart, which was not.
 const UI_EDGES = { t: 14, r: 14, b: 14, l: 14 }
 const ui = () => [
-  { type: 'ui', id: 'menu', label: '☰', action: 'pauseMenu', frame: { x: 430, y: 18, w: 40, h: 40 }, extendedEdges: UI_EDGES },
-  { type: 'ui', id: 'ff', label: '»', action: 'fastForward', frame: { x: 530, y: 18, w: 40, h: 40 }, extendedEdges: UI_EDGES, toggle: true },
+  { type: 'ui', id: 'menu', label: '☰', action: 'pauseMenu', frame: { x: 400, y: 15, w: 60, h: 60 }, extendedEdges: UI_EDGES },
+  { type: 'ui', id: 'ff', label: '»', action: 'fastForward', frame: { x: 540, y: 15, w: 60, h: 60 }, extendedEdges: UI_EDGES, toggle: true },
 ]
 
 // Two face buttons, on the diagonal a thumb naturally rolls along (B lower-left,
@@ -92,10 +101,10 @@ const TWO_BUTTON = {
   space: SPACE,
   items: [
     dpad(),
-    face('b', 'B', RETROPAD.B, 780, 306),
-    face('a', 'A', RETROPAD.A, 886, 236),
-    pill('select', 'SELECT', RETROPAD.SELECT, 390),
-    pill('start', 'START', RETROPAD.START, 514),
+    face('b', 'B', RETROPAD.B, 760, 320),
+    face('a', 'A', RETROPAD.A, 880, 230),
+    pill('select', 'SELECT', RETROPAD.SELECT, 380),
+    pill('start', 'START', RETROPAD.START, 520),
     ...ui(),
   ],
 }
@@ -105,14 +114,14 @@ const FOUR_BUTTON = {
   space: SPACE,
   items: [
     dpad(),
-    face('y', 'Y', RETROPAD.Y, 718, 214, 72),
-    face('b', 'B', RETROPAD.B, 814, 310, 72),
-    face('x', 'X', RETROPAD.X, 814, 118, 72),
-    face('a', 'A', RETROPAD.A, 910, 214, 72),
-    shoulder('l', 'L', RETROPAD.L, 40),
-    shoulder('r', 'R', RETROPAD.R, 844),
-    pill('select', 'SELECT', RETROPAD.SELECT, 390),
-    pill('start', 'START', RETROPAD.START, 514),
+    face('y', 'Y', RETROPAD.Y, 700, 233, 84),
+    face('b', 'B', RETROPAD.B, 808, 341, 84),
+    face('x', 'X', RETROPAD.X, 808, 125, 84),
+    face('a', 'A', RETROPAD.A, 914, 233, 84),
+    shoulder('l', 'L', RETROPAD.L, 30),
+    shoulder('r', 'R', RETROPAD.R, 820),
+    pill('select', 'SELECT', RETROPAD.SELECT, 380),
+    pill('start', 'START', RETROPAD.START, 520),
     ...ui(),
   ],
 }
@@ -122,12 +131,12 @@ const GBA = {
   space: SPACE,
   items: [
     dpad(),
-    face('b', 'B', RETROPAD.B, 780, 306),
-    face('a', 'A', RETROPAD.A, 886, 236),
-    shoulder('l', 'L', RETROPAD.L, 40),
-    shoulder('r', 'R', RETROPAD.R, 844),
-    pill('select', 'SELECT', RETROPAD.SELECT, 390),
-    pill('start', 'START', RETROPAD.START, 514),
+    face('b', 'B', RETROPAD.B, 760, 320),
+    face('a', 'A', RETROPAD.A, 880, 230),
+    shoulder('l', 'L', RETROPAD.L, 30),
+    shoulder('r', 'R', RETROPAD.R, 820),
+    pill('select', 'SELECT', RETROPAD.SELECT, 380),
+    pill('start', 'START', RETROPAD.START, 520),
     ...ui(),
   ],
 }
@@ -141,10 +150,10 @@ const SEGA_MD = {
   space: SPACE,
   items: [
     dpad(),
-    face('a', 'A', RETROPAD.Y, 720, 306, 70),
-    face('b', 'B', RETROPAD.B, 812, 276, 70),
-    face('c', 'C', RETROPAD.A, 904, 246, 70),
-    pill('start', 'START', RETROPAD.START, 452),
+    face('a', 'A', RETROPAD.Y, 690, 330, 88),
+    face('b', 'B', RETROPAD.B, 800, 290, 88),
+    face('c', 'C', RETROPAD.A, 910, 250, 88),
+    pill('start', 'START', RETROPAD.START, 450),
     ...ui(),
   ],
 }
