@@ -33,7 +33,10 @@ export default function SaveStatePanel({ gameId, states, loading, busy, error, o
 
       {error && <p className="px-4 pb-2 text-sm text-rose-400">{error}</p>}
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+      {/* touch-auto: the player wrapper turns touch-action off so a thumb on the
+          d-pad can't drag the page — but that inherits here too, and this list
+          has to be scrollable with a finger. */}
+      <div className="min-h-0 flex-1 touch-auto overflow-y-auto overscroll-contain px-3 pb-4">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           <button
             onClick={onSave}

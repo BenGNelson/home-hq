@@ -20,7 +20,17 @@ import { RETROPAD } from './retropad.js'
 // over it at the edges where the thumbs already are.
 const SPACE = { w: 1000, h: 460 }
 
-const EDGES = { t: 18, r: 18, b: 26, l: 18 } // thumbs land low; give the bottom more
+// Thumbs land low, so the bottom edge is the generous one.
+//
+// The rule these have to satisfy: a button's hit area may never reach into
+// another button's VISIBLE frame. hitTest returns the FIRST item containing the
+// point, so an intrusion doesn't split the difference — the earlier button
+// silently swallows part of the later one, and you press A and get B. (Two of the
+// layouts below did exactly that.) Extended edges overlapping each other in the
+// dead space BETWEEN buttons is fine and even desirable; reaching a drawn button
+// is not.
+const EDGES = { t: 18, r: 18, b: 26, l: 18 }
+const FACE_EDGES = { t: 14, r: 14, b: 20, l: 14 }
 const DPAD_EDGES = { t: 24, r: 24, b: 34, l: 24 }
 
 const dpad = () => ({
@@ -44,7 +54,7 @@ const face = (id, label, input, x, y, size = 78) => ({
   label,
   input,
   frame: { x, y, w: size, h: size },
-  extendedEdges: EDGES,
+  extendedEdges: FACE_EDGES,
   slide: true, // roll from B to A without lifting
 })
 
@@ -66,11 +76,14 @@ const shoulder = (id, label, input, x) => ({
   extendedEdges: EDGES,
 })
 
-// The two UI buttons. Deliberately NOT `slide` and away from the thumb arc — a
-// menu you open by accident mid-boss is worse than no menu.
+// The two UI buttons. Deliberately NOT `slide`, and kept out of the thumb arc — a
+// menu you open by accident mid-boss is worse than no menu. They sit far enough
+// apart that neither one's hit area can reach the other's face (see EDGES above);
+// they shipped 50px apart, which was not.
+const UI_EDGES = { t: 14, r: 14, b: 14, l: 14 }
 const ui = () => [
-  { type: 'ui', id: 'menu', label: '☰', action: 'pauseMenu', frame: { x: 462, y: 18, w: 40, h: 40 }, extendedEdges: EDGES },
-  { type: 'ui', id: 'ff', label: '»', action: 'fastForward', frame: { x: 512, y: 18, w: 40, h: 40 }, extendedEdges: EDGES, toggle: true },
+  { type: 'ui', id: 'menu', label: '☰', action: 'pauseMenu', frame: { x: 430, y: 18, w: 40, h: 40 }, extendedEdges: UI_EDGES },
+  { type: 'ui', id: 'ff', label: '»', action: 'fastForward', frame: { x: 530, y: 18, w: 40, h: 40 }, extendedEdges: UI_EDGES, toggle: true },
 ]
 
 // Two face buttons, on the diagonal a thumb naturally rolls along (B lower-left,
@@ -79,8 +92,8 @@ const TWO_BUTTON = {
   space: SPACE,
   items: [
     dpad(),
-    face('b', 'B', RETROPAD.B, 790, 300),
-    face('a', 'A', RETROPAD.A, 880, 240),
+    face('b', 'B', RETROPAD.B, 780, 306),
+    face('a', 'A', RETROPAD.A, 886, 236),
     pill('select', 'SELECT', RETROPAD.SELECT, 390),
     pill('start', 'START', RETROPAD.START, 514),
     ...ui(),
@@ -92,10 +105,10 @@ const FOUR_BUTTON = {
   space: SPACE,
   items: [
     dpad(),
-    face('y', 'Y', RETROPAD.Y, 760, 250),
-    face('b', 'B', RETROPAD.B, 838, 320),
-    face('x', 'X', RETROPAD.X, 838, 180),
-    face('a', 'A', RETROPAD.A, 916, 250),
+    face('y', 'Y', RETROPAD.Y, 718, 214, 72),
+    face('b', 'B', RETROPAD.B, 814, 310, 72),
+    face('x', 'X', RETROPAD.X, 814, 118, 72),
+    face('a', 'A', RETROPAD.A, 910, 214, 72),
     shoulder('l', 'L', RETROPAD.L, 40),
     shoulder('r', 'R', RETROPAD.R, 844),
     pill('select', 'SELECT', RETROPAD.SELECT, 390),
@@ -109,8 +122,8 @@ const GBA = {
   space: SPACE,
   items: [
     dpad(),
-    face('b', 'B', RETROPAD.B, 790, 300),
-    face('a', 'A', RETROPAD.A, 880, 240),
+    face('b', 'B', RETROPAD.B, 780, 306),
+    face('a', 'A', RETROPAD.A, 886, 236),
     shoulder('l', 'L', RETROPAD.L, 40),
     shoulder('r', 'R', RETROPAD.R, 844),
     pill('select', 'SELECT', RETROPAD.SELECT, 390),
@@ -128,9 +141,9 @@ const SEGA_MD = {
   space: SPACE,
   items: [
     dpad(),
-    face('a', 'A', RETROPAD.Y, 736, 300, 74),
-    face('b', 'B', RETROPAD.B, 822, 276, 74),
-    face('c', 'C', RETROPAD.A, 908, 252, 74),
+    face('a', 'A', RETROPAD.Y, 720, 306, 70),
+    face('b', 'B', RETROPAD.B, 812, 276, 70),
+    face('c', 'C', RETROPAD.A, 904, 246, 70),
     pill('start', 'START', RETROPAD.START, 452),
     ...ui(),
   ],

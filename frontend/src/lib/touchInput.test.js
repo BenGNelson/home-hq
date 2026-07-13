@@ -196,6 +196,31 @@ describe('layoutFor', () => {
     expect(l.items.some((i) => i.type === 'dpad')).toBe(true)
   })
 
+  it('never lets one button’s hit area reach another button’s visible face', () => {
+    // hitTest returns the FIRST item containing the point, so an intrusion doesn't
+    // split the difference — the earlier button silently swallows part of the
+    // later one, and you press A and get B. Two layouts shipped with exactly that.
+    //
+    // Extended edges overlapping EACH OTHER in the dead space between buttons is
+    // fine (that's how a thumb-roll stays continuous); reaching a DRAWN button is
+    // not. So the invariant is about visible frames, not hit rects.
+    const intersects = (a, b) =>
+      a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+
+    for (const core of ['gb', 'gba', 'nes', 'snes', 'segaMD', 'segaMS', 'segaGG']) {
+      const items = layoutFor(core).items
+      for (const attacker of items) {
+        for (const victim of items) {
+          if (attacker === victim) continue
+          expect(
+            intersects(hitRect(attacker), victim.frame),
+            `${core}: ${attacker.id}'s hit area covers part of ${victim.id}`
+          ).toBe(false)
+        }
+      }
+    }
+  })
+
   it('keeps every button inside its coordinate space', () => {
     // A button placed off the edge would be scaled off-screen on every device.
     for (const core of ['gb', 'gba', 'snes', 'segaMD']) {

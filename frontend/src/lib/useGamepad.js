@@ -39,9 +39,13 @@ export function useGamepad(handlers, enabled = true) {
 
       const next = snapshotPad(readPads())
       if (!next) {
-        // The pad went away. Tell the app once, and stop pretending we hold
-        // anything — otherwise a direction stays "down" forever.
+        // The pad went away — battery died, went to sleep, wandered out of range.
         if (prev) {
+          // RELEASE the stick first. Clearing our own record isn't enough: the
+          // direction is held down in the CORE, and nothing else will ever let it
+          // go. The character just walks into the wall forever, and the touch
+          // d-pad can't undo it (pressing Down only adds Down).
+          if (stick) h.onStick?.(stick, false)
           prev = null
           held = null
           stick = null

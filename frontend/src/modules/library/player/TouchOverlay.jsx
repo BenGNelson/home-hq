@@ -22,6 +22,17 @@ export default function TouchOverlay({ core, onInput, onAction, opacity = 0.75, 
   const surfaceRef = useRef(null)
   const itemRefs = useRef({})
 
+  // The handlers live in a ref so the touch pipeline below is installed ONCE.
+  //
+  // Depending on them directly is a trap: `onAction` changes identity whenever
+  // fast-forward toggles, which would tear the listeners down and rebuild them —
+  // resetting `owners`/`pressed` — WHILE a finger is still on the screen. The
+  // button under that finger then looks new again and re-fires, so fast-forward
+  // chatters on and off; worse, the teardown releases whatever the other thumb was
+  // holding, so the character stops walking the instant you tap ».
+  const handlers = useRef({ onInput, onAction })
+  handlers.current = { onInput, onAction }
+
   const [transform, setTransform] = useState(() => ({ scale: 1, ox: 0, oy: 0 }))
   const transformRef = useRef(transform)
   transformRef.current = transform
@@ -61,7 +72,13 @@ export default function TouchOverlay({ core, onInput, onAction, opacity = 0.75, 
     measure()
     window.addEventListener('resize', measure)
     window.addEventListener('orientationchange', measure)
+    // Watch the surface itself, not just the window: hiding the top bar (the CSS
+    // immersive toggle) and entering fullscreen both change its height WITHOUT a
+    // window resize, and a stale letterbox silently shifts every button.
+    const ro = new ResizeObserver(measure)
+    ro.observe(surfaceRef.current)
     return () => {
+      ro.disconnect()
       window.removeEventListener('resize', measure)
       window.removeEventListener('orientationchange', measure)
     }
@@ -112,7 +129,7 @@ export default function TouchOverlay({ core, onInput, onAction, opacity = 0.75, 
 
       const next = reduceTouches({ owners }, touches, layout, transformRef.current)
 
-      for (const { index, down } of diffPressed(pressed, next.pressed)) onInput(index, down)
+      for (const { index, down } of diffPressed(pressed, next.pressed)) handlers.current.onInput(index, down)
 
       // A UI button (menu, fast-forward) fires ONCE, on the way down — not every
       // frame a finger rests on it, and not on release, which would feel laggy.
@@ -120,7 +137,7 @@ export default function TouchOverlay({ core, onInput, onAction, opacity = 0.75, 
         Object.values(next.owners).filter((id) => layout.items.find((i) => i.id === id)?.action)
       )
       for (const id of held) {
-        if (!uiHeld.has(id)) onAction(layout.items.find((i) => i.id === id).action)
+        if (!uiHeld.has(id)) handlers.current.onAction(layout.items.find((i) => i.id === id).action)
       }
       uiHeld = held
 
@@ -145,9 +162,9 @@ export default function TouchOverlay({ core, onInput, onAction, opacity = 0.75, 
       el.removeEventListener('touchend', end)
       el.removeEventListener('touchcancel', end)
       // Unmounting with a finger down would leave that button latched in the core.
-      for (const index of pressed) onInput(index, false)
+      for (const index of pressed) handlers.current.onInput(index, false)
     }
-  }, [layout, onInput, onAction])
+  }, [layout])
 
   const place = (frame) => ({
     position: 'absolute',
