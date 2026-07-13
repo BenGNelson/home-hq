@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import BackLink from '../../components/BackLink.jsx'
 import { useApi } from '../../lib/useApi.js'
-import { formatSize, formatAgo } from '../../lib/format.js'
-import { saveStatesUrl, saveStateShotUrl, gameOfflineUrls, gameBackHref } from '../../lib/library.js'
+import { formatSize } from '../../lib/format.js'
+import { saveStatesUrl, gameOfflineUrls, gameBackHref } from '../../lib/library.js'
 import { ensureEmulatorEngine, cacheGameSram } from '../../lib/offlineStore.js'
 import { recordPlayed } from '../../lib/recentGames.js'
 import GameCover from './GameCover.jsx'
 import DownloadButton from './DownloadButton.jsx'
+import SaveStateCard from './SaveStateCard.jsx'
 
 // A game's "title page": box art + title + Play, plus its server-side save
 // states (roam across devices) — each with a screenshot, Resume (launch into
@@ -108,49 +109,13 @@ export default function GameDetail() {
                 key={s.slot}
                 game={game}
                 state={s}
-                onResume={() => launch(s.slot)}
+                onSelect={() => launch(s.slot)}
                 onDelete={() => remove(s.slot)}
               />
             ))}
           </div>
         )}
       </section>
-    </div>
-  )
-}
-
-function SaveStateCard({ game, state, onResume, onDelete }) {
-  const [failed, setFailed] = useState(false)
-  return (
-    <div className="overflow-hidden rounded-xl border border-slate-700 bg-slate-900/60">
-      <button onClick={onResume} className="block w-full text-left">
-        <div className="aspect-video w-full bg-black">
-          {state.has_shot && !failed ? (
-            <img
-              src={saveStateShotUrl(game.id, state.slot)}
-              alt="save state"
-              loading="lazy"
-              onError={() => setFailed(true)}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-xs text-slate-600">
-              no preview
-            </div>
-          )}
-        </div>
-        <div className="px-2 py-1 text-xs text-slate-300">
-          saved {formatAgo(state.created_ms / 1000)}
-        </div>
-      </button>
-      <div className="flex border-t border-slate-800 text-xs">
-        <button onClick={onResume} className="flex-1 py-1.5 text-sky-400 active:bg-slate-800">
-          Resume
-        </button>
-        <button onClick={onDelete} className="border-l border-slate-800 px-3 py-1.5 text-rose-400 active:bg-slate-800">
-          Delete
-        </button>
-      </div>
     </div>
   )
 }

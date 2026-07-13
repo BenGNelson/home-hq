@@ -107,6 +107,14 @@
       // Boots EmulatorJS from query params (core, rom, data). Lives in its own
       // page so the engine's window globals + teardown never touch the SPA — the
       // React side just drops this in an <iframe> and removes it to tear down.
+      //
+      // The two-way contract with the parent (same-origin, so both are plain
+      // property reads — no postMessage):
+      //   in   window.parent.HQ_PLAYER_CONFIG  — engine config (set before the
+      //        iframe is created). Lives in the app bundle, NOT here, so it can
+      //        change without an ENGINE_VERSION bump + a re-download on every
+      //        device. See src/lib/emuBridge.js.
+      //   out  window.HQ = { version, emu, whenStarted } — the live engine.
       (function () {
         var p = new URLSearchParams(location.search);
         var core = p.get('core');
@@ -132,6 +140,36 @@
         // A stable game id so the engine keys its browser save states off it,
         // not off EJS_gameUrl (which becomes a per-session blob: URL below).
         window.EJS_gameID = gid || name || rom;
+
+        // --- config in, from the parent -------------------------------------
+        // The app sets HQ_PLAYER_CONFIG before creating the iframe, so it's
+        // always there by the time this runs. The fallbacks below are what makes
+        // opening /emulator.html directly (no parent) still play a game.
+        var cfg = {};
+        try {
+          if (window.parent && window.parent !== window) cfg = window.parent.HQ_PLAYER_CONFIG || {};
+        } catch (e) {}
+        window.EJS_defaultOptions = cfg.defaultOptions || { 'save-state-location': 'browser' };
+        if (cfg.buttons) window.EJS_Buttons = cfg.buttons;
+        if (cfg.hideSettings) window.EJS_hideSettings = cfg.hideSettings;
+        if (cfg.defaultControls) window.EJS_defaultControls = cfg.defaultControls;
+        if (cfg.disableLocalStorage) window.EJS_disableLocalStorage = true;
+
+        // --- the engine out, to the parent ----------------------------------
+        // whenStarted resolves once the game is actually RUNNING (the engine's
+        // own Start button has been tapped). The parent waits on it before it
+        // puts anything over the player: that tap has to reach this document or
+        // iOS never unlocks audio.
+        var started;
+        window.HQ = {
+          version: 1,
+          get emu() {
+            return window.EJS_emulator || null;
+          },
+          whenStarted: new Promise(function (resolve) {
+            started = resolve;
+          }),
+        };
 
         // --- in-game battery save (SRAM) persistence -----------------------
         // EmulatorJS does NOT persist the game's own save (e.g. Pokemon's "Save")
@@ -245,6 +283,11 @@
         // (when the controls + gameManager exist), touch devices only.
         window.EJS_onGameStart = function () {
           var emu = window.EJS_emulator;
+          // Hand the running engine to the parent (see window.HQ above). Fired
+          // here, not on load: the game is only playable once Start is tapped.
+          try {
+            started(emu);
+          } catch (e) {}
           // Seed the game's battery save (SRAM) + capture future writes — all
           // platforms, so "Continue" loads your save. Inject first, then start
           // capturing, so a capture can't overwrite the seed with empty data.
@@ -287,10 +330,7 @@
         // audio policy (the white screen + "Click to resume"). Letting the
         // engine show its own Play button means one clean tap starts it with
         // audio + focus already granted.
-        // Keep save states in the browser (IndexedDB) by default instead of
-        // downloading a .state file (which iOS can't open). The proper
-        // cross-device sync of saves is a later phase (EJS_onSaveState hooks).
-        window.EJS_defaultOptions = { 'save-state-location': 'browser' };
+        //
         // Keep keyboard/gamepad focus on the emulator so it doesn't pause as
         // soon as it loads inside the iframe.
         window.addEventListener('pointerdown', function () {
@@ -313,6 +353,10 @@
               '<code>scripts/fetch-emulatorjs.sh</code> to download EmulatorJS into ' +
               '<code>frontend/public/emulatorjs/</code>, then rebuild the frontend — ' +
               'or point the player at the pinned CDN (see the script header).</p>';
+            // Settle the contract: there will never be a game. Without this the
+            // parent waits on whenStarted forever and shows a spinner over the
+            // top of the message above.
+            try { started(null); } catch (e) {}
           };
           document.body.appendChild(s);
         }

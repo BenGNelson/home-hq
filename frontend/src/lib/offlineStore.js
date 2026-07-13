@@ -235,18 +235,47 @@ export async function downloadJob(meta, onProgress) {
 // line, like the app shell. A game download ensures this first. Bump
 // ENGINE_VERSION whenever emulator.html or EMULATOR_ENGINE_URLS changes so a
 // device that already cached the engine refreshes it instead of running stale.
-const ENGINE_VERSION = 6
+const ENGINE_VERSION = 7
 export async function ensureEmulatorEngine() {
   const key = downloadKey('emulator', 'engine')
   const existing = await getEntry(key)
   if (existing && existing.engineVersion === ENGINE_VERSION) return
-  if (existing) await removeDownload(key) // stale engine → replace
-  await downloadJob({
+
+  // ATOMIC refresh: fetch every file into memory first, and only touch the cache
+  // once they've ALL arrived.
+  //
+  // The obvious version of this — delete the old engine, then download the new
+  // one — is a trap. The engine is what every downloaded game boots through, and
+  // its files live at fixed URLs, so a refresh overwrites them in place. If the
+  // connection drops halfway, a delete-first (or overwrite-in-place) refresh
+  // leaves the device with a half-engine and NO working offline copy: every game
+  // the user has downloaded stops launching in airplane mode, and nothing puts it
+  // back. Staging in memory means a failed refresh is a no-op — you keep the
+  // engine you had.
+  //
+  // Safe to buffer because the engine is six small files (<1 MB). Games, comics
+  // and magazines are the big ones, and they still stream through downloadJob.
+  const staged = []
+  let bytes = 0
+  for (const url of EMULATOR_ENGINE_URLS) {
+    const res = await fetch(url, { cache: 'no-store' })
+    if (!res.ok) throw new Error(`engine download failed (${res.status}) for ${url}`)
+    const blob = await res.blob()
+    bytes += blob.size
+    staged.push([url, new Response(blob, { headers: res.headers })])
+  }
+
+  const cache = await caches.open(OFFLINE_CACHE)
+  await Promise.all(staged.map(([url, res]) => cache.put(url, res)))
+  await putEntry({
+    key,
     section: 'emulator',
     id: 'engine',
     name: 'Emulator engine',
     engineVersion: ENGINE_VERSION,
     urls: EMULATOR_ENGINE_URLS,
+    bytes,
+    date: Date.now(),
   })
 }
 

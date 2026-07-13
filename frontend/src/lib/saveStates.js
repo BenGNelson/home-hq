@@ -1,0 +1,100 @@
+// Save states: capture a snapshot from the running engine, list them, load one
+// back in place, delete one.
+//
+// Two destinations, always both:
+//   · the local cache — so reopening the game resumes it even offline
+//   · the backend     — so the state roams to your other devices
+// The network half is best-effort: a failed upload must never lose the local
+// copy, which is the one that makes offline play work.
+//
+// fetch/caches are injected so every path here is testable without a browser.
+
+import { GAME_SAVES_CACHE } from './offlineConfig.js'
+import { saveStatesUrl, saveStateUrl } from './library.js'
+
+export const localStateKey = (gameId) => `/__game-save/${encodeURIComponent(gameId)}`
+
+function deps(d = {}) {
+  return {
+    fetch: d.fetch || globalThis.fetch?.bind(globalThis),
+    caches: 'caches' in d ? d.caches : globalThis.caches,
+  }
+}
+
+// The engine's saveState event hands us `e.screenshot` — but it is ALWAYS
+// undefined: EmulatorJS destructures `{ screenshot }` out of takeScreenshot(),
+// which actually resolves `{ blob }` (upstream bug, still present in 4.2.3). So
+// grab the frame from the engine ourselves.
+export async function captureShot(emu) {
+  try {
+    if (typeof emu?.takeScreenshot !== 'function') return null
+    const cap = emu.capture?.photo || {}
+    const shot = await emu.takeScreenshot(cap.source, cap.format, cap.upscale)
+    return shot?.blob || null
+  } catch {
+    return null
+  }
+}
+
+// Snapshot the running game. Returns { slot } on a successful upload, or
+// { slot: null, offline: true } when only the local copy landed.
+export async function saveState(emu, gameId, d) {
+  const { fetch: f, caches: c } = deps(d)
+  const state = emu?.gameManager?.getState?.()
+  if (!state || !state.length) throw new Error('the emulator returned an empty save state')
+
+  const blob = new Blob([state])
+
+  // Local first, and unconditionally: this is the copy that survives a dead
+  // network, and it's what emulator.html reads to resume the game on next boot.
+  try {
+    const cache = await c.open(GAME_SAVES_CACHE)
+    await cache.put(localStateKey(gameId), new Response(blob))
+  } catch {
+    // A full/blocked cache shouldn't stop the upload below.
+  }
+
+  const shot = await captureShot(emu)
+  try {
+    const body = new FormData()
+    body.append('id', gameId)
+    body.append('state', blob)
+    if (shot) body.append('screenshot', shot, 'shot.png')
+    // The backend assigns the slot itself (a timestamp) — the client never picks
+    // one, which is also what keeps a hostile id out of the save path.
+    const res = await f(saveStatesUrl(gameId), { method: 'POST', body })
+    if (!res.ok) throw new Error(String(res.status))
+    return { offline: false, bytes: state.length, hasShot: !!shot }
+  } catch {
+    return { offline: true, bytes: state.length, hasShot: !!shot }
+  }
+}
+
+export async function listStates(gameId, d) {
+  const { fetch: f } = deps(d)
+  try {
+    const res = await f(saveStatesUrl(gameId))
+    if (!res.ok) return []
+    const body = await res.json()
+    return body?.states ?? []
+  } catch {
+    return []
+  }
+}
+
+// Restore a snapshot into the RUNNING engine — no page reload, no engine reboot.
+// (The old ?slot= launch path rebooted the whole player to do this.)
+export async function loadState(emu, gameId, slot, d) {
+  const { fetch: f } = deps(d)
+  const res = await f(saveStateUrl(gameId, slot))
+  if (!res.ok) throw new Error(`save state unavailable (${res.status})`)
+  const buf = await res.arrayBuffer()
+  emu.gameManager.loadState(new Uint8Array(buf))
+  return true
+}
+
+export async function deleteState(gameId, slot, d) {
+  const { fetch: f } = deps(d)
+  const res = await f(`${saveStatesUrl(gameId)}&slot=${encodeURIComponent(slot)}`, { method: 'DELETE' })
+  return res.ok
+}
