@@ -137,6 +137,69 @@ function abortPromise(signal) {
   return new Promise((resolve) => signal.addEventListener('abort', () => resolve(), { once: true }))
 }
 
+// --- audio -----------------------------------------------------------------
+
+// iOS suspends a page's AudioContext at the drop of a hat — backgrounding, a
+// phone call, the Control Centre — and only a USER GESTURE IN THAT DOCUMENT can
+// start it again.
+//
+// That used to happen by itself: the engine's touch controls lived inside the
+// player document, so every button press was a gesture in there. Now the controls
+// are ours, in the parent, and they preventDefault everything — so after the one
+// tap on the engine's Start button, the player document never sees another gesture
+// for as long as you play. Once its audio is suspended, nothing wakes it, and the
+// game goes silent for good.
+//
+// So the parent has to do it: catch every AudioContext the player document makes,
+// and resume them whenever the user touches anything. Same-origin, so we can.
+const AUDIO_CONTEXTS = '__hqAudioContexts'
+const PATCHED = '__hqAudioPatched'
+
+export function trackAudio(frame) {
+  let win
+  try {
+    win = frame && frame.contentWindow
+  } catch {
+    return false
+  }
+  if (!win || win[PATCHED]) return false
+
+  const contexts = []
+  for (const key of ['AudioContext', 'webkitAudioContext']) {
+    const Original = win[key]
+    if (typeof Original !== 'function') continue
+    function Tracked(...args) {
+      const ctx = new Original(...args)
+      contexts.push(ctx)
+      return ctx
+    }
+    Tracked.prototype = Original.prototype
+    win[key] = Tracked
+  }
+  win[PATCHED] = true
+  win[AUDIO_CONTEXTS] = contexts
+  return true
+}
+
+// Wake the game's audio back up. Cheap and idempotent — safe to call on every
+// touch. MUST be called synchronously from a real user-gesture handler, or iOS
+// ignores it.
+export function resumeAudio(frame) {
+  let contexts
+  try {
+    contexts = frame?.contentWindow?.[AUDIO_CONTEXTS]
+  } catch {
+    return
+  }
+  for (const ctx of contexts || []) {
+    try {
+      if (ctx.state === 'suspended') ctx.resume()
+    } catch {
+      // Nothing to do. A silent game is bad; a crashed one is worse.
+    }
+  }
+}
+
 // --- engine chrome ---------------------------------------------------------
 
 // The engine's own UI, which the HQ overlay replaces.
