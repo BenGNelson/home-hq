@@ -18,7 +18,7 @@ export const PAUSE_COLS = 3
 // The menu's contents, exported so the controller can walk the same grid the
 // touch/keyboard user sees — one source of truth for what's on screen and what
 // index each thing sits at.
-export function pauseItems(fastForward) {
+export function pauseItems(fastForward, { canFullscreen = true } = {}) {
   return [
     { id: 'resume', label: 'Resume', Icon: Play, primary: true },
     { id: 'save', label: 'Save State', Icon: Save },
@@ -29,16 +29,17 @@ export function pauseItems(fastForward) {
       Icon: FastForward,
       active: fastForward,
     },
-    // The top bar (which used to carry this) is hidden while you play, so the
-    // menu is where Fullscreen lives now.
-    { id: 'fullscreen', label: 'Fullscreen', Icon: Maximize },
+    // The top bar used to carry this, and it's hidden while you play — so the menu
+    // is where Fullscreen lives now. Except on iPhone, which has no Fullscreen API
+    // at all: there the button did nothing, so it isn't shown. Quit is the way out.
+    ...(canFullscreen ? [{ id: 'fullscreen', label: 'Fullscreen', Icon: Maximize }] : []),
     { id: 'restart', label: 'Restart', Icon: RotateCcw },
     { id: 'quit', label: 'Quit', Icon: LogOut, danger: true },
   ]
 }
 
-export default function PauseMenu({ open, name, fastForward, focus, onFocus, onAction, legend }) {
-  const items = pauseItems(fastForward)
+export default function PauseMenu({ open, name, fastForward, canFullscreen, focus, onFocus, onAction, legend }) {
+  const items = pauseItems(fastForward, { canFullscreen })
 
   // Keyboard parity with the controller — the same grid walk drives both, so
   // desktop and pad can never diverge.

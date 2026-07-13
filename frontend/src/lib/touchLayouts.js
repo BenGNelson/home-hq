@@ -25,7 +25,12 @@
 import { RETROPAD } from './retropad.js'
 
 const LANDSCAPE = { w: 1000, h: 470 }
-const PORTRAIT = { w: 460, h: 1000 }
+// 520 wide, not 460. The space's WIDTH is what the clusters have to share, and on
+// a phone the height is what constrains the scale — so widening it buys room for a
+// proper gap between the d-pad and the face buttons at almost no cost in size
+// (the scale drops from 0.77 to 0.76). It is the only way to fit a big d-pad, a
+// fingertip of dead space, and an A/B cluster across 393 physical pixels.
+const PORTRAIT = { w: 520, h: 1000 }
 
 // In portrait the game gets the top of the screen and the controls get the rest.
 // PlayerShell uses this to size the iframe, so the picture doesn't end up behind
@@ -127,30 +132,38 @@ const L_THREE = [
 // Everything lives below the game. It's a narrower space, so the clusters are
 // tighter — but the whole layout is scaled by the SHORT edge, so in practice these
 // come out bigger on a phone than the landscape ones do.
+//
+// The d-pad and the face buttons are pushed hard into opposite corners, and the
+// face cluster is dropped a little below the d-pad's centre line. Both matter: the
+// hand holding Right on the d-pad and the hand pressing B are reaching for points
+// that are only a couple of centimetres apart on a phone, and they collide. The gap
+// between them is the thing to protect in this layout — not the button sizes.
 
-const P_UI = () => [uiBtn('menu', '☰', 'pauseMenu', 165, 470), uiBtn('ff', '»', 'fastForward', 245, 470)]
+const P_UI = () => [uiBtn('menu', '☰', 'pauseMenu', 190, 470), uiBtn('ff', '»', 'fastForward', 275, 470)]
 const P_SHOULDERS = () => [
-  shoulder('l', 'L', RETROPAD.L, 10, 472, 130),
-  shoulder('r', 'R', RETROPAD.R, 330, 472, 130),
+  shoulder('l', 'L', RETROPAD.L, 10, 472, 145),
+  shoulder('r', 'R', RETROPAD.R, 365, 472, 145),
 ]
 const P_PILLS = (y = 860) => [
-  pill('select', 'SELECT', RETROPAD.SELECT, 90, y, 115),
-  pill('start', 'START', RETROPAD.START, 250, y, 115),
+  pill('select', 'SELECT', RETROPAD.SELECT, 100, y, 130),
+  pill('start', 'START', RETROPAD.START, 280, y, 130),
 ]
 
-const P_TWO = [face('b', 'B', RETROPAD.B, 240, 710, 82), face('a', 'A', RETROPAD.A, 350, 620, 82)]
+// A steep diagonal, not a side-by-side pair. It keeps the cluster narrow, which is
+// what leaves room for the gap — a wide A/B row would push B back into the d-pad.
+const P_TWO = [face('b', 'B', RETROPAD.B, 306, 750, 84), face('a', 'A', RETROPAD.A, 410, 655, 84)]
 
 const P_FOUR = [
-  face('x', 'X', RETROPAD.X, 298, 580, 64),
-  face('y', 'Y', RETROPAD.Y, 210, 668, 64),
-  face('b', 'B', RETROPAD.B, 298, 756, 64),
-  face('a', 'A', RETROPAD.A, 386, 668, 64),
+  face('x', 'X', RETROPAD.X, 356, 581, 66),
+  face('y', 'Y', RETROPAD.Y, 268, 669, 66),
+  face('b', 'B', RETROPAD.B, 356, 757, 66),
+  face('a', 'A', RETROPAD.A, 444, 669, 66),
 ]
 
 const P_THREE = [
-  face('a', 'A', RETROPAD.Y, 228, 780, 66),
-  face('b', 'B', RETROPAD.B, 310, 735, 66),
-  face('c', 'C', RETROPAD.A, 392, 690, 66),
+  face('a', 'A', RETROPAD.Y, 288, 784, 64),
+  face('b', 'B', RETROPAD.B, 370, 739, 64),
+  face('c', 'C', RETROPAD.A, 452, 694, 64),
 ]
 
 // --- the layouts ------------------------------------------------------------
@@ -161,19 +174,19 @@ const P = (items) => ({ space: PORTRAIT, items })
 // Game Boy / NES / Master System / Game Gear — d-pad + two buttons.
 const TWO_BUTTON = {
   landscape: L([L_DPAD(), ...L_TWO, ...L_PILLS(), ...L_UI()]),
-  portrait: P([dpad(20, 620, 190), ...P_TWO, ...P_PILLS(), ...P_UI()]),
+  portrait: P([dpad(8, 615, 200), ...P_TWO, ...P_PILLS(), ...P_UI()]),
 }
 
 // Game Boy Advance — two buttons, but it has shoulders.
 const GBA = {
   landscape: L([L_DPAD(), ...L_TWO, ...L_SHOULDERS(), ...L_PILLS(), ...L_UI()]),
-  portrait: P([dpad(20, 620, 190), ...P_TWO, ...P_SHOULDERS(), ...P_PILLS(), ...P_UI()]),
+  portrait: P([dpad(8, 615, 200), ...P_TWO, ...P_SHOULDERS(), ...P_PILLS(), ...P_UI()]),
 }
 
 // SNES — the four-button diamond, plus shoulders.
 const FOUR_BUTTON = {
   landscape: L([L_DPAD(), ...L_FOUR, ...L_SHOULDERS(), ...L_PILLS(), ...L_UI()]),
-  portrait: P([dpad(20, 620, 160), ...P_FOUR, ...P_SHOULDERS(), ...P_PILLS(), ...P_UI()]),
+  portrait: P([dpad(8, 620, 160), ...P_FOUR, ...P_SHOULDERS(), ...P_PILLS(), ...P_UI()]),
 }
 
 // Mega Drive / Genesis — a three-button row, A-B-C left to right.
@@ -183,7 +196,7 @@ const FOUR_BUTTON = {
 // confirm from source, so it's worth a look in an actual Genesis game.
 const SEGA_MD = {
   landscape: L([L_DPAD(), ...L_THREE, pill('start', 'START', RETROPAD.START, 450, 415), ...L_UI()]),
-  portrait: P([dpad(20, 620, 170), ...P_THREE, pill('start', 'START', RETROPAD.START, 170, 900, 115), ...P_UI()]),
+  portrait: P([dpad(8, 620, 180), ...P_THREE, pill('start', 'START', RETROPAD.START, 200, 900, 130), ...P_UI()]),
 }
 
 const LAYOUTS = {

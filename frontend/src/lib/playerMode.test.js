@@ -6,6 +6,7 @@ import {
   nextPlayerState,
   isRunning,
   overlayVisible,
+  supportsFullscreen,
 } from './playerMode.js'
 
 describe('resolveInputMode', () => {
@@ -109,6 +110,24 @@ describe('nextPlayerState', () => {
 
   it('ignores events that do not apply', () => {
     expect(nextPlayerState('PLAYING', 'started')).toBe('PLAYING')
+  })
+})
+
+describe('supportsFullscreen', () => {
+  it('is false on an iPhone, where there is no Fullscreen API at all', () => {
+    // The button did nothing there, which is why it isn't shown. Playing in the
+    // installed PWA is already chromeless — the iPhone's version of the same thing.
+    expect(supportsFullscreen({})).toBe(false)
+    expect(supportsFullscreen({ fullscreenEnabled: false, webkitFullscreenEnabled: false })).toBe(false)
+  })
+
+  it('is true where fullscreen is real — desktop, and iPad behind the webkit prefix', () => {
+    expect(supportsFullscreen({ fullscreenEnabled: true })).toBe(true)
+    expect(supportsFullscreen({ webkitFullscreenEnabled: true })).toBe(true)
+  })
+
+  it('does not throw without a document', () => {
+    expect(supportsFullscreen(null)).toBe(false)
   })
 })
 
