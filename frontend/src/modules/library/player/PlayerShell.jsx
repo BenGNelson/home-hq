@@ -26,6 +26,7 @@ import {
   resolveInputMode,
   shouldPromptRotate,
   overlayVisible,
+  supportsFullscreen,
 } from '../../../lib/playerMode.js'
 import { readSettings, migrateLegacyEjsKeys } from '../../../lib/playerSettings.js'
 import { useGamepad } from '../../../lib/useGamepad.js'
@@ -281,6 +282,9 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
   // rotate prompt.
   const portrait = useMediaQuery('(orientation: portrait)')
 
+  // iPhone has no Fullscreen API, so the button is a no-op there and isn't shown.
+  const canFullscreen = supportsFullscreen()
+
   const chromeless = isRunning(state) && (mode === 'touch' || padActive)
 
   // Held upright, the game goes across the top and the controls fill the space
@@ -324,7 +328,7 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
     return gateEngineGamepad(emu, () => menuOpenRef.current)
   }, [state === 'PLAYING']) // re-install once the engine exists
 
-  const menuItems = pauseItems(fastForward)
+  const menuItems = pauseItems(fastForward, { canFullscreen })
 
   useGamepad({
     onPadButton: () => setPadActive(true),
@@ -495,12 +499,14 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
             <X className="h-4 w-4" aria-hidden="true" /> Exit
           </button>
           <span className="min-w-0 flex-1 truncate text-center font-medium text-slate-100">{name}</span>
-          <button
-            onClick={goFullscreen}
-            className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded bg-slate-800 px-3 py-1.5 text-sm text-slate-200 active:bg-slate-700"
-          >
-            <Maximize className="h-4 w-4" aria-hidden="true" /> Fullscreen
-          </button>
+          {canFullscreen && (
+            <button
+              onClick={goFullscreen}
+              className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded bg-slate-800 px-3 py-1.5 text-sm text-slate-200 active:bg-slate-700"
+            >
+              <Maximize className="h-4 w-4" aria-hidden="true" /> Fullscreen
+            </button>
+          )}
         </div>
       )}
 
@@ -557,6 +563,7 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
           open={paused && !shelfOpen}
           name={name}
           fastForward={fastForward}
+          canFullscreen={canFullscreen}
           focus={menuFocus}
           onFocus={setMenuFocus}
           onAction={onMenuAction}

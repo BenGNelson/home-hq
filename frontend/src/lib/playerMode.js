@@ -39,6 +39,17 @@ export function shouldPromptRotate({ mode, portrait, padActive }) {
   return mode === 'pad' && !!padActive && !!portrait
 }
 
+// Can this browser actually go fullscreen?
+//
+// iPhone Safari has NO Fullscreen API — so the button did nothing there, which is
+// exactly why it should not be shown. (It's real on desktop and on iPad, where it
+// hides Safari's chrome, so it stays there.) Playing in the installed PWA is
+// already chromeless, which is the iPhone's version of the same thing.
+export function supportsFullscreen(doc = globalThis.document) {
+  if (!doc) return false
+  return !!(doc.fullscreenEnabled || doc.webkitFullscreenEnabled)
+}
+
 export const INITIAL_PLAYER_STATE = 'BOOT'
 
 export function nextPlayerState(state, event) {

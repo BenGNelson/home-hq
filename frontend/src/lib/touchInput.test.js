@@ -249,6 +249,32 @@ describe('layoutFor', () => {
     }
   })
 
+  it('leaves real dead space between the d-pad and the face buttons', () => {
+    // Ben, on a phone: pressing Right on the d-pad and B at the same time made his
+    // thumbs bump. They were ~23px apart in portrait. What matters isn't the button
+    // sizes — it's the gap, and specifically the gap between their HIT areas, since
+    // that's the boundary a stray thumb crosses.
+    const MIN_GAP = 44 // about a fingertip
+    // A modern iPhone, minus the safe-area insets — the reference device.
+    const VIEWPORT = { landscape: { w: 756, h: 372 }, portrait: { w: 393, h: 771 } }
+
+    for (const core of CORES) {
+      for (const orientation of ORIENTATIONS) {
+        const layout = layoutFor(core, orientation)
+        const { scale } = fitTransform(layout.space, VIEWPORT[orientation])
+        const pad = hitRect(layout.items.find((i) => i.type === 'dpad'))
+        const faces = layout.items.filter((i) => i.type === 'button').map(hitRect)
+        const padRight = pad.x + pad.w
+        const nearest = Math.min(...faces.map((f) => f.x)) - padRight
+
+        expect(
+          nearest * scale,
+          `${core}/${orientation}: only ${Math.round(nearest * scale)}px between the d-pad and the nearest face button`
+        ).toBeGreaterThanOrEqual(MIN_GAP)
+      }
+    }
+  })
+
   it('keeps every button inside its coordinate space', () => {
     // A button placed off the edge would be scaled off-screen on every device.
     for (const core of ['gb', 'gba', 'snes', 'segaMD']) {
