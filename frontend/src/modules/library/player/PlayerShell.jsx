@@ -38,6 +38,7 @@ import SaveStatePanel from './SaveStatePanel.jsx'
 import ButtonLegend from './ButtonLegend.jsx'
 import RotatePrompt from './RotatePrompt.jsx'
 import TouchOverlay from './TouchOverlay.jsx'
+import { PORTRAIT_GAME_HEIGHT } from '../../../lib/touchLayouts.js'
 
 // The game player. Hosts the emulator iframe and everything layered over it.
 //
@@ -276,7 +277,16 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
   // Safe because it isn't the only way out: the overlay carries a ☰, the pad has
   // its Menu button, both open the pause menu, and the pause menu has Quit. (On a
   // desktop, with neither, the bar stays.)
+  // Which way up the device is. Drives the touch layout, the game's box, and the
+  // rotate prompt.
+  const portrait = useMediaQuery('(orientation: portrait)')
+
   const chromeless = isRunning(state) && (mode === 'touch' || padActive)
+
+  // Held upright, the game goes across the top and the controls fill the space
+  // below it — so the iframe has to give up the bottom half. In landscape it stays
+  // full-bleed with the controls floating over it.
+  const portraitTouch = mode === 'touch' && portrait && isRunning(state)
 
   // --- the touch controls ---------------------------------------------------
 
@@ -368,7 +378,6 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
   // Ask a controller user to turn the device. We can't force it: iOS ignores the
   // manifest's orientation key and keeps screen.orientation.lock() behind an
   // experimental flag. Touch play is left alone — it has a real portrait layout.
-  const portrait = useMediaQuery('(orientation: portrait)')
   useEffect(() => {
     // `state` is in the deps on purpose: this bails out until the engine exists,
     // and neither `portrait` nor `mode` changes when the game finally starts — so
@@ -501,7 +510,8 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
           title={name}
           src={playerSrc({ id, core, name, loadStateUrl })}
           onLoad={onFrameLoad}
-          className="h-full w-full border-0 bg-black"
+          className="w-full border-0 bg-black"
+          style={{ height: portraitTouch ? PORTRAIT_GAME_HEIGHT : '100%' }}
           allow="autoplay; fullscreen; gamepad"
           allowFullScreen
         />
@@ -512,6 +522,7 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
         {overlayVisible(state, mode) && (
           <TouchOverlay
             core={core}
+            orientation={portrait ? 'portrait' : 'landscape'}
             opacity={settings.touchOpacity}
             fastForward={fastForward}
             onInput={onTouchInput}

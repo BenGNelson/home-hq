@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { fitTransform, toVirtual, hitRect, hitTest, dpadZones, reduceTouches, diffPressed } from './touchInput.js'
-import { layoutFor } from './touchLayouts.js'
+import { layoutFor, CORES, ORIENTATIONS } from './touchLayouts.js'
 import { RETROPAD } from './retropad.js'
 
-const snes = layoutFor('snes')
+const snes = layoutFor('snes', 'landscape')
 const item = (id) => snes.items.find((i) => i.id === id)
 
 // Identity transform, so tests can work in layout coordinates directly.
@@ -207,15 +207,17 @@ describe('layoutFor', () => {
     const intersects = (a, b) =>
       a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
 
-    for (const core of ['gb', 'gba', 'nes', 'snes', 'segaMD', 'segaMS', 'segaGG']) {
-      const items = layoutFor(core).items
-      for (const attacker of items) {
-        for (const victim of items) {
-          if (attacker === victim) continue
-          expect(
-            intersects(hitRect(attacker), victim.frame),
-            `${core}: ${attacker.id}'s hit area covers part of ${victim.id}`
-          ).toBe(false)
+    for (const core of CORES) {
+      for (const orientation of ORIENTATIONS) {
+        const items = layoutFor(core, orientation).items
+        for (const attacker of items) {
+          for (const victim of items) {
+            if (attacker === victim) continue
+            expect(
+              intersects(hitRect(attacker), victim.frame),
+              `${core}/${orientation}: ${attacker.id}'s hit area covers part of ${victim.id}`
+            ).toBe(false)
+          }
         }
       }
     }
@@ -230,15 +232,19 @@ describe('layoutFor', () => {
     // button. That's the whole point of extendedEdges: SELECT/START look like slim
     // pills but are tapped through a target nearly twice as tall.
     const MIN_TAP = 44
-    const viewport = { w: 667, h: 375 }
+    // The smallest phone either way up (an iPhone SE), minus the safe-area insets.
+    const VIEWPORT = { landscape: { w: 667, h: 341 }, portrait: { w: 375, h: 600 } }
 
-    for (const core of ['gb', 'gba', 'nes', 'snes', 'segaMD', 'segaMS', 'segaGG']) {
-      const layout = layoutFor(core)
-      const { scale } = fitTransform(layout.space, viewport)
-      for (const item of layout.items) {
-        const r = hitRect(item)
-        expect(r.w * scale, `${core}/${item.id} tap target too narrow`).toBeGreaterThanOrEqual(MIN_TAP)
-        expect(r.h * scale, `${core}/${item.id} tap target too short`).toBeGreaterThanOrEqual(MIN_TAP)
+    for (const core of CORES) {
+      for (const orientation of ORIENTATIONS) {
+        const layout = layoutFor(core, orientation)
+        const { scale } = fitTransform(layout.space, VIEWPORT[orientation])
+        for (const item of layout.items) {
+          const r = hitRect(item)
+          const where = `${core}/${orientation}/${item.id}`
+          expect(r.w * scale, `${where} tap target too narrow`).toBeGreaterThanOrEqual(MIN_TAP)
+          expect(r.h * scale, `${where} tap target too short`).toBeGreaterThanOrEqual(MIN_TAP)
+        }
       }
     }
   })

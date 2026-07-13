@@ -171,6 +171,16 @@ export function trackAudio(frame) {
     function Tracked(...args) {
       const ctx = new Original(...args)
       contexts.push(ctx)
+      // Resume it the instant it's born. The core builds its audio
+      // ASYNCHRONOUSLY, well after the tap on Start — so on iOS it arrives
+      // already suspended, and the game is silent from the first frame. The
+      // player document still has activation from that tap, which is what makes
+      // this resume legal.
+      try {
+        ctx.resume?.()
+      } catch {
+        // Falls back to the resume-on-next-touch handler in PlayerShell.
+      }
       return ctx
     }
     Tracked.prototype = Original.prototype
