@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { Tv } from 'lucide-react'
 import { useApi } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
 import { useDownloaded } from '../../lib/useDownloaded.js'
 import { downloadKey } from '../../lib/offlineStore.js'
 import {
+  bigPictureHref,
   listSystems,
   systemGames,
   groupByLetter,
@@ -70,7 +72,17 @@ export default function GamesList() {
 function Landing({ items, recent, onRemoveRecent }) {
   return (
     <>
-      <h2 className="text-xl font-semibold">Games</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold">Games</h2>
+        {/* The controller-driven view. Worth surfacing here rather than hiding it
+            behind a setting: it's the whole point of pairing a pad with the iPad. */}
+        <Link
+          to={bigPictureHref()}
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-sm font-medium text-violet-200 transition-colors hover:border-violet-400 active:bg-violet-500/20"
+        >
+          <Tv className="h-4 w-4" aria-hidden="true" /> Big Picture
+        </Link>
+      </div>
       <RecentlyPlayed recent={recent} items={items} onRemove={onRemoveRecent} />
       <section className="space-y-2">
         <h3 className="text-sm font-medium uppercase tracking-wide text-slate-500">Systems</h3>
