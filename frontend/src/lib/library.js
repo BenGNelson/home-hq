@@ -343,6 +343,11 @@ export function gamesSystemHref(system, query) {
 // A game's detail "title page". `ret` is the full return location (path+search)
 // of wherever the tile was tapped — carried along so the detail page's Back link
 // lands exactly there (with the search still typed), not on a fresh Games page.
+// The controller-driven "Big Picture" view of the games library.
+export function bigPictureHref() {
+  return '/library/games/tv'
+}
+
 export function gameDetailHref(id, ret) {
   let href = `/library/games/detail?id=${encodeURIComponent(id)}`
   if (ret) href += `&ret=${encodeURIComponent(ret)}`

@@ -50,6 +50,7 @@ PAGES = [
     ("/weather", ["Weather"]),
     ("/plex", []),
     ("/library", []),
+    ("/library/games/tv", []),
     ("/containers", []),
     ("/storage", []),
     ("/network", []),
