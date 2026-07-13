@@ -639,6 +639,76 @@ untested code in the tree. Loading a save state from that menu restores it into
 the **running** engine (`gameManager.loadState`) instead of relaunching the
 player, which is what the older launch-with-`?slot=` path did.
 
+### Controller mode
+
+Pick up a Bluetooth pad and the on-screen controls disappear; the pad drives the
+game and Big Picture (`/library/games/tv`) turns the library into a console
+dashboard. Four decisions carry the feature:
+
+- **A pad counts as live from its FIRST BUTTON PRESS**, never from
+  `gamepadconnected` — iOS Safari doesn't fire that event until a button is
+  pressed anyway, so waiting for it would leave the touch pad sitting on top of a
+  perfectly good controller. It only goes away on a real disconnect, never on an
+  idle timeout: a controller resting through a cutscene must not make the touch
+  controls reappear.
+- **The preset maps by POSITION, not by letter** (`lib/controlPresets.js`).
+  Nintendo and Xbox disagree about where the letters go — a SNES pad's B is at the
+  bottom, an Xbox pad's B is on the right — and EmulatorJS's stock table matches
+  them by name, which puts the jump button on the wrong side of the pad. RetroPad
+  is already the abstraction, so ONE positional preset covers every system.
+- **The engine's `localStorage` is switched off** (`EJS_disableLocalStorage`). It
+  persists the control map per-game and reloads it on boot, so the first session
+  with a game would freeze whatever mapping was in effect then and silently
+  overwrite the preset from then on — including any later fix to it. Off, the
+  preset stays authoritative; the volume/shader prefs that costs us are ours now
+  anyway (`lib/playerSettings.js`).
+- **The pad's Menu button belongs to the app, and START is left UNBOUND on it.**
+  Short press sends a synthetic START to the game; long press opens the pause menu.
+  Bound both ways, every long press would open the menu *and* hit START, leaving
+  the game's own pause screen sitting underneath ours.
+
+While a menu is open the engine's own gamepad handler is **gated** — otherwise the
+D-pad press that walks the menu also steers the paused game underneath it. It's
+wrapped, not replaced: `GamepadHandler` keeps exactly one listener per event, so
+overwriting would kill the engine's input handling outright.
+
+### The touch controls
+
+Rebuilt from scratch (`TouchOverlay.jsx` + `lib/touchInput.js` +
+`lib/touchLayouts.js`). **One surface captures every touch; the button visuals are
+`pointer-events: none`** and never receive an event — they exist only to be looked
+at. All the logic is coordinate arithmetic over a declarative layout, which is what
+buys the things a grid of `<button>`s cannot do: real multi-touch (hold Left, tap
+B, keep holding Left), a d-pad you slide a thumb around with true diagonals (it's
+ONE region split into nine zones — you can't jump diagonally if up-right is a gap
+between two hitboxes), thumb-rolls between face buttons, and hit areas larger than
+the visible button, because thumbs undershoot.
+
+Layouts are **data**, authored once in a virtual coordinate space and letterboxed
+onto whatever screen they land on, with the safe-area insets as an *input* — so no
+button can end up under the notch or in the home-indicator strip by construction
+rather than by eyeballing it.
+
+Two traps worth knowing:
+
+- Press states are painted by toggling classes on refs, **never with `setState`**.
+  `touchmove` fires at screen rate under a moving thumb.
+- Touch events arrive in **page** coordinates while the layout transform is
+  relative to the surface's own box, and the player has a top bar above it. Mixing
+  the two shifts every touch down by the height of that bar — pressing the middle
+  of the d-pad returns *Down*.
+
+### What iOS will not let us do
+
+Worth stating so nobody plans around a fantasy:
+
+| Want | Reality |
+|---|---|
+| Force landscape | **No.** iOS ignores the manifest's `orientation`, and `screen.orientation.lock()` is behind an off-by-default experimental flag. We detect portrait and show a rotate prompt (controller mode only — touch has a real portrait layout). |
+| Fullscreen API | Absent on iPhone; webkit-prefixed on iPad. The **installed PWA** is the real fullscreen path. Fullscreen targets the player's *wrapper*, not the iframe, or the game goes fullscreen without its controls. |
+| Haptics | **None.** WebKit has no vibration API at all. The press glow carries the whole feel. |
+| Wake lock | Works (iOS 16.4+), but is **released whenever the page hides and never returned** — it must be re-acquired on every `visibilitychange`. |
+
 **Mobile-first, real routes.** The player and (later) readers are routes
 (`/library/play`, `/library/read`), not overlays, so the phone's back gesture
 exits — the native expectation — and items are deep-linkable. The player is also

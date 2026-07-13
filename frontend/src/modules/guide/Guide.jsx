@@ -300,6 +300,26 @@ export default function Guide() {
           your spot; save states are there when you want to jump to an exact moment.
         </p>
         <p>
+          <strong>Playing them.</strong> The in-game <strong>pause menu</strong> (the ☰
+          button, or hold <strong>Menu</strong> on a controller) is a grid of big tiles —
+          save a state, load one, fast-forward, restart, quit — with the game blurred
+          behind it. Loading a state drops you straight back in, without reloading
+          anything. On a <strong>phone</strong>, the touch controls are built for thumbs:
+          the d-pad is one region you can <em>slide</em> across (so diagonals actually
+          work), you can hold left while tapping B, and every button's hit area is bigger
+          than the button you can see — because thumbs undershoot. Pair a{' '}
+          <strong>Bluetooth controller</strong> and the on-screen buttons get out of the
+          way entirely: the pad drives the game, and the buttons are mapped by{' '}
+          <strong>position</strong> rather than by letter — a SNES pad's B sits at the
+          bottom and an Xbox pad's B sits on the right, so matching them up by name would
+          put your jump button on the wrong side of the controller.{' '}
+          <strong>Big Picture</strong> then turns the whole library into a console
+          dashboard — the focused game's art blurred across the screen, one rail per
+          system, all of it navigable from the couch with a d-pad. (iOS won't let a web
+          app force landscape, so in controller mode it asks you to turn the device and
+          picks the game back up when you do.)
+        </p>
+        <p>
           <strong>Reading</strong> is mostly client-side: PDFs (magazines
           &amp; papers, or a PDF book) render with <strong>PDF.js</strong>, and
           ebooks render with <strong>foliate-js</strong>, which reads EPUB, MOBI,
