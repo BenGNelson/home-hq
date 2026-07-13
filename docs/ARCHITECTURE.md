@@ -594,6 +594,51 @@ play time makes no third-party calls. The build excludes it from the PWA precach
 `lib/library.js`) points the engine at the pinned CDN instead, for a zero-download
 setup.
 
+**The player talks to the engine through one bridge, and its config lives in the
+app bundle — not in `emulator.html`.** The iframe is same-origin, so the React
+side holds the live engine instance directly (`iframe.contentWindow.HQ.emu`) and
+drives it with plain method calls: no `postMessage`, no serialization, no added
+frame of input latency. Exactly one module, `lib/emuBridge.js`, is allowed to
+reach across that boundary; everything else goes through it.
+
+The contract is two-way and both halves are plain property reads:
+
+| direction | what | why |
+|---|---|---|
+| parent → player | `window.HQ_PLAYER_CONFIG` | the engine's config (control presets, which of its buttons to hide, default options). Set during `PlayerShell`'s render, so it is always in place before React commits the `<iframe>` and the player document runs its inline script. |
+| player → parent | `window.HQ = { version, emu, whenStarted }` | the live engine. `whenStarted` resolves only once the game is actually **running**. |
+
+> **Do not move engine config back into `emulator.html`.** That file is excluded
+> from the PWA precache and versioned by hand (`ENGINE_VERSION` in
+> `lib/offlineStore.js`), so every edit to it forces a re-download of the cached
+> engine on every device. Config that lives in the bundle rides the
+> content-hashed shell instead — which is why the control presets, the hidden
+> engine buttons and the suppression CSS (`killEngineChrome`, injected into the
+> player document as a stylesheet) can all change without touching the player
+> document at all.
+
+Two rules fall out of iOS and are load-bearing:
+
+- **Nothing may cover the player until `whenStarted` resolves.** iOS unlocks audio
+  per-document, so the tap that starts the game has to land *inside* the iframe —
+  hence the engine keeps its own Start button (we never set `EJS_startOnLoaded`),
+  and the HQ overlay mounts only after the game is running. A player that boots
+  silent means something covered that tap.
+- **`whenStarted` must always settle.** The game may never start (the user backs
+  out; `loader.js` 404s), so the player document settles it with no engine rather
+  than leaving the parent waiting on a promise forever.
+
+**The in-game menu is ours.** EmulatorJS's own bottom bar is a strip of small
+mouse-sized icons that a D-pad can't reach, so it's suppressed and replaced by a
+`PauseMenu` — a grid of large tiles, thumb-reachable and controller-navigable,
+with the game rendering blurred behind it. Focus movement is pure index
+arithmetic over a grid/rails model (`lib/gridNav.js`) rather than a DOM-measuring
+spatial-navigation engine: the app has no jsdom in its test setup, and a
+measuring engine would leave the most navigation-critical code as the only
+untested code in the tree. Loading a save state from that menu restores it into
+the **running** engine (`gameManager.loadState`) instead of relaunching the
+player, which is what the older launch-with-`?slot=` path did.
+
 **Mobile-first, real routes.** The player and (later) readers are routes
 (`/library/play`, `/library/read`), not overlays, so the phone's back gesture
 exits — the native expectation — and items are deep-linkable. The player is also
