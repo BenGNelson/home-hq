@@ -17,8 +17,10 @@ const GAMES = sectionAccent('games')
 // PERFORMANCE RULE: press states are applied by toggling classes on refs, NEVER
 // with setState. A React re-render on every touchmove would make the controls feel
 // like mud, and touchmove fires at screen rate under a moving thumb.
-export default function TouchOverlay({ core, onInput, onAction, opacity = 0.75, fastForward = false }) {
-  const layout = layoutFor(core)
+export default function TouchOverlay({ core, orientation, onInput, onAction, opacity = 0.75, fastForward = false }) {
+  // Swaps the whole layout when the phone is turned. `layout` is the dep for both
+  // effects below, so rotating rebuilds the touch pipeline and re-letterboxes.
+  const layout = layoutFor(core, orientation)
   const surfaceRef = useRef(null)
   const itemRefs = useRef({})
 
