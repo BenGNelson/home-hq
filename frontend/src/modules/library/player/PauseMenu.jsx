@@ -13,10 +13,13 @@ const GAMES = sectionAccent('games') // violet — the Games role tint
 // D-pad on a controller, and the game keeps rendering (blurred) behind it so you
 // never lose your place. Focus is index-based (see lib/gridNav.js) rather than
 // DOM-measured, which is what lets the controller drive it.
-const COLS = 3
+export const PAUSE_COLS = 3
 
-export default function PauseMenu({ open, name, fastForward, focus, onFocus, onAction }) {
-  const items = [
+// The menu's contents, exported so the controller can walk the same grid the
+// touch/keyboard user sees — one source of truth for what's on screen and what
+// index each thing sits at.
+export function pauseItems(fastForward) {
+  return [
     { id: 'resume', label: 'Resume', Icon: Play, primary: true },
     { id: 'save', label: 'Save State', Icon: Save },
     { id: 'load', label: 'Load State', Icon: FolderOpen },
@@ -29,6 +32,10 @@ export default function PauseMenu({ open, name, fastForward, focus, onFocus, onA
     { id: 'restart', label: 'Restart', Icon: RotateCcw },
     { id: 'quit', label: 'Quit', Icon: LogOut, danger: true },
   ]
+}
+
+export default function PauseMenu({ open, name, fastForward, focus, onFocus, onAction, legend }) {
+  const items = pauseItems(fastForward)
 
   // Keyboard parity with the controller — the same grid walk drives both, so
   // desktop and pad can never diverge.
@@ -36,7 +43,7 @@ export default function PauseMenu({ open, name, fastForward, focus, onFocus, onA
     const dir = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' }[e.key]
     if (dir) {
       e.preventDefault()
-      onFocus(moveInGrid({ count: items.length, cols: COLS, index: focus }, dir))
+      onFocus(moveInGrid({ count: items.length, cols: PAUSE_COLS, index: focus }, dir))
     } else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       onAction(items[focus].id)
@@ -88,6 +95,8 @@ export default function PauseMenu({ open, name, fastForward, focus, onFocus, onA
             />
           ))}
         </div>
+
+        {legend && <div className="mt-5">{legend}</div>}
       </div>
     </div>
   )
