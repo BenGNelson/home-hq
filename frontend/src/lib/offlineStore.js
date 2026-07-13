@@ -235,7 +235,7 @@ export async function downloadJob(meta, onProgress) {
 // line, like the app shell. A game download ensures this first. Bump
 // ENGINE_VERSION whenever emulator.html or EMULATOR_ENGINE_URLS changes so a
 // device that already cached the engine refreshes it instead of running stale.
-const ENGINE_VERSION = 7
+const ENGINE_VERSION = 8
 export async function ensureEmulatorEngine() {
   const key = downloadKey('emulator', 'engine')
   const existing = await getEntry(key)
