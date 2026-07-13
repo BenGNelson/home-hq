@@ -22,16 +22,18 @@ import {
   INITIAL_PLAYER_STATE,
   isRunning,
   resolveInputMode,
-  nextPadActive,
+  shouldPromptRotate,
 } from '../../../lib/playerMode.js'
 import { readSettings, migrateLegacyEjsKeys } from '../../../lib/playerSettings.js'
 import { useGamepad } from '../../../lib/useGamepad.js'
 import { useWakeLock } from '../../../lib/useWakeLock.js'
+import { useMediaQuery } from '../../../lib/useMediaQuery.js'
 import { moveInGrid } from '../../../lib/gridNav.js'
 import { saveState, loadState, listStates, deleteState } from '../../../lib/saveStates.js'
 import PauseMenu, { pauseItems, PAUSE_COLS } from './PauseMenu.jsx'
 import SaveStatePanel from './SaveStatePanel.jsx'
 import ButtonLegend from './ButtonLegend.jsx'
+import RotatePrompt from './RotatePrompt.jsx'
 
 // The game player. Hosts the emulator iframe and everything layered over it.
 //
@@ -298,6 +300,44 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
   // because iOS drops the lock whenever the page is hidden and never gives it back.
   useWakeLock(isRunning(state))
 
+  // --- immersion ------------------------------------------------------------
+
+  // Ask a controller user to turn the device. We can't force it: iOS ignores the
+  // manifest's orientation key and keeps screen.orientation.lock() behind an
+  // experimental flag. Touch play is left alone — it has a real portrait layout.
+  const portrait = useMediaQuery('(orientation: portrait)')
+  useEffect(() => {
+    if (!emuRef.current) return
+    if (shouldPromptRotate({ mode, portrait })) dispatch('rotate-portrait')
+    else dispatch('rotate-landscape')
+  }, [portrait, mode])
+
+  // Pause when the app goes to the background, and flush the battery save on the
+  // way out — an iOS tab can be discarded without warning, and an unsaved SRAM is
+  // hours of someone's game.
+  useEffect(() => {
+    const onVisibility = () => dispatch(document.visibilityState === 'visible' ? 'visible' : 'hidden')
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+
+  // Kill the browser's own touch gestures inside the player. Without this, a
+  // thumb on the d-pad drags the page, a two-finger press zooms the game, and a
+  // downward swipe pull-to-refreshes the whole app mid-boss.
+  //
+  // gesturestart is WebKit-only and must be registered non-passively or the
+  // preventDefault is ignored, which is exactly the kind of thing that silently
+  // does nothing and looks like it works.
+  useEffect(() => {
+    const stop = (e) => e.preventDefault()
+    document.addEventListener('gesturestart', stop, { passive: false })
+    document.addEventListener('gesturechange', stop, { passive: false })
+    return () => {
+      document.removeEventListener('gesturestart', stop)
+      document.removeEventListener('gesturechange', stop)
+    }
+  }, [])
+
   // Native fullscreen where it exists (desktop, and iPad behind a prefix); a CSS
   // immersive mode everywhere else. iPhone Safari has no Fullscreen API at all —
   // there, the installed PWA is what gets you a chromeless screen.
@@ -318,7 +358,11 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
   return (
     <div
       ref={wrapperRef}
-      className="fixed inset-0 z-50 flex flex-col bg-black"
+      // touch-action/overscroll/user-select: the player owns every touch inside
+      // it. Otherwise a thumb resting on the d-pad scrolls the page, a swipe down
+      // pull-to-refreshes the app mid-game, and a long press pops the iOS
+      // text-selection callout over the controls.
+      className="fixed inset-0 z-50 flex touch-none select-none flex-col overscroll-none bg-black [-webkit-touch-callout:none]"
       style={
         immersive
           ? {
@@ -415,6 +459,8 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
             ) : null
           }
         />
+
+        {state === 'ROTATE' && <RotatePrompt />}
 
         {shelfOpen && (
           <SaveStatePanel
