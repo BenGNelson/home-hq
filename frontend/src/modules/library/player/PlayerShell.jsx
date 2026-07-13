@@ -5,18 +5,33 @@ import { playerSrc } from '../../../lib/library.js'
 import { useOnline } from '../../../lib/online.jsx'
 import { goBack } from '../../../lib/nav.js'
 import {
+  RETROPAD,
   playerConfig,
   attachEmu,
   killEngineChrome,
+  press,
+  tap,
   flushInputs,
+  gateEngineGamepad,
   setPaused,
   setFastForward,
   restart as restartGame,
 } from '../../../lib/emuBridge.js'
-import { nextPlayerState, INITIAL_PLAYER_STATE, isRunning } from '../../../lib/playerMode.js'
+import {
+  nextPlayerState,
+  INITIAL_PLAYER_STATE,
+  isRunning,
+  resolveInputMode,
+  nextPadActive,
+} from '../../../lib/playerMode.js'
+import { readSettings, migrateLegacyEjsKeys } from '../../../lib/playerSettings.js'
+import { useGamepad } from '../../../lib/useGamepad.js'
+import { useWakeLock } from '../../../lib/useWakeLock.js'
+import { moveInGrid } from '../../../lib/gridNav.js'
 import { saveState, loadState, listStates, deleteState } from '../../../lib/saveStates.js'
-import PauseMenu from './PauseMenu.jsx'
+import PauseMenu, { pauseItems, PAUSE_COLS } from './PauseMenu.jsx'
 import SaveStatePanel from './SaveStatePanel.jsx'
+import ButtonLegend from './ButtonLegend.jsx'
 
 // The game player. Hosts the emulator iframe and everything layered over it.
 //
@@ -50,11 +65,28 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
+  // Is a physical controller driving? Becomes true on the FIRST BUTTON PRESS —
+  // never on `gamepadconnected`, which iOS Safari doesn't fire until a button is
+  // pressed anyway, so waiting for it would leave the touch controls sitting over
+  // a perfectly good pad.
+  const [padActive, setPadActive] = useState(false)
+  const [settings] = useState(() => {
+    // The engine's localStorage is off now (it would overwrite our control
+    // preset), so its old per-game blobs are dead bytes. Sweep them once.
+    migrateLegacyEjsKeys(window.localStorage)
+    return readSettings(window.localStorage)
+  })
+  const mode = resolveInputMode({
+    override: settings.inputMode,
+    padActive,
+    hasTouch: navigator.maxTouchPoints > 0,
+  })
+
   // Hand the engine its config. Assigned during render, NOT in an effect: React
   // creates the <iframe> DOM node on commit — i.e. after this function returns —
   // so the player document is guaranteed to find it set when its inline script
   // runs. An effect would race the iframe's own load.
-  window.HQ_PLAYER_CONFIG = playerConfig()
+  window.HQ_PLAYER_CONFIG = playerConfig(core)
 
   // Wait for the user to tap the engine's Start button, then take the handle.
   // Aborted on unmount: backing out of a game before ever tapping Start would
@@ -76,14 +108,27 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
       // stock player, which still works, rather than a half-wired one.
       if (!emu) return
       emuRef.current = emu
-      // Suppress the engine's bottom bar + context menu now that the HQ pause
-      // menu replaces them. Its touch gamepad stays for now — the custom overlay
-      // that replaces THAT lands in a later milestone, and removing it before
-      // then would leave a phone with no controls at all.
-      killEngineChrome(frameRef.current, { menuBar: true, contextMenu: true })
       dispatch('started')
     })
   }, [])
+
+  // Suppress the engine's own UI: its bottom bar and context menu always (the HQ
+  // pause menu replaces them), and its touch pad whenever a controller is driving
+  // — THAT is controller mode. Re-applied whenever the mode flips, because picking
+  // up the pad mid-game has to clear the on-screen buttons out of the way.
+  //
+  // It has to be CSS. The engine re-shows its touch pad from two places we can't
+  // intercept: it force-shows it if Start was tapped with a finger, and every
+  // resize (which includes every rotation) un-hides it for 250ms. JS loses that
+  // race; `display: none !important` doesn't.
+  useEffect(() => {
+    if (!emuRef.current) return
+    killEngineChrome(frameRef.current, {
+      menuBar: true,
+      contextMenu: true,
+      virtualGamepad: mode === 'pad',
+    })
+  }, [mode, state])
 
   // Pause the core whenever we're not in PLAYING, and release every button on
   // the way back in — a button held down when the menu opened would stay latched
@@ -186,10 +231,72 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
     [fastForward, openShelf, exit]
   )
 
-  const openMenu = () => {
+  const openMenu = useCallback(() => {
     setMenuFocus(0)
     dispatch('pause')
-  }
+  }, [])
+
+  const paused = state === 'PAUSED'
+
+  // --- the physical controller ---------------------------------------------
+
+  // While our menu is open, stop the engine's own gamepad handler from feeding
+  // the game: otherwise the same D-pad press that moves the menu cursor is ALSO
+  // driving the (paused) character underneath it. Wrapped, not replaced — the
+  // engine keeps exactly one listener per event, so overwriting would kill its
+  // input handling outright.
+  const menuOpenRef = useRef(false)
+  menuOpenRef.current = paused || shelfOpen
+  useEffect(() => {
+    const emu = emuRef.current
+    if (!emu) return
+    return gateEngineGamepad(emu, () => menuOpenRef.current)
+  }, [state === 'PLAYING']) // re-install once the engine exists
+
+  const menuItems = pauseItems(fastForward)
+
+  useGamepad({
+    onPadButton: () => setPadActive(true),
+    onDisconnect: () => setPadActive(false),
+
+    // The Menu button is ours alone (START is left unbound in the preset, so this
+    // can't double-fire): a short press is the game's START, a long press opens
+    // the HQ menu.
+    onMenuAction: (action) => {
+      if (action === 'pauseMenu') {
+        if (menuOpenRef.current) dispatch('resume')
+        else openMenu()
+      } else if (action === 'start' && !menuOpenRef.current) {
+        tap(emuRef.current, RETROPAD.START)
+      }
+    },
+
+    // Menu navigation. Only wired while a menu is open — in-game the engine reads
+    // the pad itself, straight from the preset.
+    onAction: (action) => {
+      if (!menuOpenRef.current) return
+      if (shelfOpen) {
+        if (action === 'back') setShelfOpen(false)
+        return
+      }
+      if (action === 'confirm') onMenuAction(menuItems[menuFocus].id)
+      else if (action === 'back') dispatch('resume')
+      else setMenuFocus((i) => moveInGrid({ count: menuItems.length, cols: PAUSE_COLS, index: i }, action))
+    },
+
+    // The analog stick as a d-pad, in-game only. These systems have no analog
+    // input, so the engine's preset can't bind the stick — without this it'd be
+    // dead, and it's the first thing a thumb reaches for on an Xbox pad.
+    onStick: (dir, down) => {
+      if (menuOpenRef.current) return
+      const index = { up: RETROPAD.UP, down: RETROPAD.DOWN, left: RETROPAD.LEFT, right: RETROPAD.RIGHT }[dir]
+      if (index != null) press(emuRef.current, index, down)
+    },
+  })
+
+  // Don't let the screen sleep mid-game. Re-acquired on every return to the tab,
+  // because iOS drops the lock whenever the page is hidden and never gives it back.
+  useWakeLock(isRunning(state))
 
   // Native fullscreen where it exists (desktop, and iPad behind a prefix); a CSS
   // immersive mode everywhere else. iPhone Safari has no Fullscreen API at all —
@@ -207,8 +314,6 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
       setImmersive(true)
     }
   }
-
-  const paused = state === 'PAUSED'
 
   return (
     <div
@@ -270,8 +375,9 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
 
         {/* The menu button only appears once the game is actually running, so it
             can never sit over the engine's Start button and steal the tap that
-            unlocks audio on iOS. */}
-        {isRunning(state) && (
+            unlocks audio on iOS. On a controller it's redundant — the pad's own
+            Menu button does this — so it stays out of the way there. */}
+        {isRunning(state) && mode === 'touch' && (
           <button
             onClick={openMenu}
             aria-label="Game menu"
@@ -282,6 +388,14 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
           </button>
         )}
 
+        {/* Tells you the pad took over — and, crucially, how to get back out,
+            since the on-screen menu button is now gone. */}
+        {isRunning(state) && mode === 'pad' && padActive && (
+          <div className="pointer-events-none absolute right-3 top-3 z-10 rounded-full bg-slate-900/70 px-3 py-1.5 text-xs text-slate-300 backdrop-blur-sm">
+            Controller · hold <span className="font-semibold text-slate-100">☰</span> for the menu
+          </div>
+        )}
+
         <PauseMenu
           open={paused && !shelfOpen}
           name={name}
@@ -289,6 +403,17 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
           focus={menuFocus}
           onFocus={setMenuFocus}
           onAction={onMenuAction}
+          legend={
+            mode === 'pad' ? (
+              <ButtonLegend
+                hints={[
+                  { button: 'A', label: 'Select' },
+                  { button: 'B', label: 'Resume' },
+                  { button: '☰', label: 'Close' },
+                ]}
+              />
+            ) : null
+          }
         />
 
         {shelfOpen && (

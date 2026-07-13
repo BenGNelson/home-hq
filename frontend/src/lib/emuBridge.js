@@ -11,38 +11,19 @@
 // its engine config the other way via `window.HQ_PLAYER_CONFIG`, which the
 // player reads off window.parent at boot.
 
+import { presetFor, EJS_BUTTONS_OFF, EJS_HIDE_SETTINGS } from './controlPresets.js'
+import { RETROPAD, DIGITAL_INPUTS } from './retropad.js'
+
+// Re-exported so callers can reach the engine and its button indices from one
+// place; retropad.js exists only to keep this module and controlPresets from
+// importing each other.
+export { RETROPAD, DIGITAL_INPUTS }
+
 // The version of the window.HQ contract this bundle speaks. emulator.html
 // stamps the same number on the handle it exposes; a mismatch means the player
 // document and the app bundle are out of step (a stale cached emulator.html), and
 // we fall back to the engine's own UI rather than half-wiring ours.
 export const HQ_CONTRACT_VERSION = 1
-
-// The RetroPad button indices EmulatorJS's simulateInput() speaks. Every core
-// maps these onto its own pad, so this is the one abstraction all the systems
-// share — a GB "A" and a SNES "A" are both index 8.
-export const RETROPAD = {
-  B: 0,
-  Y: 1,
-  SELECT: 2,
-  START: 3,
-  UP: 4,
-  DOWN: 5,
-  LEFT: 6,
-  RIGHT: 7,
-  A: 8,
-  X: 9,
-  L: 10,
-  R: 11,
-  L2: 12,
-  R2: 13,
-  L3: 14,
-  R3: 15,
-}
-
-// 0-15 are the digital buttons above. 16+ are analog axes and the engine's own
-// hotkeys (quick-save, fast-forward, rewind) — we never drive those from the
-// parent, so a "release everything" flush only has to cover the digital range.
-export const DIGITAL_INPUTS = 16
 
 // The engine config the parent hands the player document. It lives HERE rather
 // than hardcoded in emulator.html on purpose: emulator.html is excluded from
@@ -51,11 +32,29 @@ export const DIGITAL_INPUTS = 16
 // in the app bundle rides the content-hashed shell instead — which means the
 // control presets, hidden buttons and menu settings can all change later
 // without touching the player document again.
-export function playerConfig() {
+export function playerConfig(core) {
   return {
     // Save states go to the browser (IndexedDB), not a downloaded .state file
     // (which iOS can't open). Our own EJS_onSaveState hook does the real work.
     defaultOptions: { 'save-state-location': 'browser' },
+
+    // A physical pad works out of the box, mapped by position (see controlPresets).
+    defaultControls: presetFor(core),
+
+    // The engine's own bottom bar and settings screen, replaced by the HQ pause menu.
+    buttons: EJS_BUTTONS_OFF,
+    hideSettings: EJS_HIDE_SETTINGS,
+
+    // Switch OFF the engine's localStorage entirely.
+    //
+    // It persists the control map per-game and reloads it on every boot — so the
+    // FIRST time a game was played would freeze whatever mapping was in effect
+    // then, and our preset would be silently overwritten from that point on. It
+    // also means a preset fix would never reach a game you'd already played.
+    // Turning the whole thing off makes the preset permanently authoritative and
+    // costs us only the engine's volume/shader prefs, which lib/playerSettings.js
+    // now owns anyway.
+    disableLocalStorage: true,
   }
 }
 
