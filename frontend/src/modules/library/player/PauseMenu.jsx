@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Play, Save, FolderOpen, FastForward, RotateCcw, LogOut } from 'lucide-react'
+import { Play, Save, FolderOpen, FastForward, Maximize, RotateCcw, LogOut } from 'lucide-react'
 import { moveInGrid } from '../../../lib/gridNav.js'
 import { sectionAccent } from '../../../lib/library.js'
 import { radiantBackdrop, glowFilter } from '../../../lib/glow.js'
@@ -29,6 +29,9 @@ export function pauseItems(fastForward) {
       Icon: FastForward,
       active: fastForward,
     },
+    // The top bar (which used to carry this) is hidden while you play, so the
+    // menu is where Fullscreen lives now.
+    { id: 'fullscreen', label: 'Fullscreen', Icon: Maximize },
     { id: 'restart', label: 'Restart', Icon: RotateCcw },
     { id: 'quit', label: 'Quit', Icon: LogOut, danger: true },
   ]

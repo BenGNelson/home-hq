@@ -9,6 +9,8 @@ import {
   playerConfig,
   attachEmu,
   killEngineChrome,
+  trackAudio,
+  resumeAudio,
   press,
   tap,
   flushInputs,
@@ -104,6 +106,7 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
 
   const onFrameLoad = useCallback(() => {
     frameRef.current?.contentWindow?.focus?.()
+    trackAudio(frameRef.current) // before the engine creates one — see emuBridge
     dispatch('engine-loaded')
     attachEmu(frameRef.current, { signal: abortRef.current?.signal }).then((emu) => {
       // No engine = the player document is older than this bundle (its cached
@@ -204,6 +207,23 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
     [id]
   )
 
+  // Native fullscreen where it exists (desktop, and iPad behind a prefix); a CSS
+  // immersive mode everywhere else. iPhone Safari has no Fullscreen API at all —
+  // there, the installed PWA is what gets you a chromeless screen.
+  //
+  // Fullscreens the WRAPPER, not the iframe: the pause menu and the touch controls
+  // live in the parent document, so fullscreening the iframe alone would put the
+  // game on screen with none of its controls.
+  const goFullscreen = useCallback(() => {
+    const el = wrapperRef.current
+    const req = el?.requestFullscreen || el?.webkitRequestFullscreen
+    if (req) {
+      Promise.resolve(req.call(el)).catch(() => setImmersive(true))
+    } else {
+      setImmersive(true)
+    }
+  }, [])
+
   const onMenuAction = useCallback(
     (action) => {
       const emu = emuRef.current
@@ -222,6 +242,10 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
           dispatch('resume') // fast-forward is something you want to SEE
           break
         }
+        case 'fullscreen':
+          goFullscreen()
+          dispatch('resume')
+          break
         case 'restart':
           restartGame(emu)
           dispatch('resume')
@@ -234,7 +258,7 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
           break
       }
     },
-    [fastForward, openShelf, exit]
+    [fastForward, openShelf, exit, goFullscreen]
   )
 
   const openMenu = useCallback(() => {
@@ -376,6 +400,25 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
     return () => document.removeEventListener('visibilitychange', onVisibility)
   }, [])
 
+  // Keep the game's audio alive. iOS suspends the player document's AudioContext
+  // whenever it feels like it, and only a gesture can restart it — but our controls
+  // live out here and swallow every touch, so the player document would never get
+  // one again. Capture phase, so it still runs even though the overlay
+  // preventDefaults; and synchronous, because iOS ignores a deferred resume.
+  useEffect(() => {
+    const wake = () => resumeAudio(frameRef.current)
+    for (const ev of ['pointerdown', 'touchstart', 'keydown']) {
+      window.addEventListener(ev, wake, { capture: true, passive: true })
+    }
+    document.addEventListener('visibilitychange', wake)
+    return () => {
+      for (const ev of ['pointerdown', 'touchstart', 'keydown']) {
+        window.removeEventListener(ev, wake, { capture: true })
+      }
+      document.removeEventListener('visibilitychange', wake)
+    }
+  }, [])
+
   // Kill the browser's own touch gestures inside the player. Without this, a
   // thumb on the d-pad drags the page, a two-finger press zooms the game, and a
   // downward swipe pull-to-refreshes the whole app mid-boss.
@@ -393,22 +436,6 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
     }
   }, [])
 
-  // Native fullscreen where it exists (desktop, and iPad behind a prefix); a CSS
-  // immersive mode everywhere else. iPhone Safari has no Fullscreen API at all —
-  // there, the installed PWA is what gets you a chromeless screen.
-  //
-  // Fullscreens the WRAPPER, not the iframe: the pause menu and (later) the touch
-  // controls live in the parent document, so fullscreening the iframe alone would
-  // put the game on screen with none of its controls.
-  const goFullscreen = () => {
-    const el = wrapperRef.current
-    const req = el?.requestFullscreen || el?.webkitRequestFullscreen
-    if (req) {
-      Promise.resolve(req.call(el)).catch(() => setImmersive(true))
-    } else {
-      setImmersive(true)
-    }
-  }
 
   return (
     <div
@@ -418,12 +445,15 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
       // pull-to-refreshes the app mid-game, and a long press pops the iOS
       // text-selection callout over the controls.
       className="fixed inset-0 z-50 flex touch-none select-none flex-col overscroll-none bg-black [-webkit-touch-callout:none]"
-      // Deliberately NOT padded when chromeless: the game should bleed full-bleed
-      // under the notch, and it's the CONTROLS that keep clear of it — TouchOverlay
-      // pads itself and letterboxes inside that. Padding here as well would inset
-      // the safe area twice and shrink everything right back down again.
+      // With no top bar, the wrapper is what keeps the game clear of the iOS
+      // status bar (the clock/battery strip) and the home indicator. Without this
+      // the game runs underneath them and its top edge is simply cut off.
+      //
+      // TouchOverlay therefore does NOT pad itself — it letterboxes inside this
+      // already-safe box. Padding in both places would inset twice and shrink
+      // everything straight back down.
       style={
-        immersive
+        immersive || chromeless
           ? {
               paddingTop: 'env(safe-area-inset-top)',
               paddingRight: 'env(safe-area-inset-right)',

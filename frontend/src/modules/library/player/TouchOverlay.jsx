@@ -178,14 +178,11 @@ export default function TouchOverlay({ core, onInput, onAction, opacity = 0.75, 
     <div
       ref={surfaceRef}
       data-testid="touch-overlay"
+      // No safe-area padding here: the player wrapper already insets the whole
+      // player, so this box is safe by the time we get it. Padding again would
+      // inset twice and shrink every control.
       className="absolute inset-0 z-10 touch-none select-none"
-      style={{
-        paddingTop: 'env(safe-area-inset-top)',
-        paddingRight: 'env(safe-area-inset-right)',
-        paddingBottom: 'env(safe-area-inset-bottom)',
-        paddingLeft: 'env(safe-area-inset-left)',
-        opacity,
-      }}
+      style={{ opacity }}
     >
       {layout.items.map((item) => {
         const on = item.id === 'ff' && fastForward
