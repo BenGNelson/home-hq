@@ -12,7 +12,7 @@ import LibraryLayout from './modules/library/LibraryLayout.jsx'
 import GamesList from './modules/library/GamesList.jsx'
 import GameDetail from './modules/library/GameDetail.jsx'
 import Player from './modules/library/Player.jsx'
-import BigPicture from './modules/library/bigpicture/BigPicture.jsx'
+import FrogBrowser from './modules/library/frog/FrogBrowser.jsx'
 import PapersList from './modules/library/PapersList.jsx'
 import BooksList from './modules/library/BooksList.jsx'
 import TextbooksList from './modules/library/TextbooksList.jsx'
@@ -136,7 +136,7 @@ export default function App() {
         </Route>
         <Route path="/library/games/detail" element={<GameDetail />} />
         <Route path="/library/play" element={<Player />} />
-          <Route path="/library/games/tv" element={<BigPicture />} />
+        <Route path="/frog" element={<FrogBrowser />} />
         <Route path="/library/read" element={<Reader />} />
         <Route path="/library/downloads" element={<Downloads />} />
         <Route path="/containers" element={<Containers />} />

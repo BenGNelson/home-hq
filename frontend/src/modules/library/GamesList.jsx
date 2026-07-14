@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { Tv } from 'lucide-react'
+import { Gamepad2 } from 'lucide-react'
 import { useApi } from '../../lib/useApi.js'
 import { useOnline } from '../../lib/online.jsx'
 import { useDownloaded } from '../../lib/useDownloaded.js'
 import { downloadKey } from '../../lib/offlineStore.js'
 import {
-  bigPictureHref,
+  frogHref,
   listSystems,
   systemGames,
   groupByLetter,
@@ -25,6 +25,7 @@ import OfflineSection from './OfflineSection.jsx'
 import SavedBadge from './SavedBadge.jsx'
 import AlphaScrubber from './AlphaScrubber.jsx'
 import RemoveButton from './RemoveButton.jsx'
+import { FrogMark } from './frog/Frog.jsx'
 
 // The games accent (violet) as an "r,g,b" string, for the system cards' glow.
 const GAMES_RGB = sectionAccent('games').rgb
@@ -72,17 +73,8 @@ export default function GamesList() {
 function Landing({ items, recent, onRemoveRecent }) {
   return (
     <>
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold">Games</h2>
-        {/* The controller-driven view. Worth surfacing here rather than hiding it
-            behind a setting: it's the whole point of pairing a pad with the iPad. */}
-        <Link
-          to={bigPictureHref()}
-          className="flex shrink-0 items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-sm font-medium text-violet-200 transition-colors hover:border-violet-400 active:bg-violet-500/20"
-        >
-          <Tv className="h-4 w-4" aria-hidden="true" /> Big Picture
-        </Link>
-      </div>
+      <h2 className="text-xl font-semibold">Games</h2>
+      <FrogBanner count={items.length} />
       <RecentlyPlayed recent={recent} items={items} onRemove={onRemoveRecent} />
       <section className="space-y-2">
         <h3 className="text-sm font-medium uppercase tracking-wide text-slate-500">Systems</h3>
@@ -93,6 +85,38 @@ function Landing({ items, recent, onRemoveRecent }) {
         </div>
       </section>
     </>
+  )
+}
+
+// The way in to Frog. Deliberately the biggest thing on the page, and above the
+// games rather than tucked in a corner as a pill: on the iPad with a controller
+// paired, Frog is not an alternate view of this page — it's the reason you opened
+// it. The phone still gets the thumb-first pages below, which is what they're for.
+function FrogBanner({ count }) {
+  return (
+    <Link
+      to={frogHref()}
+      className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-emerald-500/25 bg-slate-900/60 px-5 py-4 transition-colors hover:border-emerald-400/60"
+    >
+      {/* Frog's own light, pooling under it — a hint of the app on the other side. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{ background: 'radial-gradient(70% 120% at 12% 100%, rgba(52,211,153,0.16), transparent 70%)' }}
+      />
+      <FrogMark
+        size={54}
+        className="relative shrink-0 text-emerald-400 transition-transform duration-300 group-hover:-translate-y-0.5"
+        style={{ filter: 'drop-shadow(0 8px 18px rgba(52,211,153,0.45))' }}
+      />
+      <div className="relative min-w-0 flex-1">
+        <p className="text-lg font-semibold tracking-wide text-slate-50">Frog</p>
+        <p className="mt-0.5 text-sm text-slate-400">
+          Full-screen games browser, built for a controller. {count} game{count === 1 ? '' : 's'} on the shelf.
+        </p>
+      </div>
+      <Gamepad2 className="relative h-5 w-5 shrink-0 text-emerald-400/70" aria-hidden="true" />
+    </Link>
   )
 }
 

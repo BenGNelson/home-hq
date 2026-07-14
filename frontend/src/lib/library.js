@@ -340,14 +340,16 @@ export function gamesSystemHref(system, query) {
   return href
 }
 
+// Frog — the full-screen, controller-driven games browser. It lives at the root
+// rather than under /library because it isn't a library page: it's a separate app
+// that the library hands off to, and it will one day be served from its own repo.
+export function frogHref() {
+  return '/frog'
+}
+
 // A game's detail "title page". `ret` is the full return location (path+search)
 // of wherever the tile was tapped — carried along so the detail page's Back link
 // lands exactly there (with the search still typed), not on a fresh Games page.
-// The controller-driven "Big Picture" view of the games library.
-export function bigPictureHref() {
-  return '/library/games/tv'
-}
-
 export function gameDetailHref(id, ret) {
   let href = `/library/games/detail?id=${encodeURIComponent(id)}`
   if (ret) href += `&ret=${encodeURIComponent(ret)}`

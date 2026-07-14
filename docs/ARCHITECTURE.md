@@ -688,8 +688,8 @@ before the engine builds anything, and forces the flag on.
 ### Controller mode
 
 Pick up a Bluetooth pad and the on-screen controls disappear; the pad drives the
-game and Big Picture (`/library/games/tv`) turns the library into a console
-dashboard. Four decisions carry the feature:
+game, and **Frog** (`/frog`) turns the library into a console front-end. Four
+decisions carry the feature:
 
 - **A pad counts as live from its FIRST BUTTON PRESS**, never from
   `gamepadconnected` — iOS Safari doesn't fire that event until a button is
@@ -723,6 +723,55 @@ While a menu is open the engine's own gamepad handler is **gated** — otherwise
 D-pad press that walks the menu also steers the paused game underneath it. It's
 wrapped, not replaced: `GamepadHandler` keeps exactly one listener per event, so
 overwriting would kill the engine's input handling outright.
+
+### Frog (`/frog`)
+
+The games browser, for a couch and a controller. It's a **separate app that the
+Library hands off to**, not a wider layout of the Games pages — those are built for a
+thumb on a phone, and the two products disagree about almost everything. It lives at
+`/frog` (not under `/library`) and in one folder,
+`modules/library/frog/`, because it is meant to be lifted into its own repo later:
+the Cards → PocketBinder pattern.
+
+Three screens — **boot → shelf → games** — and the shape of them is the argument:
+
+- **The boot exists for a reason, not for a logo.** iOS does not report a connected
+  controller until a button is pressed on it, so *something* has to ask. "PRESS A" is
+  a nicer way to ask than a "no controller detected" banner, and the press is also
+  what tells Frog whether to lay itself out for a pad or a thumb.
+- **"Jump back in" is rail zero.** You are almost always coming back to the same
+  game, so the row that means *most sessions never touch the alphabet* is the one
+  focus lands on. It disappears entirely when it's empty.
+- **The systems row never scrolls.** There are six machines and six fit on one
+  screen — no carousel, no hidden seventh tile, and you can see the shape of the
+  whole collection in one look. A system with no games keeps its tile, dimmed.
+- **One system's games are a TEXT LIST, not a grid of covers.** Retro box art is a
+  small logo on a flat field: shrink 496 of them and you get 496 identical
+  rectangles, so you end up reading the labels anyway. Retro titles are also long,
+  and a grid truncates them. The art gets one slot, big, next to whatever you're
+  pointing at — you find by reading and confirm by looking. The triggers move a
+  *letter* at a time (`stepLetter`), which is what keeps 496 games from being sixty
+  D-pad presses.
+
+The **art is drawn, not scraped** (`Console.jsx`, `Frog.jsx`) — every other front-end
+pulls the same console logos from the same database, which is exactly why they all
+look the same. It also keeps a public repo publishable: stylized hardware is fine;
+someone's wordmark is not. **No official logos, ever** — draw the machine, name it in
+plain text.
+
+Frog has **its own theme** (`frog/theme.js`), and this is deliberate. Home HQ's motif
+is LIGHT (the back-lit radiance on Solar and the dashboard); **Frog's motif is
+WATER** — things float, reflect and ripple, on a green-black ground rather than Home
+HQ's blue-black. It should read as a different app, not a different page. The frog
+itself wears the focused machine's colours, which makes it the focus indicator rather
+than a decoration.
+
+Navigation is index arithmetic over rails (`lib/gridNav.js`), not DOM measurement,
+which is what lets a controller, the arrow keys and a mouse drive identical code with
+none of them a special case. The list is windowed (`lib/windowRange.js`) for the same
+reason Big Picture's rails were: mounting 496 rows is what makes an iPad stutter.
+
+*(Frog replaced "Big Picture" — same job, done properly.)*
 
 ### The touch controls
 

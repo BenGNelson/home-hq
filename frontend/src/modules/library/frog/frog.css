@@ -1,0 +1,136 @@
+/*
+  Frog's motion, in one file.
+
+  Home HQ's motif is LIGHT (things glow). Frog's motif is WATER — things float,
+  reflect, and ripple. Every animation here is one of those three verbs; if a new
+  one isn't, it doesn't belong.
+
+  This file is deliberately plain CSS with no Tailwind directives and no app
+  variables, so the whole `frog/` folder can be lifted into its own repo as-is.
+
+  Motion budget: nothing here animates layout (no width/height/top/left) — only
+  transform and opacity, so a 60Hz iPad never drops a frame while the frog breathes
+  behind a scrolling list.
+*/
+
+/* --- the frog itself -------------------------------------------------------- */
+
+/* It's alive. Slow enough that you don't consciously see it, big enough that a
+   still frog looks wrong once you've seen this one. */
+@keyframes frog-breathe {
+  0%, 100% { transform: scale(1, 1) translateY(0); }
+  50%      { transform: scale(1.02, 0.985) translateY(1.2%); }
+}
+.frog-breathe {
+  animation: frog-breathe 3.6s ease-in-out infinite;
+  transform-origin: 50% 92%; /* the ground it sits on, not its middle */
+}
+
+/* The blink. Lids sit collapsed and snap shut for ~110ms of a 5.2s cycle. The
+   two eyes are offset by a hair — a perfectly synchronized blink looks robotic. */
+@keyframes frog-blink {
+  0%, 95%, 100% { transform: scaleY(0); }
+  97%           { transform: scaleY(1); }
+}
+.frog-lid {
+  animation: frog-blink 5.2s ease-in-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+.frog-lid:nth-of-type(2) { animation-delay: 0.06s; }
+
+/* The hop. Fired by re-keying the element when the frog changes costume, so it
+   plays once per system change and never loops. */
+@keyframes frog-hop {
+  0%   { transform: translateY(0) scaleY(0.94) scaleX(1.06); }
+  30%  { transform: translateY(-9%) scaleY(1.05) scaleX(0.96); }
+  60%  { transform: translateY(0) scaleY(0.97) scaleX(1.03); }
+  100% { transform: translateY(0) scale(1); }
+}
+.frog-hop {
+  animation: frog-hop 0.42s cubic-bezier(0.34, 1.4, 0.64, 1);
+  transform-origin: 50% 95%;
+}
+
+/* --- the water ------------------------------------------------------------- */
+
+/* Everything that "floats" bobs. Staggered by index so a row of tiles moves like
+   water and not like an elevator. */
+@keyframes frog-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+.frog-float {
+  animation: frog-float 4.4s ease-in-out infinite;
+}
+
+/* The ripple: pressing A on a tile drops it into the pond. One ring, once. */
+@keyframes frog-ripple {
+  0%   { transform: scale(0.35); opacity: 0.55; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+.frog-ripple {
+  animation: frog-ripple 0.6s ease-out forwards;
+}
+
+/* The boot: the frog surfaces. Comes up through the waterline, so it starts
+   below and slightly squashed, as if it's pushing through. */
+@keyframes frog-surface {
+  0%   { transform: translateY(26px) scale(0.9); opacity: 0; }
+  55%  { opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+.frog-surface {
+  animation: frog-surface 0.85s cubic-bezier(0.22, 0.9, 0.3, 1) both;
+}
+
+/* Concentric rings spreading out from where it broke the surface. Three of them,
+   staggered, each fading as it grows. */
+@keyframes frog-rings {
+  0%   { transform: scale(0.2); opacity: 0; }
+  15%  { opacity: 0.5; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+.frog-rings { animation: frog-rings 2.4s ease-out infinite; }
+.frog-rings:nth-of-type(2) { animation-delay: 0.8s; }
+.frog-rings:nth-of-type(3) { animation-delay: 1.6s; }
+
+/* The "PRESS A" line at the end of the boot. Not a blink — a slow pulse, so it
+   invites rather than nags. */
+@keyframes frog-invite {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 1; }
+}
+.frog-invite {
+  animation: frog-invite 1.9s ease-in-out infinite;
+}
+
+/* Whatever appears after the boot fades up rather than cutting. */
+@keyframes frog-rise {
+  from { transform: translateY(10px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+.frog-rise { animation: frog-rise 0.5s ease-out both; }
+
+/* --- honour the setting ----------------------------------------------------- */
+
+/* Reduced motion means REDUCED, not none: the frog still blinks (it's how you
+   know the app is alive) but nothing floats, ripples, hops or pulses. A frog
+   frozen mid-stare is worse than no frog. */
+@media (prefers-reduced-motion: reduce) {
+  .frog-breathe,
+  .frog-hop,
+  .frog-float,
+  .frog-ripple,
+  .frog-rings,
+  .frog-invite,
+  .frog-surface,
+  .frog-rise {
+    animation: none;
+  }
+  .frog-surface,
+  .frog-rise {
+    opacity: 1;
+    transform: none;
+  }
+}
