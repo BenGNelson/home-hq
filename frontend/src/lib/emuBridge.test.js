@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
+  clearStartScreen,
   RETROPAD,
   DIGITAL_INPUTS,
   playerConfig,
@@ -324,5 +325,41 @@ describe('gateEngineGamepad', () => {
 
   it('does not throw when there is no gamepad handler', () => {
     expect(() => gateEngineGamepad({}, () => false)()).not.toThrow()
+  })
+})
+
+describe('clearStartScreen', () => {
+  // A stand-in player document. No jsdom in this repo, and none needed: the whole
+  // job is "find three things and remove them", which a fake can answer honestly.
+  const fakeDoc = (present) => {
+    const removed = []
+    const node = (key) => ({ remove: () => removed.push(key) })
+    return {
+      removed,
+      querySelector: (sel) => (present.includes(sel) ? node(sel) : null),
+      getElementById: (id) => (present.includes(`#${id}`) ? node(`#${id}`) : null),
+    }
+  }
+
+  it('takes the whole start layer out — card, styles, AND the engine backdrop', () => {
+    // The bug: the engine removes its own Start button and nothing else. Our card
+    // (with the box art) and the engine's blurred cover backdrop both stayed on top
+    // of the running game, the card still bobbing on its float animation.
+    const doc = fakeDoc(['.hq-start', '#hq-start-screen', '.ejs_game_background'])
+    expect(clearStartScreen({ contentDocument: doc })).toBe(true)
+    expect(doc.removed).toEqual(['.hq-start', '#hq-start-screen', '.ejs_game_background'])
+  })
+
+  it('is fine when there is nothing to clear (it runs on every boot)', () => {
+    const doc = fakeDoc([])
+    expect(clearStartScreen({ contentDocument: doc })).toBe(true)
+    expect(doc.removed).toEqual([])
+  })
+
+  it('does not throw when the frame is already gone', () => {
+    // Quitting mid-boot tears the iframe down under us; reading contentDocument on a
+    // dead (or cross-origin) frame throws.
+    expect(clearStartScreen(null)).toBe(false)
+    expect(clearStartScreen({ get contentDocument() { throw new Error('gone') } })).toBe(false)
   })
 })

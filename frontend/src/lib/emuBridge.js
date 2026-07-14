@@ -488,6 +488,20 @@ export function styleStartScreen(frame, { coverUrl, name } = {}) {
       text-shadow: 0 2px 20px rgba(0,0,0,0.7);
     }
 
+    /* Tapping Play sends the card away IMMEDIATELY.
+       The engine removes its own Start button when you tap it, but it knows nothing
+       about the column we wrapped that button in — so the box art stayed put, kept
+       bobbing on its float animation, and was still sitting in the middle of the
+       screen once the game was running. It hands the screen over to the loader. */
+    .hq-start-out {
+      pointer-events: none;
+      animation: hq-fall 260ms cubic-bezier(.4,0,1,1) forwards !important;
+    }
+    .hq-start-out .hq-start-art { animation: none !important; }
+    @keyframes hq-fall {
+      to { opacity: 0; transform: translate(-50%, calc(-50% + 10px)) scale(0.96); }
+    }
+
     /* NB: the engine puts .ejs_start_button AND .ejs_start_button_border on the SAME
        element. Style "the border" and you're styling the button. */
     .ejs_start_button {
@@ -567,6 +581,12 @@ export function styleStartScreen(frame, { coverUrl, name } = {}) {
 
     button.parentElement.insertBefore(column, button)
     column.appendChild(button)
+
+    // The tap that starts the game also dismisses the card. Not `once`-guarded on the
+    // engine's behalf — this listener only ever adds a class, and the engine's own
+    // listener (the one that unlocks audio) is untouched, which is the whole reason
+    // the button is MOVED rather than recreated.
+    button.addEventListener('click', () => column.classList.add('hq-start-out'), { once: true })
     return true
   }
 
@@ -579,5 +599,30 @@ export function styleStartScreen(frame, { coverUrl, name } = {}) {
     observer.observe(doc.body, { childList: true, subtree: true })
     setTimeout(() => observer.disconnect(), 120_000) // don't watch forever
   }
+  return true
+}
+
+// Take the start screen out of the DOM once the game is actually running.
+//
+// Fading the card is not enough. A faded element is still an element: it keeps its
+// float animation on the compositor, and the engine's blurred cover-art backdrop sits
+// over the canvas for the whole session. Nothing else was ever going to clean this up
+// — the engine removes ITS button and has no idea our layer exists.
+//
+// Everything here is idempotent and guarded: the frame can be torn down mid-flight.
+export function clearStartScreen(frame) {
+  let doc
+  try {
+    doc = frame && frame.contentDocument
+  } catch {
+    return false
+  }
+  if (!doc) return false
+
+  doc.querySelector('.hq-start')?.remove()
+  doc.getElementById(START_STYLE_ID)?.remove()
+  // The engine's own backdrop. It's the game's cover art, blurred — atmosphere before
+  // the game, a smear over the top of it after.
+  doc.querySelector('.ejs_game_background')?.remove()
   return true
 }
