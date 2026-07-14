@@ -8,6 +8,7 @@ import {
   padAction,
   menuGesture,
   MENU_GESTURE_IDLE,
+  bindingForButton,
 } from './gamepad.js'
 
 // A browser Gamepad, as the API hands it over.
@@ -153,5 +154,28 @@ describe('menuGesture', () => {
     // A second, long press still works.
     state = menuGesture(state, 'down', 200).state
     expect(menuGesture(state, 'tick', 700).action).toBe('pauseMenu')
+  })
+})
+
+
+describe('bindingForButton', () => {
+  it('names a raw button index the way the engine does', () => {
+    // This is what turns "the button you just pressed" into a binding — and it
+    // works for a controller we have never seen, because every modern pad reports
+    // the browser's standard mapping.
+    expect(bindingForButton(XBOX.A)).toBe('BUTTON_1')
+    expect(bindingForButton(XBOX.B)).toBe('BUTTON_2')
+    expect(bindingForButton(XBOX.LB)).toBe('LEFT_TOP_SHOULDER')
+    expect(bindingForButton(XBOX.DU)).toBe('DPAD_UP')
+  })
+
+  it('refuses to hand over the Menu button', () => {
+    // The app owns it: short press = the game's START, long press = the pause menu.
+    // Bind it to the game as well and every long press would do both.
+    expect(bindingForButton(XBOX.MENU)).toBeNull()
+  })
+
+  it('refuses the Guide button, which the OS eats anyway', () => {
+    expect(bindingForButton(XBOX.GUIDE)).toBeNull()
   })
 })

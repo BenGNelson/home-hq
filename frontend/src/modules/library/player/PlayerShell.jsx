@@ -9,6 +9,7 @@ import {
   playerConfig,
   attachEmu,
   killEngineChrome,
+  applyControls,
   trackAudio,
   resumeAudio,
   press,
@@ -28,7 +29,15 @@ import {
   overlayVisible,
   supportsFullscreen,
 } from '../../../lib/playerMode.js'
-import { readSettings, migrateLegacyEjsKeys } from '../../../lib/playerSettings.js'
+import {
+  readSettings,
+  writeSettings,
+  migrateLegacyEjsKeys,
+  bindingsFor,
+  withBinding,
+  clearBindings,
+} from '../../../lib/playerSettings.js'
+import { bindingForButton } from '../../../lib/gamepad.js'
 import { useGamepad } from '../../../lib/useGamepad.js'
 import { useWakeLock } from '../../../lib/useWakeLock.js'
 import { useMediaQuery } from '../../../lib/useMediaQuery.js'
@@ -36,6 +45,7 @@ import { moveInGrid } from '../../../lib/gridNav.js'
 import { saveState, loadState, listStates, deleteState } from '../../../lib/saveStates.js'
 import PauseMenu, { pauseItems, PAUSE_COLS } from './PauseMenu.jsx'
 import SaveStatePanel from './SaveStatePanel.jsx'
+import ControlsPanel, { controlRows } from './ControlsPanel.jsx'
 import ButtonLegend from './ButtonLegend.jsx'
 import RotatePrompt from './RotatePrompt.jsx'
 import TouchOverlay from './TouchOverlay.jsx'
@@ -78,12 +88,26 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
   // pressed anyway, so waiting for it would leave the touch controls sitting over
   // a perfectly good pad.
   const [padActive, setPadActive] = useState(false)
-  const [settings] = useState(() => {
+  const [padId, setPadId] = useState(null)
+  const [padName, setPadName] = useState(null)
+  const [settings, setSettings] = useState(() => {
     // The engine's localStorage is off now (it would overwrite our control
     // preset), so its old per-game blobs are dead bytes. Sweep them once.
     migrateLegacyEjsKeys(window.localStorage)
     return readSettings(window.localStorage)
   })
+
+  // The Controls screen.
+  const [controlsOpen, setControlsOpen] = useState(false)
+  const [controlsFocus, setControlsFocus] = useState(0)
+  const [listeningFor, setListeningFor] = useState(null) // RetroPad index awaiting a press
+
+  // The controller map in force right now: the chosen scheme, plus anything the
+  // player has rebound on THIS controller.
+  const controls = {
+    scheme: settings.controlScheme,
+    custom: bindingsFor(settings, padId),
+  }
   const mode = resolveInputMode({
     override: settings.inputMode,
     padActive,
@@ -94,7 +118,7 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
   // creates the <iframe> DOM node on commit — i.e. after this function returns —
   // so the player document is guaranteed to find it set when its inline script
   // runs. An effect would race the iframe's own load.
-  window.HQ_PLAYER_CONFIG = playerConfig(core)
+  window.HQ_PLAYER_CONFIG = playerConfig(core, controls)
 
   // Wait for the user to tap the engine's Start button, then take the handle.
   // Aborted on unmount: backing out of a game before ever tapping Start would
@@ -140,6 +164,14 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
       virtualGamepad: true,
     })
   }, [mode, state])
+
+  // Re-map the running game whenever the scheme or a binding changes. The engine
+  // reads emu.controls on every button event, so this takes effect on the very next
+  // press — you can feel the change while still holding the pad.
+  useEffect(() => {
+    if (!emuRef.current) return
+    applyControls(emuRef.current, controls)
+  }, [state, settings.controlScheme, settings.controlBindings, padId])
 
   // Pause the core whenever we're not in PLAYING, and release every button on
   // the way back in — a button held down when the menu opened would stay latched
@@ -226,6 +258,56 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
     }
   }, [])
 
+  // One place that writes settings, so localStorage and React state can't drift.
+  const saveSettings = useCallback((next) => {
+    setSettings(next)
+    writeSettings(window.localStorage, next)
+  }, [])
+
+  const openControls = useCallback(() => {
+    setControlsFocus(0)
+    setListeningFor(null)
+    setControlsOpen(true)
+  }, [])
+
+  const closeControls = useCallback(() => {
+    setControlsOpen(false)
+    setListeningFor(null)
+  }, [])
+
+  const chooseScheme = useCallback(
+    (scheme) => saveSettings({ ...settings, controlScheme: scheme }),
+    [settings, saveSettings]
+  )
+
+  const resetBindings = useCallback(
+    () => saveSettings(clearBindings(settings, padId)),
+    [settings, padId, saveSettings]
+  )
+
+  // "Press a button…" — the next press on the pad becomes this button's binding.
+  // Returns true from onRawButton to swallow that press, so it doesn't also
+  // navigate the menu it was made in.
+  const captureBinding = useCallback(
+    (buttonIndex, id) => {
+      if (listeningFor == null) return false
+
+      // The Menu button is the app's (short press = the game's START, long press =
+      // this menu). Handing it to the game as well would make every long press do
+      // both, so it's the one button you can't have.
+      const label = bindingForButton(buttonIndex)
+      if (!label) {
+        setError('That button belongs to the app — pick another.')
+        setListeningFor(null)
+        return true
+      }
+      saveSettings(withBinding(settings, id || padId, listeningFor, label))
+      setListeningFor(null)
+      return true
+    },
+    [listeningFor, settings, padId, saveSettings]
+  )
+
   const onMenuAction = useCallback(
     (action) => {
       const emu = emuRef.current
@@ -244,6 +326,9 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
           dispatch('resume') // fast-forward is something you want to SEE
           break
         }
+        case 'controls':
+          openControls()
+          break
         case 'fullscreen':
           goFullscreen()
           dispatch('resume')
@@ -260,7 +345,7 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
           break
       }
     },
-    [fastForward, openShelf, exit, goFullscreen]
+    [fastForward, openShelf, exit, goFullscreen, openControls]
   )
 
   const openMenu = useCallback(() => {
@@ -321,7 +406,7 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
   // engine keeps exactly one listener per event, so overwriting would kill its
   // input handling outright.
   const menuOpenRef = useRef(false)
-  menuOpenRef.current = paused || shelfOpen
+  menuOpenRef.current = paused || shelfOpen || controlsOpen
   useEffect(() => {
     const emu = emuRef.current
     if (!emu) return
@@ -330,19 +415,31 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
 
   const menuItems = pauseItems(fastForward, { canFullscreen })
 
+  const rows = controlRows()
+
   useGamepad({
-    onPadButton: () => setPadActive(true),
+    onPadButton: (id) => {
+      setPadActive(true)
+      setPadId(id)
+      // The pad's id is "<name>:<index>" — the name is what a human recognises.
+      setPadName((id || '').split(':')[0] || null)
+    },
     onDisconnect: () => setPadActive(false),
+
+    // While the Controls screen is waiting for a press, that press IS the binding —
+    // it must not also move the cursor. Returning true swallows it.
+    onRawButton: (index, id) => captureBinding(index, id),
 
     // The Menu button is ours alone (START is left unbound in the preset, so this
     // can't double-fire): a short press is the game's START, a long press opens
     // the HQ menu.
     onMenuAction: (action) => {
       if (action === 'pauseMenu') {
-        // Back out one layer at a time. Resuming straight from the shelf would
-        // un-pause the game while the save-state list is still covering it (and
-        // leave the engine's gamepad gated, so the pad would drive nothing).
-        if (shelfOpen) setShelfOpen(false)
+        // Back out one layer at a time. Resuming straight from a panel would
+        // un-pause the game while that panel still covered it (and leave the
+        // engine's gamepad gated, so the pad would drive nothing).
+        if (controlsOpen) closeControls()
+        else if (shelfOpen) setShelfOpen(false)
         else if (paused) dispatch('resume')
         else openMenu()
       } else if (action === 'start' && !menuOpenRef.current) {
@@ -354,6 +451,21 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
     // the pad itself, straight from the preset.
     onAction: (action) => {
       if (!menuOpenRef.current) return
+
+      if (controlsOpen) {
+        // A one-column list, so up/down walk it and left/right do nothing.
+        if (action === 'back') closeControls()
+        else if (action === 'confirm') {
+          const row = rows[controlsFocus]
+          if (row === 'reset') resetBindings()
+          else if (row.startsWith('bind:')) setListeningFor(Number(row.slice(5)))
+          else chooseScheme(row)
+        } else if (action === 'up' || action === 'down') {
+          setControlsFocus((i) => moveInGrid({ count: rows.length, cols: 1, index: i }, action))
+        }
+        return
+      }
+
       if (shelfOpen) {
         if (action === 'back') setShelfOpen(false)
         return
@@ -579,6 +691,21 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
             ) : null
           }
         />
+
+        {controlsOpen && (
+          <ControlsPanel
+            padName={padName}
+            scheme={settings.controlScheme}
+            bindings={bindingsFor(settings, padId)}
+            listeningFor={listeningFor}
+            focus={controlsFocus}
+            onFocus={setControlsFocus}
+            onScheme={chooseScheme}
+            onListen={setListeningFor}
+            onReset={resetBindings}
+            onBack={closeControls}
+          />
+        )}
 
         {state === 'ROTATE' && <RotatePrompt />}
 

@@ -59,7 +59,13 @@ export function useGamepad(handlers, enabled = true) {
         // ANY button press is what tells us a controller is live. We can't wait for
         // `gamepadconnected` — on iOS Safari it doesn't fire until a button is
         // pressed anyway, so the touch controls would sit there over a working pad.
-        if (type === 'down') h.onPadButton?.()
+        // The pad's id rides along so a remap can be saved against THIS controller.
+        if (type === 'down') h.onPadButton?.(next.id)
+
+        // The raw index, for the Controls screen's "press a button to bind it".
+        // Handled before everything else and short-circuits: while we're listening
+        // for a binding, a press must NOT also navigate the menu it's sitting in.
+        if (type === 'down' && h.onRawButton?.(button, next.id)) continue
 
         if (button === 9) {
           // The Menu button belongs to the app, never to the game (see gamepad.js).
