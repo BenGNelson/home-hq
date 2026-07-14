@@ -115,12 +115,21 @@ export function padAction(button) {
       return 'confirm'
     case XBOX.B:
       return 'back'
+    case XBOX.X:
+      return 'search'
     case XBOX.Y:
       return 'alt' // "show me the save states for this game"
     case XBOX.LB:
       return 'railPrev'
     case XBOX.RB:
       return 'railNext'
+    // The triggers are the fast lane: a long list moves a letter at a time, not a
+    // row at a time. Analog on an Xbox pad, so they read as pressed past a threshold
+    // — which snapshotPad already reduces to a boolean.
+    case XBOX.LT:
+      return 'jumpPrev'
+    case XBOX.RT:
+      return 'jumpNext'
     case XBOX.DU:
       return 'up'
     case XBOX.DD:

@@ -99,14 +99,20 @@ describe('padAction', () => {
   it('maps the face buttons the way every console does', () => {
     expect(padAction(XBOX.A)).toBe('confirm')
     expect(padAction(XBOX.B)).toBe('back')
+    expect(padAction(XBOX.X)).toBe('search')
     expect(padAction(XBOX.LB)).toBe('railPrev')
     expect(padAction(XBOX.RB)).toBe('railNext')
     expect(padAction(XBOX.MENU)).toBe('menu')
   })
 
+  it('makes the triggers the fast lane through a long list', () => {
+    expect(padAction(XBOX.LT)).toBe('jumpPrev')
+    expect(padAction(XBOX.RT)).toBe('jumpNext')
+  })
+
   it('ignores buttons with no meaning to a menu', () => {
     expect(padAction(XBOX.GUIDE)).toBeNull()
-    expect(padAction(XBOX.LT)).toBeNull()
+    expect(padAction(XBOX.VIEW)).toBeNull()
   })
 })
 

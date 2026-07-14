@@ -309,15 +309,17 @@ export default function Guide() {
           work), you can hold left while tapping B, and every button's hit area is bigger
           than the button you can see — because thumbs undershoot. Pair a{' '}
           <strong>Bluetooth controller</strong> and the on-screen buttons get out of the
-          way entirely: the pad drives the game, and the buttons are mapped by{' '}
-          <strong>position</strong> rather than by letter — a SNES pad's B sits at the
-          bottom and an Xbox pad's B sits on the right, so matching them up by name would
-          put your jump button on the wrong side of the controller.{' '}
-          <strong>Big Picture</strong> then turns the whole library into a console
-          dashboard — the focused game's art blurred across the screen, one rail per
-          system, all of it navigable from the couch with a d-pad. (iOS won't let a web
-          app force landscape, so in controller mode it asks you to turn the device and
-          picks the game back up when you do.)
+          way entirely: the pad drives the game, and a <strong>Controls</strong> screen
+          decides how it maps onto it. By default the <strong>letters match</strong> — A
+          means A. You can flip it to match <strong>positions</strong> instead (the
+          bottom button stays the bottom button, wherever its letter sits), and rebind
+          any button on top of either. There's no mapping that wins both ways, so it's
+          yours to pick. <strong>Frog</strong> is the other half: a full-screen games
+          browser built for a couch and a controller, with a mascot that wears the
+          colours of whichever machine you're pointing at, a shelf of consoles that
+          never scrolls, and a "Jump back in" row so most sessions never touch the
+          alphabet. (iOS won't let a web app force landscape, so in controller mode it
+          asks you to turn the device and picks the game back up when you do.)
         </p>
         <p>
           <strong>Reading</strong> is mostly client-side: PDFs (magazines
