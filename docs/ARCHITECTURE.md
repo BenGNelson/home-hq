@@ -639,6 +639,52 @@ untested code in the tree. Loading a save state from that menu restores it into
 the **running** engine (`gameManager.loadState`) instead of relaunching the
 player, which is what the older launch-with-`?slot=` path did.
 
+### Saves — and why the parent owns them
+
+Two different things are called a "save", and only one of them is the one you'd cry
+about losing:
+
+- the **battery save** (SRAM) — the game's own *Save*, the thing Pokémon writes. It
+  is the save that represents hours.
+- **save states** — a snapshot of the whole machine, taken from the pause menu.
+
+EmulatorJS persists neither, so the app does. The load-bearing decision: **the parent
+owns saves, not the player document.**
+
+That is not a stylistic choice. The old code saved from inside `emulator.html`,
+flushing on `pagehide`. The event fires — but the work it starts is asynchronous
+(open a cache, write it, POST it) and the iframe is destroyed before any of it lands.
+We were asking a dying document to save the game. Quit shortly after saving and the
+save was **gone** — not stale, gone, on the device *and* the server. The parent
+survives the teardown, so it can read the save out of the engine synchronously
+(`getSaveFile`) and then write it down at its leisure (`lib/gameSaves.js`,
+`lib/useGameSaves.js`).
+
+Three more rules fall out of the same audit:
+
+- **Hash the whole save.** The change-detector used to sample every 64th byte — 1.6%
+  of a 32KB file — so a write touching only unsampled bytes read as "unchanged" and
+  was silently dropped.
+- **Newest wins, and the server says when.** `GET /library/games/sram` returns
+  `X-Saved-At` (the file's mtime, epoch ms), and the device loads whichever copy is
+  newer. Seeding used to prefer the local cache unconditionally: play on a tablet,
+  pick up a phone, and the phone loaded its own older save *and then overwrote the
+  server with it*. This is deliberately not a general sync algorithm — two devices
+  played offline at once and the later one wins outright. For one person with two
+  devices that's the right trade; anything cleverer needs conflict UI nobody wants
+  mid-game.
+- **A failed upload goes in an outbox** and is retried on `online`. The readers have
+  had this for ages (`progressOutbox`); games simply never got it, so a save made
+  offline never reached the server, the backup, or the other device.
+
+**Save-state screenshots need `preserveDrawingBuffer`.** A WebGL canvas discards its
+drawing buffer the moment the frame is composited, so reading it back afterwards
+gives a perfectly valid, perfectly *black* image — which is what every thumbnail was.
+The engine never sets the flag, and its alternative source ("retroarch", which asks
+the core for the frame) aborts the Emscripten module and takes the whole iframe down
+with it. So `emuBridge.preserveCanvas()` patches `getContext` in the player document
+before the engine builds anything, and forces the flag on.
+
 ### Controller mode
 
 Pick up a Bluetooth pad and the on-screen controls disappear; the pad drives the

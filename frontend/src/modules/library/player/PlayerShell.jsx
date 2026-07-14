@@ -10,6 +10,7 @@ import {
   attachEmu,
   killEngineChrome,
   applyControls,
+  preserveCanvas,
   trackAudio,
   resumeAudio,
   press,
@@ -40,6 +41,7 @@ import {
 import { bindingForButton } from '../../../lib/gamepad.js'
 import { useGamepad } from '../../../lib/useGamepad.js'
 import { useWakeLock } from '../../../lib/useWakeLock.js'
+import { useGameSaves } from '../../../lib/useGameSaves.js'
 import { useMediaQuery } from '../../../lib/useMediaQuery.js'
 import { moveInGrid } from '../../../lib/gridNav.js'
 import { saveState, loadState, listStates, deleteState } from '../../../lib/saveStates.js'
@@ -133,7 +135,12 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
 
   const onFrameLoad = useCallback(() => {
     frameRef.current?.contentWindow?.focus?.()
-    trackAudio(frameRef.current) // before the engine creates one — see emuBridge
+    // Both of these must happen BEFORE the engine builds anything: they patch the
+    // player document's own constructors. trackAudio catches its AudioContext;
+    // preserveCanvas makes its WebGL canvas readable, so a save state can have a
+    // picture on it instead of a black rectangle.
+    trackAudio(frameRef.current)
+    preserveCanvas(frameRef.current)
     dispatch('engine-loaded')
     attachEmu(frameRef.current, { signal: abortRef.current?.signal }).then((emu) => {
       // No engine = the player document is older than this bundle (its cached
@@ -504,6 +511,14 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
     const t = setTimeout(() => setPadHint(false), 4500)
     return () => clearTimeout(t)
   }, [padActive])
+
+  // The battery save — the game's own "Save", the one that costs you hours.
+  //
+  // Owned HERE, in the parent, and not inside the player document. The iframe is the
+  // thing that gets destroyed when you quit, so every write it started died with it:
+  // quit shortly after saving and the save was gone. This survives the teardown, so
+  // it can read the save out of the engine on the way out and actually write it down.
+  useGameSaves(emuRef, id, state === 'PLAYING' || state === 'PAUSED')
 
   // Don't let the screen sleep mid-game. Re-acquired on every return to the tab,
   // because iOS drops the lock whenever the page is hidden and never gives it back.

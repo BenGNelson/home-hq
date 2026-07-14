@@ -210,6 +210,43 @@ export function resumeAudio(frame) {
   }
 }
 
+// --- screenshots -----------------------------------------------------------
+
+// Make the game's canvas readable, so a save state can have a picture on it.
+//
+// A WebGL canvas throws its drawing buffer away the moment the frame is composited,
+// unless it was created with `preserveDrawingBuffer`. The engine never sets it — so
+// reading the canvas back afterwards yields a perfectly valid, perfectly BLACK
+// image. That is why every save-state thumbnail was a black rectangle.
+//
+// The engine's other screenshot source ("retroarch", which asks the core for the
+// frame) is not an option: on these cores it kills the player document outright —
+// the Emscripten module aborts and takes the whole iframe with it.
+//
+// So we patch getContext in the player document BEFORE the engine creates its
+// context, and force the flag on. Costs a little GPU bandwidth (the buffer has to be
+// kept around); buys a screenshot that isn't a lie.
+export function preserveCanvas(frame) {
+  let win
+  try {
+    win = frame && frame.contentWindow
+  } catch {
+    return false
+  }
+  const proto = win?.HTMLCanvasElement?.prototype
+  if (!proto || proto.__hqPreserved) return false
+
+  const original = proto.getContext
+  proto.getContext = function (type, attrs) {
+    if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+      return original.call(this, type, { ...(attrs || {}), preserveDrawingBuffer: true })
+    }
+    return original.call(this, type, attrs)
+  }
+  proto.__hqPreserved = true
+  return true
+}
+
 // --- engine chrome ---------------------------------------------------------
 
 // The engine's own UI, which the HQ overlay replaces.
