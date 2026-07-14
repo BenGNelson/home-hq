@@ -651,11 +651,17 @@ dashboard. Four decisions carry the feature:
   perfectly good controller. It only goes away on a real disconnect, never on an
   idle timeout: a controller resting through a cutscene must not make the touch
   controls reappear.
-- **The preset maps by POSITION, not by letter** (`lib/controlPresets.js`).
-  Nintendo and Xbox disagree about where the letters go — a SNES pad's B is at the
-  bottom, an Xbox pad's B is on the right — and EmulatorJS's stock table matches
-  them by name, which puts the jump button on the wrong side of the pad. RetroPad
-  is already the abstraction, so ONE positional preset covers every system.
+- **The face buttons are a SETTING, because there is no right answer**
+  (`lib/controlPresets.js`). Nintendo's confirm button is A and it sits on the
+  RIGHT; Xbox's confirm button is also A and it sits at the BOTTOM. Same letter,
+  different place — so you can keep the letter or keep the position, never both.
+  Match the letters and Pokémon's "yes" is under the button that says A (and agrees
+  with our own menus); match the positions and Mario's jump stays under your thumb.
+  Two schemes, **letters by default**, plus a per-button remap on top — and the
+  bindings are stored **per controller**, because the next pad is a different shape
+  and remapping one must not rewire the other. A change applies to the *running*
+  game: the engine reads `emu.controls` on every button event, so `applyControls`
+  takes effect on the very next press, with no reload.
 - **The engine's `localStorage` is switched off** (`EJS_disableLocalStorage`). It
   persists the control map per-game and reloads it on boot, so the first session
   with a game would freeze whatever mapping was in effect then and silently

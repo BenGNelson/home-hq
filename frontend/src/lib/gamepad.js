@@ -80,6 +80,34 @@ export function repeatTick(state, now, { delay = 400, rate = 110 } = {}) {
   return { state, fire: false }
 }
 
+// EmulatorJS's name for a raw button index, so a press can become a binding.
+// Indices come from the browser's "standard" mapping, which every modern pad
+// reports — so this works for a controller we've never seen.
+const BUTTON_NAMES = {
+  0: 'BUTTON_1',
+  1: 'BUTTON_2',
+  2: 'BUTTON_3',
+  3: 'BUTTON_4',
+  4: 'LEFT_TOP_SHOULDER',
+  5: 'RIGHT_TOP_SHOULDER',
+  6: 'LEFT_BOTTOM_SHOULDER',
+  7: 'RIGHT_BOTTOM_SHOULDER',
+  8: 'SELECT',
+  10: 'LEFT_STICK',
+  11: 'RIGHT_STICK',
+  12: 'DPAD_UP',
+  13: 'DPAD_DOWN',
+  14: 'DPAD_LEFT',
+  15: 'DPAD_RIGHT',
+}
+
+// Index 9 (Menu/Start) is deliberately absent: the app owns it (short press = the
+// game's START, long press = the pause menu), so it can't be handed to the game as
+// well. Index 16 (Guide) is swallowed by the OS on most platforms.
+export function bindingForButton(index) {
+  return BUTTON_NAMES[index] || null
+}
+
 // What a button MEANS to a menu. The game never sees these — it gets the preset.
 export function padAction(button) {
   switch (button) {

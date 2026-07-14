@@ -11,7 +11,7 @@
 // its engine config the other way via `window.HQ_PLAYER_CONFIG`, which the
 // player reads off window.parent at boot.
 
-import { presetFor, EJS_BUTTONS_OFF, EJS_HIDE_SETTINGS } from './controlPresets.js'
+import { buildControls, EJS_BUTTONS_OFF, EJS_HIDE_SETTINGS } from './controlPresets.js'
 import { RETROPAD, DIGITAL_INPUTS } from './retropad.js'
 
 // Re-exported so callers can reach the engine and its button indices from one
@@ -32,14 +32,14 @@ export const HQ_CONTRACT_VERSION = 1
 // in the app bundle rides the content-hashed shell instead — which means the
 // control presets, hidden buttons and menu settings can all change later
 // without touching the player document again.
-export function playerConfig(core) {
+export function playerConfig(core, controls) {
   return {
     // Save states go to the browser (IndexedDB), not a downloaded .state file
     // (which iOS can't open). Our own EJS_onSaveState hook does the real work.
     defaultOptions: { 'save-state-location': 'browser' },
 
-    // A physical pad works out of the box, mapped by position (see controlPresets).
-    defaultControls: presetFor(core),
+    // A physical pad works out of the box (see controlPresets).
+    defaultControls: buildControls(controls),
 
     // The engine's own bottom bar and settings screen, replaced by the HQ pause menu.
     buttons: EJS_BUTTONS_OFF,
@@ -329,6 +329,18 @@ export function gateEngineGamepad(emu, isGated) {
   return () => {
     for (const name of Object.keys(original)) gp.on(name, original[name])
     delete gp[ORIGINALS]
+  }
+}
+
+// Re-map the controller on a RUNNING game. The engine reads `emu.controls` on every
+// button event, so a remap takes effect on the very next press — no reload, and you
+// can feel the change while you're still holding the pad.
+export function applyControls(emu, controls) {
+  try {
+    emu.controls = buildControls(controls)
+    return true
+  } catch {
+    return false
   }
 }
 

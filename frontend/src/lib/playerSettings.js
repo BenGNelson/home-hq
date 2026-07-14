@@ -17,6 +17,32 @@ export const DEFAULTS = {
   touchOpacity: 0.75,
   touchScale: 1,
   volume: 0.5,
+
+  // How the controller maps onto the game — see lib/controlPresets.js.
+  controlScheme: 'letters',
+  // Per-button overrides, keyed BY CONTROLLER: `{ '<pad id>': { 8: 'BUTTON_2' } }`.
+  // Keyed by pad rather than globally because a second controller is a different
+  // shape, and remapping one must not silently rewire the other.
+  controlBindings: {},
+}
+
+// This device's overrides for one specific controller.
+export function bindingsFor(settings, padId) {
+  return (padId && settings?.controlBindings?.[padId]) || {}
+}
+
+// Rebind one button on one controller, leaving every other controller alone.
+export function withBinding(settings, padId, index, label) {
+  if (!padId) return settings
+  const forPad = { ...bindingsFor(settings, padId), [index]: label }
+  return { ...settings, controlBindings: { ...settings.controlBindings, [padId]: forPad } }
+}
+
+// Back to the scheme's defaults for this controller.
+export function clearBindings(settings, padId) {
+  const next = { ...settings.controlBindings }
+  delete next[padId]
+  return { ...settings, controlBindings: next }
 }
 
 export function readSettings(storage) {

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Play, Save, FolderOpen, FastForward, Maximize, RotateCcw, LogOut } from 'lucide-react'
+import { Play, Save, FolderOpen, FastForward, Maximize, Gamepad2, RotateCcw, LogOut } from 'lucide-react'
 import { moveInGrid } from '../../../lib/gridNav.js'
 import { sectionAccent } from '../../../lib/library.js'
 import { radiantBackdrop, glowFilter } from '../../../lib/glow.js'
@@ -33,6 +33,7 @@ export function pauseItems(fastForward, { canFullscreen = true } = {}) {
     // is where Fullscreen lives now. Except on iPhone, which has no Fullscreen API
     // at all: there the button did nothing, so it isn't shown. Quit is the way out.
     ...(canFullscreen ? [{ id: 'fullscreen', label: 'Fullscreen', Icon: Maximize }] : []),
+    { id: 'controls', label: 'Controls', Icon: Gamepad2 },
     { id: 'restart', label: 'Restart', Icon: RotateCcw },
     { id: 'quit', label: 'Quit', Icon: LogOut, danger: true },
   ]

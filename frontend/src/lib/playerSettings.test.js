@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest'
-import { DEFAULTS, SETTINGS_KEY, readSettings, writeSettings, migrateLegacyEjsKeys } from './playerSettings.js'
+import {
+  DEFAULTS,
+  SETTINGS_KEY,
+  readSettings,
+  writeSettings,
+  migrateLegacyEjsKeys,
+  bindingsFor,
+  withBinding,
+  clearBindings,
+} from './playerSettings.js'
 
 // A stand-in for localStorage, including the index-based key() walk that
 // migrateLegacyEjsKeys needs.
@@ -86,5 +95,55 @@ describe('migrateLegacyEjsKeys', () => {
 
   it('does not throw without storage', () => {
     expect(migrateLegacyEjsKeys(null)).toBe(0)
+  })
+})
+
+
+describe('control bindings, per controller', () => {
+  // Keyed by controller on purpose: Ben has an Xbox pad and may buy another with a
+  // different layout. Remapping one must not silently rewire the other.
+  const XBOX = 'Xbox Wireless Controller:0'
+  const OTHER = '8BitDo SN30 Pro:0'
+
+  it('starts with no overrides', () => {
+    expect(bindingsFor(DEFAULTS, XBOX)).toEqual({})
+    expect(bindingsFor(DEFAULTS, null)).toEqual({})
+  })
+
+  it('remembers a rebind against the controller it was made on', () => {
+    const s = withBinding(DEFAULTS, XBOX, 8, 'BUTTON_2')
+    expect(bindingsFor(s, XBOX)).toEqual({ 8: 'BUTTON_2' })
+    expect(bindingsFor(s, OTHER)).toEqual({}) // the other pad is untouched
+  })
+
+  it('keeps each controller’s map separate', () => {
+    let s = withBinding(DEFAULTS, XBOX, 8, 'BUTTON_2')
+    s = withBinding(s, OTHER, 8, 'BUTTON_4')
+    expect(bindingsFor(s, XBOX)[8]).toBe('BUTTON_2')
+    expect(bindingsFor(s, OTHER)[8]).toBe('BUTTON_4')
+  })
+
+  it('layers several rebinds on one controller', () => {
+    let s = withBinding(DEFAULTS, XBOX, 8, 'BUTTON_2')
+    s = withBinding(s, XBOX, 0, 'BUTTON_1')
+    expect(bindingsFor(s, XBOX)).toEqual({ 0: 'BUTTON_1', 8: 'BUTTON_2' })
+  })
+
+  it('resets one controller without touching the others', () => {
+    let s = withBinding(DEFAULTS, XBOX, 8, 'BUTTON_2')
+    s = withBinding(s, OTHER, 8, 'BUTTON_4')
+    s = clearBindings(s, XBOX)
+    expect(bindingsFor(s, XBOX)).toEqual({})
+    expect(bindingsFor(s, OTHER)[8]).toBe('BUTTON_4')
+  })
+
+  it('does nothing when there is no controller to key against', () => {
+    expect(withBinding(DEFAULTS, null, 8, 'BUTTON_2')).toBe(DEFAULTS)
+  })
+
+  it('round-trips through storage', () => {
+    const store = fakeStorage()
+    writeSettings(store, withBinding(DEFAULTS, XBOX, 8, 'BUTTON_2'))
+    expect(bindingsFor(readSettings(store), XBOX)).toEqual({ 8: 'BUTTON_2' })
   })
 })
