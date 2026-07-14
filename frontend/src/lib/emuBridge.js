@@ -435,11 +435,11 @@ export function setFastForward(emu, on) {
 // engine's own listener and the audio unlock still works.
 const START_STYLE_ID = 'hq-start-screen'
 
-// `loader` is the frog: { svg, css } built by the frog module and handed in, because
-// this file is the only one allowed to touch the player document and the frog module
-// is the only one allowed to draw the frog. Optional — without it the loading state
-// falls back to the engine's own.
-export function styleStartScreen(frame, { coverUrl, name, loader } = {}) {
+// `onStart` fires when the Play button is tapped — the parent shows the frog then.
+// The frog deliberately does NOT live in this document: the engine resizes the iframe
+// when the game starts (the touch controls take half the screen), and anything centred
+// inside a box that changes size moves when it changes size.
+export function styleStartScreen(frame, { coverUrl, name, onStart } = {}) {
   let doc
   try {
     doc = frame && frame.contentDocument
@@ -452,7 +452,6 @@ export function styleStartScreen(frame, { coverUrl, name, loader } = {}) {
   const style = doc.createElement('style')
   style.id = START_STYLE_ID
   style.textContent = `
-    ${loader?.css || ''}
     /* The game's own cover art, pushed right back so it reads as atmosphere. */
     .ejs_game_background {
       filter: blur(34px) saturate(1.4) brightness(0.55) !important;
@@ -591,14 +590,10 @@ export function styleStartScreen(frame, { coverUrl, name, loader } = {}) {
     // frog takes its place. This listener only ever swaps some DOM — the engine's own
     // listener (the one that unlocks audio on iOS) is untouched, which is the whole
     // reason the button is MOVED into our column rather than recreated inside it.
-    button.addEventListener(
-      'click',
-      () => {
-        column.classList.add('hq-start-out')
-        if (loader) mountLoader(doc, loader)
-      },
-      { once: true }
-    )
+    button.addEventListener('click', () => {
+      column.classList.add('hq-start-out')
+      onStart?.()
+    }, { once: true })
     return true
   }
 
@@ -612,64 +607,6 @@ export function styleStartScreen(frame, { coverUrl, name, loader } = {}) {
     setTimeout(() => observer.disconnect(), 120_000) // don't watch forever
   }
   return true
-}
-
-// Put the frog on screen and keep it filling until the game starts.
-//
-// It replaces a gap, not a spinner: the engine's own progress text renders hidden, so
-// between the tap and the first frame there was nothing on screen at all — which is
-// indistinguishable from a crash. The frog is the one thing standing between "loading"
-// and "did it break".
-//
-// The fill is time-based, not a percentage read off the engine — see nextFill() for
-// why a real percentage would send it backwards. The engine's phase text rides along
-// underneath, where the honest detail belongs.
-function mountLoader(doc, { svg, fill, label, plan }) {
-  const view = doc.defaultView
-  if (!view || doc.querySelector('.hq-loader')) return
-  // Body, not `.ejs_parent`. The loader is fixed to the viewport, and living outside
-  // the engine's own tree means nothing it does to its layout can reach the frog.
-  doc.body.insertAdjacentHTML('beforeend', svg)
-
-  const el = doc.querySelector('.hq-loader')
-  const water = el?.querySelector('.hq-loader-water')
-  const text = el?.querySelector('.hq-loader-text')
-  if (!el || !water) return
-
-  const born = view.performance?.now?.() ?? 0
-  let value = 0
-
-  const tick = () => {
-    // The frame can go at any moment (quit mid-load) and the interval outlives it.
-    if (!el.isConnected) return view.clearInterval(timer)
-    const now = view.performance?.now?.() ?? born
-    value = fill(value, now - born)
-    water.style.setProperty('--fill', String(value))
-    if (text) text.textContent = label(doc.querySelector('.ejs_loading_text')?.textContent)
-  }
-  const timer = view.setInterval(tick, 100)
-  tick()
-
-  // The game is running — but the frog doesn't get yanked off screen for it. It tops
-  // up, becomes the actual frog, hops, and only then lifts the veil. The game has been
-  // playing behind it the whole time, so none of this costs anything but a beat.
-  //
-  // Held on the element so the teardown doesn't need to know any of the timings.
-  el.__hqFinish = () => {
-    if (el.__hqFinishing) return
-    el.__hqFinishing = true
-    view.clearInterval(timer)
-
-    const at = plan((view.performance?.now?.() ?? born) - born)
-    view.setTimeout(() => {
-      water.style.setProperty('--fill', '1')
-      if (text) text.textContent = ''
-    }, at.fillAt)
-    view.setTimeout(() => el.classList.add('hq-loader-done'), at.hopAt)
-    view.setTimeout(() => el.classList.add('hq-loader-out'), at.outAt)
-    view.setTimeout(() => el.remove(), at.goneAt)
-    return at.goneAt
-  }
 }
 
 // Take the start screen out of the DOM once the game is actually running.
@@ -694,20 +631,6 @@ export function clearStartScreen(frame) {
   // the game, a smear over the top of it after.
   doc.querySelector('.ejs_game_background')?.remove()
 
-  const loader = doc.querySelector('.hq-loader')
-  if (!loader) {
-    doc.getElementById(START_STYLE_ID)?.remove()
-    return true
-  }
-
-  // The frog gets to finish. It has spent the whole load filling up, so it fills the
-  // last of the way, turns into the actual frog and hops — THAT is what "loaded" looks
-  // like, and cutting it off a frame before the payoff would be a strange thing to
-  // build and then hide. The game is already running behind the veil; this is a beat,
-  // not a gate.
-  //
-  // The styles have to outlive the frog, so they leave with it and not before.
-  const goneAt = loader.__hqFinish?.() ?? 0
-  doc.defaultView?.setTimeout(() => doc.getElementById(START_STYLE_ID)?.remove(), goneAt + 50)
+  doc.getElementById(START_STYLE_ID)?.remove()
   return true
 }

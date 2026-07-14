@@ -7,8 +7,8 @@ import { goBack } from '../../../lib/nav.js'
 // The player is Frog's screen. It's launched from Home HQ's Games pages too, but the
 // thing you're doing is playing a game — and when Frog moves to its own repo, the
 // player goes with it. So it dresses in Frog's clothes, wherever you came in from.
-import { FROG, systemStyle, systemForCore } from '../frog/theme.js'
-import { frogLoaderSvg, frogLoaderCss, nextFill, phaseLabel, finishPlan } from '../frog/loader.js'
+import { systemForCore } from '../frog/theme.js'
+import FrogBoot from '../frog/FrogBoot.jsx'
 import {
   RETROPAD,
   playerConfig,
@@ -60,6 +60,12 @@ import RotatePrompt from './RotatePrompt.jsx'
 import TouchOverlay from './TouchOverlay.jsx'
 import { PORTRAIT_GAME_HEIGHT } from '../../../lib/touchLayouts.js'
 
+// How long the frog is up for, at minimum, and how long its exit takes. The exit
+// number must match .frog-boot[data-phase='done'] in frog.css — the animation plays,
+// then the element goes.
+const BOOT_MS = 1100
+const BOOT_OUT_MS = 900
+
 // The game player. Hosts the emulator iframe and everything layered over it.
 //
 // The engine itself stays inside emulator.html (its own document) so its window
@@ -84,6 +90,12 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
   const [menuFocus, setMenuFocus] = useState(0)
   const [fastForward, setFF] = useState(false)
   const [immersive, setImmersive] = useState(false)
+
+  // The frog between Play and the game. `bootAt` is when Play was tapped (null = not
+  // booting), `booted` = the engine is live, `bootDone` = the frog is taking its bow.
+  const [bootAt, setBootAt] = useState(null)
+  const [booted, setBooted] = useState(false)
+  const [bootDone, setBootDone] = useState(false)
 
   // The save-state shelf, layered over the pause menu.
   const [shelfOpen, setShelfOpen] = useState(false)
@@ -148,20 +160,14 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
     // picture on it instead of a black rectangle.
     trackAudio(frameRef.current)
     preserveCanvas(frameRef.current) // belt-and-braces; emulator.html does it first
-    // The frog is the loading screen. It fills with the colour of the machine you're
-    // about to play — the same costume it was wearing on Frog's shelf a moment ago,
-    // which is the thread that makes the handoff feel like one app instead of two.
-    const dress = systemStyle(label || systemForCore(core))
+    // Tapping Play raises the frog — in the PARENT, over the iframe. Not inside it:
+    // the iframe is resized the moment the game starts (on a phone it drops to 46% so
+    // the touch controls can have the rest), and anything centred inside a box that
+    // changes size moves when it changes size. Two attempts died on that.
     styleStartScreen(frameRef.current, {
       coverUrl: coverUrl(id),
       name,
-      loader: {
-        svg: frogLoaderSvg({ rgb: dress.accent, ground: FROG.ground, ...dress }),
-        css: frogLoaderCss({ rgb: dress.accent, ground: FROG.ground }),
-        fill: nextFill,
-        label: phaseLabel,
-        plan: finishPlan,
-      },
+      onStart: () => setBootAt(Date.now()),
     })
     dispatch('engine-loaded')
     attachEmu(frameRef.current, { signal: abortRef.current?.signal }).then((emu) => {
@@ -176,8 +182,26 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
       // sits in the middle of the game, still bobbing.
       clearStartScreen(frameRef.current)
       dispatch('started')
+      setBooted(true)
     })
   }, [])
+
+  // The frog stays up for a beat after the game is ready.
+  //
+  // A cached core loads in ~300ms, so if the frog left the moment the game started
+  // you'd see a flicker, not a frog. It's a console boot: it takes as long as it
+  // takes to be worth having. The game is already running underneath, so the beat
+  // costs nothing but the beat.
+  useEffect(() => {
+    if (!bootAt || !booted) return
+    const left = Math.max(0, BOOT_MS - (Date.now() - bootAt))
+    const hop = setTimeout(() => setBootDone(true), left)
+    const gone = setTimeout(() => setBootAt(null), left + BOOT_OUT_MS)
+    return () => {
+      clearTimeout(hop)
+      clearTimeout(gone)
+    }
+  }, [bootAt, booted])
 
   // Suppress the engine's own UI: its bottom bar and context menu always (the HQ
   // pause menu replaces them), and its touch pad whenever a controller is driving
@@ -682,6 +706,8 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
           )}
         </div>
       )}
+
+      {bootAt && <FrogBoot system={label || systemForCore(core)} done={bootDone} />}
 
       <div className="relative min-h-0 w-full flex-1">
         <iframe
