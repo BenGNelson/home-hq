@@ -13,7 +13,19 @@ const GAMES = sectionAccent('games') // violet — the Games role tint
 // D-pad on a controller, and the game keeps rendering (blurred) behind it so you
 // never lose your place. Focus is index-based (see lib/gridNav.js) rather than
 // DOM-measured, which is what lets the controller drive it.
-export const PAUSE_COLS = 3
+// Columns are chosen to come out EVEN, rather than fixed at 3.
+//
+// The tile count isn't constant — Fullscreen only exists where fullscreen exists,
+// so it's 8 on an iPad and 7 on a phone. Fixing the grid at 3 gives 3-3-2 on one and
+// 3-3-1 on the other, and both read as broken: a row hanging off the left.
+//
+// So: 4 columns when that divides evenly, 3 otherwise, and a lone leftover is
+// centred rather than stranded. gridNav is told the same thing, so the d-pad walks
+// what your eye actually sees.
+export function pauseCols(count) {
+  if (count % 4 === 0) return 4
+  return 3
+}
 
 // The menu's contents, exported so the controller can walk the same grid the
 // touch/keyboard user sees — one source of truth for what's on screen and what
@@ -41,6 +53,8 @@ export function pauseItems(fastForward, { canFullscreen = true } = {}) {
 
 export default function PauseMenu({ open, name, fastForward, canFullscreen, focus, onFocus, onAction, legend }) {
   const items = pauseItems(fastForward, { canFullscreen })
+  const cols = pauseCols(items.length)
+  const orphan = items.length % cols === 1 && items.length > cols
 
   // Keyboard parity with the controller — the same grid walk drives both, so
   // desktop and pad can never diverge.
@@ -48,7 +62,7 @@ export default function PauseMenu({ open, name, fastForward, canFullscreen, focu
     const dir = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' }[e.key]
     if (dir) {
       e.preventDefault()
-      onFocus(moveInGrid({ count: items.length, cols: PAUSE_COLS, index: focus }, dir))
+      onFocus(moveInGrid({ count: items.length, cols, index: focus }, dir, { centerLastRow: true }))
     } else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       onAction(items[focus].id)
@@ -89,12 +103,13 @@ export default function PauseMenu({ open, name, fastForward, canFullscreen, focu
         <p className="mb-1 text-center text-xs font-medium uppercase tracking-widest text-slate-500">Paused</p>
         <h2 className="mb-5 truncate text-center text-lg font-semibold text-slate-100">{name}</h2>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className={`grid gap-3 ${cols === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
           {items.map((item, i) => (
             <MenuTile
               key={item.id}
               item={item}
               focused={i === focus}
+              centered={orphan && i === items.length - 1}
               onSelect={() => onAction(item.id)}
               onHover={() => onFocus(i)}
             />
@@ -107,7 +122,7 @@ export default function PauseMenu({ open, name, fastForward, canFullscreen, focu
   )
 }
 
-function MenuTile({ item, focused, onSelect, onHover }) {
+function MenuTile({ item, focused, centered, onSelect, onHover }) {
   const { Icon, label, primary, danger, active } = item
   const ref = useRef(null)
 
@@ -125,6 +140,8 @@ function MenuTile({ item, focused, onSelect, onHover }) {
       onMouseEnter={onHover}
       aria-current={focused || undefined}
       className={`flex aspect-square flex-col items-center justify-center gap-2 rounded-2xl border bg-slate-900/70 px-2 transition-all active:scale-[0.97] ${
+        centered ? 'col-start-2' : ''
+      } ${
         focused
           ? 'scale-105 border-violet-400 bg-slate-800/80 ring-2 ring-violet-400/60'
           : 'border-slate-700/80 hover:border-slate-600'
