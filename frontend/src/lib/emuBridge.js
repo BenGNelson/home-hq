@@ -12,6 +12,7 @@
 // player reads off window.parent at boot.
 
 import { buildControls, EJS_BUTTONS_OFF, EJS_HIDE_SETTINGS } from './controlPresets.js'
+import { sectionAccent } from './library.js'
 import { RETROPAD, DIGITAL_INPUTS } from './retropad.js'
 
 // Re-exported so callers can reach the engine and its button indices from one
@@ -32,8 +33,17 @@ export const HQ_CONTRACT_VERSION = 1
 // in the app bundle rides the content-hashed shell instead — which means the
 // control presets, hidden buttons and menu settings can all change later
 // without touching the player document again.
-export function playerConfig(core, controls) {
+export function playerConfig(core, controls, { name, coverUrl } = {}) {
   return {
+    // --- the start screen ---
+    // It belongs to the engine, and it has to: that Start tap is the gesture that
+    // unlocks audio on iOS, so it must land inside the player document. But how it
+    // LOOKS is ours — see styleStartScreen at the bottom of this file. The engine
+    // ships a grey box with the button stuck to the bottom edge.
+    alignStartButton: 'center',
+    startButtonName: 'Play',
+    ...(coverUrl ? { backgroundImage: coverUrl, backgroundBlur: true } : {}),
+    backgroundColor: '#020617', // slate-950, so it matches the rest of the app
     // Save states go to the browser (IndexedDB), not a downloaded .state file
     // (which iOS can't open). Our own EJS_onSaveState hook does the real work.
     defaultOptions: { 'save-state-location': 'browser' },
@@ -410,4 +420,164 @@ export function setFastForward(emu, on) {
   } catch {
     return false
   }
+}
+
+// --- the start screen ------------------------------------------------------
+
+// The engine draws the screen you see before a game boots, and it has to: the tap on
+// its Start button is the gesture that unlocks audio on iOS, so it must land inside
+// the player document. But it ships as a grey box with the button pinned to the
+// bottom edge and the loading state as one line of bare text.
+//
+// So we style it from out here, the same way killEngineChrome does — CSS injected
+// into the player document, which keeps it in the app bundle where changing it is
+// free. The button is MOVED into our layout, never recreated, so it keeps the
+// engine's own listener and the audio unlock still works.
+const START_STYLE_ID = 'hq-start-screen'
+
+export function styleStartScreen(frame, { coverUrl, name } = {}) {
+  let doc
+  try {
+    doc = frame && frame.contentDocument
+  } catch {
+    return false
+  }
+  if (!doc?.head || doc.getElementById(START_STYLE_ID)) return false
+
+  const rgb = sectionAccent('games').rgb
+  const style = doc.createElement('style')
+  style.id = START_STYLE_ID
+  style.textContent = `
+    /* The game's own cover art, pushed right back so it reads as atmosphere. */
+    .ejs_game_background {
+      filter: blur(34px) saturate(1.4) brightness(0.55) !important;
+      transform: scale(1.2);
+      opacity: 0.6;
+    }
+    /* The back-lit radiance the rest of the app uses, over the top of it. */
+    .ejs_parent::after {
+      content: '';
+      position: absolute; inset: 0; pointer-events: none;
+      background:
+        radial-gradient(110% 80% at 50% 42%, rgba(${rgb},0.26), transparent 62%),
+        linear-gradient(to bottom, rgba(2,6,23,0.45), rgba(2,6,23,0.92));
+    }
+
+    /* Our column: the box art, the title, then the button. */
+    .hq-start {
+      position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 3;
+      display: flex; flex-direction: column; align-items: center; gap: 18px;
+      width: max-content; max-width: 86vw;
+      animation: hq-rise 520ms cubic-bezier(.2,.8,.2,1) both;
+    }
+    .hq-start-art {
+      width: 128px; aspect-ratio: 3/4;
+      border-radius: 12px; object-fit: cover;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.10),
+        0 24px 60px -12px rgba(0,0,0,0.85),
+        0 0 70px -10px rgba(${rgb},0.55);
+      animation: hq-float 5s ease-in-out infinite;
+    }
+    .hq-start-title {
+      margin: 0; max-width: 22ch; text-align: center;
+      color: #f1f5f9;
+      font: 600 18px/1.3 system-ui, -apple-system, sans-serif;
+      text-shadow: 0 2px 20px rgba(0,0,0,0.7);
+    }
+
+    /* NB: the engine puts .ejs_start_button AND .ejs_start_button_border on the SAME
+       element. Style "the border" and you're styling the button. */
+    .ejs_start_button {
+      position: static !important;
+      margin: 0 !important;
+      padding: 14px 44px !important;
+      border: 0 !important;
+      border-radius: 9999px !important;
+      background: rgba(${rgb}, 0.95) !important;
+      color: #fff !important;
+      font: 600 16px/1 system-ui, -apple-system, sans-serif !important;
+      text-transform: none !important;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.16), 0 12px 40px -8px rgba(${rgb},0.95);
+      transition: transform 120ms ease;
+      cursor: pointer;
+      /* The engine centres this button with its own translate. Inside our flex column
+         that just shoves it off to one side, so the transform has to go. */
+      transform: none !important;
+    }
+    .ejs_start_button:active { transform: scale(0.96) !important; }
+
+    /* Loading: a breathing ring, not a line of bare text. */
+    .ejs_loading_text {
+      position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 3;
+      color: #cbd5e1 !important;
+      font: 500 13px/1.4 system-ui, -apple-system, sans-serif !important;
+      text-shadow: none !important;
+      letter-spacing: 0.04em;
+      padding-top: 60px; text-align: center;
+    }
+    .ejs_loading_text::before {
+      content: '';
+      position: absolute; top: 0; left: 50%; margin-left: -21px;
+      width: 42px; height: 42px;
+      border-radius: 9999px;
+      border: 2px solid rgba(${rgb}, 0.22);
+      border-top-color: rgba(${rgb}, 1);
+      animation: hq-spin 720ms linear infinite;
+    }
+    .ejs_loading_text_glow { display: none !important; }
+
+    @keyframes hq-spin { to { transform: rotate(360deg); } }
+    @keyframes hq-float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-7px) } }
+    @keyframes hq-rise {
+      from { opacity: 0; transform: translate(-50%, calc(-50% + 12px)) scale(0.97); }
+      to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+  `
+  doc.head.appendChild(style)
+
+  // The engine only builds its Start button once the core has loaded, so it isn't
+  // there yet. Wait for it, then wrap it in our column. Moving it preserves the
+  // engine's click listener — which is the whole ballgame on iOS.
+  const decorate = () => {
+    const button = doc.querySelector('.ejs_start_button')
+    if (!button || button.parentElement?.classList.contains('hq-start')) return false
+
+    const column = doc.createElement('div')
+    column.className = 'hq-start'
+
+    if (coverUrl) {
+      const art = doc.createElement('img')
+      art.className = 'hq-start-art'
+      art.src = coverUrl
+      art.alt = ''
+      art.onerror = () => art.remove() // no box art for this one — drop it, don't fake it
+      column.appendChild(art)
+    }
+    if (name) {
+      const title = doc.createElement('p')
+      title.className = 'hq-start-title'
+      title.textContent = name
+      column.appendChild(title)
+    }
+
+    button.parentElement.insertBefore(column, button)
+    column.appendChild(button)
+    return true
+  }
+
+  if (!decorate()) {
+    const Observer = frame.contentWindow?.MutationObserver
+    if (!Observer) return true
+    const observer = new Observer(() => {
+      if (decorate()) observer.disconnect()
+    })
+    observer.observe(doc.body, { childList: true, subtree: true })
+    setTimeout(() => observer.disconnect(), 120_000) // don't watch forever
+  }
+  return true
 }
