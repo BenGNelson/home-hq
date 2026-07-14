@@ -122,7 +122,7 @@ export default function Frog({ size = 96, system, asleep = false, className = ''
             <circle cx="73" cy="27.6" r="1.9" fill="#fff" />
             {/* Lids sit at scaleY(0) and snap shut on the blink keyframe. */}
             <ellipse className="frog-lid" cx="28" cy="29" rx="11" ry="11" fill={s.skin} />
-            <ellipse className="frog-lid" cx="72" cy="29" rx="11" ry="11" fill={s.skin} />
+            <ellipse className="frog-lid frog-lid-b" cx="72" cy="29" rx="11" ry="11" fill={s.skin} />
           </>
         )}
 

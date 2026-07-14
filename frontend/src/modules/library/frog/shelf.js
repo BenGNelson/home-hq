@@ -5,7 +5,7 @@
 // "does an empty system still show?" answerable by a test instead of by squinting
 // at an iPad.
 
-import { ALPHABET, letterOf } from '../../../lib/library.js'
+import { letterOf } from '../../../lib/library.js'
 import { SYSTEMS } from './theme.js'
 
 // The order the consoles sit in. Chronological, which is also roughly the order
@@ -72,14 +72,21 @@ export function buildShelf(items = [], recent = []) {
   ]
 }
 
-// Which console's colours the frog is currently wearing. Focus on a system tile is
-// obvious; focus on a game means the system THAT game runs on, which is what makes
-// the frog feel like it's paying attention rather than just cycling a palette.
-export function focusedSystem(rails, focus) {
-  const rail = rails?.[focus?.rail]
-  const item = rail?.items?.[focus?.index]
-  if (!item) return null
-  return rail.kind === 'system' ? item.label : item.label || null
+// The letters this list actually has, IN THE ORDER THE LIST IS SORTED, each mapped
+// to the index of its first game.
+//
+// Deriving this from ALPHABET instead was a real bug: `letterOf` files numeric titles
+// ("3D Pocket Pool") under '#', which sorts FIRST in a naturally-sorted list but LAST
+// in ALPHABET. So a trigger press from the top row of the biggest library — the row
+// focus lands on by default — walked off the end of the alphabet and dumped you 490
+// games down. The list's own order is the only order that can't lie about itself.
+export function letterIndex(games = []) {
+  const first = new Map()
+  for (let i = 0; i < games.length; i++) {
+    const ch = letterOf(games[i].name)
+    if (!first.has(ch)) first.set(ch, i)
+  }
+  return first
 }
 
 // The fast lane through a long list: the triggers move a LETTER at a time.
@@ -89,22 +96,22 @@ export function focusedSystem(rails, focus) {
 // Game Boy games is sixty D-pad presses to reach the S's; this makes it two.
 export function stepLetter(games, index, step) {
   if (!games.length) return 0
+
+  const first = letterIndex(games)
+  const letters = [...first.keys()]
   const here = letterOf(games[index]?.name)
-  const first = games.findIndex((g) => letterOf(g.name) === here)
 
   // Going back from the middle of a letter lands on the TOP of that letter first —
   // what a scrub bar does, and it means LT is never a bigger jump than you meant.
   // A second press then moves a letter.
-  if (step < 0 && index > first) return first
+  if (step < 0 && index > first.get(here)) return first.get(here)
 
-  const order = ALPHABET.indexOf(here)
-  for (let n = order + step; n >= 0 && n < ALPHABET.length; n += step) {
-    const target = games.findIndex((g) => letterOf(g.name) === ALPHABET[n])
-    if (target >= 0) return target
-  }
-  // Off the end: pin to the end. Never wrap — wrapping from Z to A after a trigger
-  // press you didn't quite mean is disorienting in a way a hard stop never is.
-  return step > 0 ? games.length - 1 : 0
+  const next = letters.indexOf(here) + step
+  // Off the end: pin to the end. Never wrap — wrapping from Z back to A after a
+  // trigger press you didn't quite mean is disorienting in a way a hard stop isn't.
+  if (next < 0) return 0
+  if (next >= letters.length) return games.length - 1
+  return first.get(letters[next])
 }
 
 const MINUTE = 60_000

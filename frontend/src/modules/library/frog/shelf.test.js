@@ -107,6 +107,21 @@ describe('stepLetter', () => {
   it('has nothing to do with an empty list', () => {
     expect(stepLetter([], 0, 1)).toBe(0)
   })
+
+  it('treats a NUMERIC title as the letter before A, because that is where it sits', () => {
+    // The bug this replaces: `letterOf` files "3D Pocket Pool" under '#', which sorts
+    // FIRST in the list but LAST in the alphabet. Reading the order from ALPHABET
+    // walked straight off the end and dumped you on the last game in the library —
+    // from row 0 of the biggest system, which is the row focus lands on by default.
+    const withNumbers = [
+      g('n1', '3D Pocket Pool', 'Game Boy Color'),
+      g('n2', '4-in-1 Funpak', 'Game Boy Color'),
+      ...list,
+    ]
+    expect(stepLetter(withNumbers, 0, 1)).toBe(2) // → the first A, NOT the last game
+    expect(stepLetter(withNumbers, 2, -1)).toBe(0) // → back to the first number
+    expect(stepLetter(withNumbers, 0, -1)).toBe(0) // → nowhere to go; stay put
+  })
 })
 
 describe('agoLabel', () => {

@@ -37,7 +37,10 @@
   transform-origin: center;
   transform-box: fill-box;
 }
-.frog-lid:nth-of-type(2) { animation-delay: 0.06s; }
+/* The lids are the 3rd and 4th <ellipse> siblings (body and belly come first), so
+   nth-of-type never matched the second one and both eyes blinked in lockstep. An
+   explicit class is the only thing that can't drift when the drawing changes. */
+.frog-lid-b { animation-delay: 0.08s; }
 
 /* The hop. Fired by re-keying the element when the frog changes costume, so it
    plays once per system change and never loops. */
