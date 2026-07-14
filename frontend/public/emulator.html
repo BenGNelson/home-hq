@@ -45,6 +45,30 @@
           document.body.innerHTML = '<p id="msg">Missing core or ROM.</p>';
           return;
         }
+        // --- make the canvas readable (save-state screenshots) ----------------
+        // A WebGL canvas throws its drawing buffer away the instant the frame is
+        // composited, unless it was created with preserveDrawingBuffer. The engine
+        // never sets it, so reading the canvas back later gives a perfectly valid,
+        // perfectly BLACK image — which is what every save-state thumbnail was.
+        //
+        // This has to run BEFORE the core creates its context, and the core is built
+        // by Emscripten inside this document. Doing it from the parent left it to
+        // timing; doing it here, first thing, leaves nothing to chance.
+        (function () {
+          var proto = window.HTMLCanvasElement && window.HTMLCanvasElement.prototype;
+          if (!proto || proto.__hqPreserved) return;
+          var original = proto.getContext;
+          proto.getContext = function (type, attrs) {
+            if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+              attrs = attrs || {};
+              attrs.preserveDrawingBuffer = true;
+              return original.call(this, type, attrs);
+            }
+            return original.call(this, type, attrs);
+          };
+          proto.__hqPreserved = true;
+        })();
+
         window.EJS_player = '#game';
         window.EJS_core = core;
         window.EJS_gameName = name || '';
@@ -66,6 +90,14 @@
         if (cfg.hideSettings) window.EJS_hideSettings = cfg.hideSettings;
         if (cfg.defaultControls) window.EJS_defaultControls = cfg.defaultControls;
         if (cfg.disableLocalStorage) window.EJS_disableLocalStorage = true;
+        // The start screen. The engine keeps its own Start button — that tap has to
+        // land in this document or iOS never unlocks audio — but everything about how
+        // it looks comes from the app.
+        if (cfg.alignStartButton) window.EJS_alignStartButton = cfg.alignStartButton;
+        if (cfg.startButtonName) window.EJS_startButtonName = cfg.startButtonName;
+        if (cfg.backgroundImage) window.EJS_backgroundImage = cfg.backgroundImage;
+        if (cfg.backgroundBlur) window.EJS_backgroundBlur = true;
+        if (cfg.backgroundColor) window.EJS_backgroundColor = cfg.backgroundColor;
 
         // --- the engine out, to the parent ----------------------------------
         // whenStarted resolves once the game is actually RUNNING (the engine's

@@ -38,9 +38,34 @@ export async function captureShot(emu) {
   try {
     if (typeof emu?.takeScreenshot !== 'function') return null
     const shot = await emu.takeScreenshot('canvas', 'png', 1)
-    return shot?.blob || null
+    const blob = shot?.blob
+    if (!blob) return null
+    // Never store a black rectangle. If the canvas came back empty — the drawing
+    // buffer wasn't preserved, the core hadn't drawn a frame yet — say so by having
+    // no screenshot at all. A card that admits "no preview" is honest; a black
+    // rectangle looks like a working feature that shows you nothing.
+    return (await isBlank(blob)) ? null : blob
   } catch {
     return null
+  }
+}
+
+// Is this image effectively empty? Samples rather than reading every pixel — a
+// screenshot is only ever a few hundred KB, but this runs while you're waiting.
+async function isBlank(blob) {
+  try {
+    if (typeof createImageBitmap !== 'function' || typeof OffscreenCanvas !== 'function') return false
+    const bmp = await createImageBitmap(blob)
+    const c = new OffscreenCanvas(bmp.width, bmp.height)
+    const ctx = c.getContext('2d')
+    ctx.drawImage(bmp, 0, 0)
+    const { data } = ctx.getImageData(0, 0, bmp.width, bmp.height)
+    for (let i = 0; i < data.length; i += 4 * 64) {
+      if (data[i] > 8 || data[i + 1] > 8 || data[i + 2] > 8) return false
+    }
+    return true
+  } catch {
+    return false // can't tell — keep the shot rather than throw one away
   }
 }
 

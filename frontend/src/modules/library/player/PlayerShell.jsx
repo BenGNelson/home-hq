@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, Menu, Maximize, Minimize } from 'lucide-react'
-import { playerSrc } from '../../../lib/library.js'
+import { playerSrc, coverUrl } from '../../../lib/library.js'
 import { useOnline } from '../../../lib/online.jsx'
 import { goBack } from '../../../lib/nav.js'
 import {
@@ -10,6 +10,7 @@ import {
   attachEmu,
   killEngineChrome,
   applyControls,
+  styleStartScreen,
   preserveCanvas,
   trackAudio,
   resumeAudio,
@@ -121,7 +122,7 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
   // creates the <iframe> DOM node on commit — i.e. after this function returns —
   // so the player document is guaranteed to find it set when its inline script
   // runs. An effect would race the iframe's own load.
-  window.HQ_PLAYER_CONFIG = playerConfig(core, controls)
+  window.HQ_PLAYER_CONFIG = playerConfig(core, controls, { name, coverUrl: coverUrl(id) })
 
   // Wait for the user to tap the engine's Start button, then take the handle.
   // Aborted on unmount: backing out of a game before ever tapping Start would
@@ -140,7 +141,8 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
     // preserveCanvas makes its WebGL canvas readable, so a save state can have a
     // picture on it instead of a black rectangle.
     trackAudio(frameRef.current)
-    preserveCanvas(frameRef.current)
+    preserveCanvas(frameRef.current) // belt-and-braces; emulator.html does it first
+    styleStartScreen(frameRef.current, { coverUrl: coverUrl(id), name })
     dispatch('engine-loaded')
     attachEmu(frameRef.current, { signal: abortRef.current?.signal }).then((emu) => {
       // No engine = the player document is older than this bundle (its cached
