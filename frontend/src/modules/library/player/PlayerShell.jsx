@@ -9,6 +9,7 @@ import {
   playerConfig,
   attachEmu,
   killEngineChrome,
+  clearStartScreen,
   applyControls,
   styleStartScreen,
   preserveCanvas,
@@ -151,6 +152,10 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
       // stock player, which still works, rather than a half-wired one.
       if (!emu) return
       emuRef.current = emu
+      // The game is running: the start screen has done its job and must LEAVE. The
+      // engine only ever removed its own Start button, so without this the box art
+      // sits in the middle of the game, still bobbing.
+      clearStartScreen(frameRef.current)
       dispatch('started')
     })
   }, [])
