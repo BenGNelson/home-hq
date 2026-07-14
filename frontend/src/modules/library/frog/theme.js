@@ -99,6 +99,24 @@ export function systemStyle(label) {
   return SYSTEMS[label] || DEFAULT_SYSTEM
 }
 
+// The system a CORE implies. A fallback, not a source of truth: the player is launched
+// with an emulator core, and the backend runs Game Boy Color games on the `gba` core —
+// so a core can't tell a GBC game from a GBA one. Anywhere the real label is known it
+// is passed through instead; this is for the places that only ever stored a core (an
+// offline download manifest, say), where indigo-instead-of-berry is a better answer
+// than no colour at all.
+const CORE_SYSTEM = {
+  gb: 'Game Boy',
+  gba: 'Game Boy Advance',
+  snes: 'Super Nintendo',
+  segaMD: 'Sega Genesis',
+  segaMS: 'Sega Master System',
+}
+
+export function systemForCore(core) {
+  return CORE_SYSTEM[core] || null
+}
+
 // The water. A thing that floats casts a soft reflection under itself.
 export function reflection(rgb, alpha = 0.22) {
   return `0 26px 40px -22px rgba(${rgb}, ${alpha}), 0 2px 0 rgba(255,255,255,0.04) inset`

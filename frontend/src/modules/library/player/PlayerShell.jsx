@@ -4,6 +4,11 @@ import { X, Menu, Maximize, Minimize } from 'lucide-react'
 import { playerSrc, coverUrl } from '../../../lib/library.js'
 import { useOnline } from '../../../lib/online.jsx'
 import { goBack } from '../../../lib/nav.js'
+// The player is Frog's screen. It's launched from Home HQ's Games pages too, but the
+// thing you're doing is playing a game — and when Frog moves to its own repo, the
+// player goes with it. So it dresses in Frog's clothes, wherever you came in from.
+import { FROG, systemStyle, systemForCore } from '../frog/theme.js'
+import { frogLoaderSvg, frogLoaderCss, nextFill, phaseLabel } from '../frog/loader.js'
 import {
   RETROPAD,
   playerConfig,
@@ -67,7 +72,7 @@ import { PORTRAIT_GAME_HEIGHT } from '../../../lib/touchLayouts.js'
 // has to land INSIDE the iframe, because iOS unlocks audio per-document. So we
 // show the engine's own Start button and put nothing over it until the game is
 // actually running.
-export default function PlayerShell({ id, core, name, loadStateUrl }) {
+export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
   const navigate = useNavigate()
   const { online } = useOnline()
 
@@ -143,7 +148,20 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
     // picture on it instead of a black rectangle.
     trackAudio(frameRef.current)
     preserveCanvas(frameRef.current) // belt-and-braces; emulator.html does it first
-    styleStartScreen(frameRef.current, { coverUrl: coverUrl(id), name })
+    // The frog is the loading screen. It fills with the colour of the machine you're
+    // about to play — the same costume it was wearing on Frog's shelf a moment ago,
+    // which is the thread that makes the handoff feel like one app instead of two.
+    const accent = systemStyle(label || systemForCore(core)).accent
+    styleStartScreen(frameRef.current, {
+      coverUrl: coverUrl(id),
+      name,
+      loader: {
+        svg: frogLoaderSvg({ rgb: accent, ground: FROG.ground }),
+        css: frogLoaderCss({ rgb: accent }),
+        fill: nextFill,
+        label: phaseLabel,
+      },
+    })
     dispatch('engine-loaded')
     attachEmu(frameRef.current, { signal: abortRef.current?.signal }).then((emu) => {
       // No engine = the player document is older than this bundle (its cached

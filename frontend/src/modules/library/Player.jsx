@@ -12,6 +12,9 @@ export default function Player() {
   const id = params.get('id')
   const core = params.get('core')
   const name = params.get('name') || 'Game'
+  // The system ("Game Boy Color"). Optional — a core can't be trusted to imply it
+  // (GBC games run on the gba core), and an offline download entry never stored one.
+  const label = params.get('label') || ''
   // Present when launching straight into a save state from the game's detail
   // page. In-game, loading a state no longer reboots the player — but this entry
   // point still does, because there's no running engine yet to load into.
@@ -33,6 +36,7 @@ export default function Player() {
       id={id}
       core={core}
       name={name}
+      label={label}
       loadStateUrl={slot ? saveStateUrl(id, slot) : undefined}
     />
   )

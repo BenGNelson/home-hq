@@ -199,7 +199,14 @@ export function resumeHref(entry) {
     // Open the game and let its in-game save (SRAM) resume via "Continue" — do
     // NOT auto-load a save state, which would snapshot-restore the whole machine
     // (incl. an older SRAM) on top of your latest in-game save.
-    const q = new URLSearchParams({ id: entry.id, core: entry.core || '', name: entry.name || '' })
+    // `label` is the system ("Game Boy Color"), carried so the player can dress itself
+    // in that machine's colours — a core can't tell us, since GBC games run on `gba`.
+    const q = new URLSearchParams({
+      id: entry.id,
+      core: entry.core || '',
+      name: entry.name || '',
+      label: entry.label || '',
+    })
     return `/library/play?${q.toString()}`
   }
   if (entry.kind === 'listen') {
