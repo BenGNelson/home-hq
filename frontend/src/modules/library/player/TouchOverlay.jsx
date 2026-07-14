@@ -97,14 +97,26 @@ export default function TouchOverlay({ core, orientation, onInput, onAction, opa
     let pressed = new Set()
     let uiHeld = new Set() // action items (menu, fast-forward) currently under a finger
 
-    const paint = (next) => {
+    const dpadItem = layout.items.find((i) => i.type === 'dpad')
+
+    const paint = (ownedIds, pressed) => {
       // Only the buttons whose state actually changed get touched.
       for (const [id, node] of Object.entries(itemRefs.current)) {
         if (!node) continue
-        const on = next.has(id)
-        if (node.dataset.on === (on ? '1' : '0')) continue
-        node.dataset.on = on ? '1' : '0'
-        node.classList.toggle('hq-pressed', on)
+        const on = ownedIds.has(id)
+        if (node.dataset.on !== (on ? '1' : '0')) {
+          node.dataset.on = on ? '1' : '0'
+          node.classList.toggle('hq-pressed', on)
+        }
+      }
+
+      // The d-pad is one element but four directions: light the arrow you're
+      // actually holding, rather than the whole cross. Pressing Right should look
+      // like pressing Right.
+      const node = dpadItem && itemRefs.current[dpadItem.id]
+      if (!node) return
+      for (const [dir, index] of Object.entries(dpadItem.inputs)) {
+        node.classList.toggle(`hq-dir-${dir}`, pressed.has(index))
       }
     }
 
@@ -145,7 +157,7 @@ export default function TouchOverlay({ core, orientation, onInput, onAction, opa
 
       owners = next.owners
       pressed = next.pressed
-      paint(new Set(Object.values(next.owners)))
+      paint(new Set(Object.values(next.owners)), next.pressed)
     }
 
     const end = (e) => {
@@ -193,6 +205,7 @@ export default function TouchOverlay({ core, orientation, onInput, onAction, opa
             key={item.id}
             ref={(n) => (itemRefs.current[item.id] = n)}
             data-id={item.id}
+            data-type={item.type}
             data-on="0"
             // The visuals never receive a touch — the surface above owns all of
             // them. This is what makes multi-touch and slide-through possible.
@@ -206,10 +219,27 @@ export default function TouchOverlay({ core, orientation, onInput, onAction, opa
         )
       })}
 
-      {/* No haptics on iOS — WebKit has no vibration API at all — so the press
-          state has to carry the whole feel. It glows in the Games accent. */}
+      {/* No haptics on iOS — WebKit has no vibration API at all — so the press state
+          has to carry the whole feel on its own. But it should read as a button
+          lighting up, not as a highlighter being dragged across the screen.
+
+          The d-pad is the case that has to be handled separately. It's a CROSS drawn
+          inside a SQUARE box, so tinting the element's background lights up the whole
+          invisible square around it — a purple block, which is what Ben was seeing.
+          Its box stays transparent and only the drawn cross glows, via the filter
+          (which follows the shape, not the box). */}
       <style>{`
-        .hq-pressed { filter: ${glowFilter(GAMES.rgb, 1)}; background-color: rgba(${GAMES.rgb}, 0.55) !important; }
+        .hq-pressed {
+          filter: ${glowFilter(GAMES.rgb, 0.45, { baseBlur: 2, blurGain: 6, baseAlpha: 0.14, alphaGain: 0.3 })};
+          background-color: rgba(${GAMES.rgb}, 0.3) !important;
+        }
+        .hq-pressed[data-type="dpad"] { background-color: transparent !important; }
+        /* Only the arrow you're holding lights up — pressing Right should look like
+           pressing Right, not like the whole pad catching fire. */
+        .hq-dir-up .d-up, .hq-dir-down .d-down,
+        .hq-dir-left .d-left, .hq-dir-right .d-right {
+          fill: rgba(${GAMES.rgb}, 0.95);
+        }
       `}</style>
     </div>
   )
@@ -242,10 +272,10 @@ function DpadArt() {
         strokeWidth="2.5"
       />
       <g fill="rgba(255,255,255,0.55)">
-        <path d="M50 14 l7 10 h-14 z" />
-        <path d="M50 86 l-7 -10 h14 z" />
-        <path d="M14 50 l10 -7 v14 z" />
-        <path d="M86 50 l-10 7 v-14 z" />
+        <path className="d-up" d="M50 14 l7 10 h-14 z" />
+        <path className="d-down" d="M50 86 l-7 -10 h14 z" />
+        <path className="d-left" d="M14 50 l10 -7 v14 z" />
+        <path className="d-right" d="M86 50 l-10 7 v-14 z" />
       </g>
     </svg>
   )
