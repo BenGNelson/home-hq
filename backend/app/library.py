@@ -335,6 +335,11 @@ def list_items(section, settings):
     items = []
     for dirpath, _dirs, files in os.walk(root):
         for fn in files:
+            # Hidden files are never content. A Mac copying over SMB leaves an
+            # AppleDouble sidecar ("._Game.gba") next to every real file — same
+            # extension, so it would otherwise scan in as a phantom item.
+            if fn.startswith("."):
+                continue
             meta = formats.get(_ext(fn))
             if not meta:
                 continue

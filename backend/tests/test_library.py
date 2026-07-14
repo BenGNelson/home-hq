@@ -409,6 +409,11 @@ def rom_dir(tmp_path, monkeypatch):
     (tmp_path / "sub").mkdir()
     (tmp_path / "sub" / "Metroid.gba").write_bytes(b"GBA-metroid-data")
     (tmp_path / "notes.txt").write_text("not a rom")  # ignored
+    # A Mac copying over SMB leaves these beside every real file. Same extension
+    # as the ROM, so they must be skipped by name, not by extension.
+    (tmp_path / "._Tetris.gb").write_bytes(b"\x00\x05\x16\x07AppleDouble")
+    (tmp_path / "sub" / "._Metroid.gba").write_bytes(b"\x00\x05\x16\x07AppleDouble")
+    (tmp_path / ".DS_Store").write_bytes(b"junk")
     monkeypatch.setattr(settings, "games_rom_dir", str(tmp_path))
     return tmp_path
 
@@ -422,6 +427,15 @@ def test_list_items_recurses_and_ignores_unknown(rom_dir):
     assert names == ["Tetris", "Metroid", "Zelda"]
     # notes.txt is excluded; the nested .gba is found.
     assert "notes" not in names
+
+
+def test_list_items_skips_hidden_files(rom_dir):
+    """AppleDouble sidecars carry a real ROM extension — skip them by name, or a
+    Mac-copied library scans in a phantom entry beside every game."""
+    items = library.list_items(GAMES, settings)
+    ids = [it["id"] for it in items]
+    assert ids == ["Tetris.gb", "sub/Metroid.gba", "Zelda.gbc"]
+    assert not any(os.path.basename(i).startswith(".") for i in ids)
 
 
 def test_list_items_metadata(rom_dir):
