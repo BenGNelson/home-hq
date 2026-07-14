@@ -28,15 +28,15 @@ function Dpad({ x, y, s = 1, fill = '#2B3038' }) {
 
 // --- handhelds: the device IS the icon --------------------------------------
 
-function Handheld({ body, screenTint, buttons, screenY = 16, screenH = 30 }) {
+function Handheld({ body, screenTint, buttons, sheen, screenY = 16, screenH = 30 }) {
   return (
     <>
       <rect x="18" y="6" width="64" height="88" rx="9" fill={body.shell} />
-      <rect x="18" y="6" width="64" height="88" rx="9" fill="url(#sheen)" opacity="0.55" />
+      <rect x="18" y="6" width="64" height="88" rx="9" fill={`url(#${sheen})`} opacity="0.55" />
       {/* screen bezel + the LCD's own colour — a Game Boy screen is never black */}
       <rect x="26" y={screenY} width="48" height={screenH} rx="3" fill="#3A3F45" />
       <rect x="30" y={screenY + 3} width="40" height={screenH - 6} rx="1.5" fill={screenTint} />
-      <Dpad x="35" y={screenY + screenH + 20} s="1" />
+      <Dpad x={35} y={screenY + screenH + 20} s={1} />
       {buttons}
       {/* start / select */}
       <rect x="40" y="86" width="9" height="3" rx="1.5" fill="#2B3038" transform="rotate(-20 44 87)" />
@@ -47,8 +47,9 @@ function Handheld({ body, screenTint, buttons, screenY = 16, screenH = 30 }) {
 
 const DEVICES = {
   // The DMG brick. Grey shell, pea-soup screen, two round buttons on the diagonal.
-  dmg: () => (
+  dmg: (s, sheen) => (
     <Handheld
+      sheen={sheen}
       body={{ shell: '#C9C7BC' }}
       screenTint="#8FA24B"
       buttons={
@@ -61,12 +62,13 @@ const DEVICES = {
   ),
 
   // Same brick, berry-translucent plastic, a colour screen.
-  gbc: (s) => (
+  gbc: (s, sheen) => (
     <Handheld
+      sheen={sheen}
       body={{ shell: s.shade }}
       screenTint="#5C7BC4"
-      screenY="18"
-      screenH="30"
+      screenY={18}
+      screenH={30}
       buttons={
         <>
           <circle cx="62" cy="68" r="5.5" fill="#2B3038" />
@@ -78,10 +80,10 @@ const DEVICES = {
 
   // Turned on its side: the screen goes to the middle, the buttons to the edges,
   // and it grows shoulders.
-  gba: (s) => (
+  gba: (s, sheen) => (
     <>
       <rect x="6" y="26" width="88" height="48" rx="16" fill={s.shade} />
-      <rect x="6" y="26" width="88" height="48" rx="16" fill="url(#sheen)" opacity="0.5" />
+      <rect x="6" y="26" width="88" height="48" rx="16" fill={`url(#${sheen})`} opacity="0.5" />
       <rect x="10" y="24" width="16" height="7" rx="3.5" fill={s.shade} />
       <rect x="74" y="24" width="16" height="7" rx="3.5" fill={s.shade} />
       <rect x="32" y="36" width="36" height="28" rx="2.5" fill="#3A3F45" />
@@ -94,10 +96,10 @@ const DEVICES = {
 
   // A home console: you don't picture the box, you picture the pad. Two rounded
   // grips, the four lavender buttons, the two shoulders.
-  snes: (s) => (
+  snes: (s, sheen) => (
     <>
       <rect x="4" y="34" width="92" height="34" rx="17" fill="#D8D6D0" />
-      <rect x="4" y="34" width="92" height="34" rx="17" fill="url(#sheen)" opacity="0.5" />
+      <rect x="4" y="34" width="92" height="34" rx="17" fill={`url(#${sheen})`} opacity="0.5" />
       <rect x="14" y="28" width="20" height="8" rx="4" fill="#B9B7B1" />
       <rect x="66" y="28" width="20" height="8" rx="4" fill="#B9B7B1" />
       <Dpad x="24" y="51" s="0.85" />
@@ -111,10 +113,10 @@ const DEVICES = {
   ),
 
   // The three-button Mega Drive pad: a wide black wedge, three buttons in a row.
-  genesis: () => (
+  genesis: (s, sheen) => (
     <>
       <path d="M8 44 Q8 32 22 32 H78 Q92 32 92 44 Q92 70 74 70 H26 Q8 70 8 44 Z" fill="#3B4149" />
-      <path d="M8 44 Q8 32 22 32 H78 Q92 32 92 44 Q92 70 74 70 H26 Q8 70 8 44 Z" fill="url(#sheen)" opacity="0.35" />
+      <path d="M8 44 Q8 32 22 32 H78 Q92 32 92 44 Q92 70 74 70 H26 Q8 70 8 44 Z" fill={`url(#${sheen})`} opacity="0.35" />
       <Dpad x="28" y="50" s="0.9" fill="#101216" />
       <circle cx="58" cy="55" r="5.5" fill="#B23A3A" />
       <circle cx="71" cy="52" r="5.5" fill="#B23A3A" />
@@ -124,10 +126,10 @@ const DEVICES = {
   ),
 
   // The Master System pad: a plain black rectangle and two buttons. It is what it is.
-  sms: () => (
+  sms: (s, sheen) => (
     <>
       <rect x="12" y="34" width="76" height="34" rx="5" fill="#3B4149" />
-      <rect x="12" y="34" width="76" height="34" rx="5" fill="url(#sheen)" opacity="0.35" />
+      <rect x="12" y="34" width="76" height="34" rx="5" fill={`url(#${sheen})`} opacity="0.35" />
       <Dpad x="34" y="51" s="0.9" fill="#101216" />
       <circle cx="64" cy="51" r="6" fill="#C0392B" />
       <circle cx="78" cy="51" r="6" fill="#C0392B" />
@@ -139,6 +141,7 @@ const DEVICES = {
 export default function Console({ system, size = 96, className = '', style }) {
   const s = systemStyle(system)
   const draw = DEVICES[s.device] || DEVICES.dmg
+  const sheen = `frog-sheen-${s.device}`
 
   return (
     <svg
@@ -152,13 +155,13 @@ export default function Console({ system, size = 96, className = '', style }) {
     >
       <defs>
         {/* The single light source the whole set shares. */}
-        <linearGradient id="sheen" x1="0" y1="0" x2="0.35" y2="1">
+        <linearGradient id={sheen} x1="0" y1="0" x2="0.35" y2="1">
           <stop offset="0" stopColor="#fff" stopOpacity="0.35" />
           <stop offset="0.5" stopColor="#fff" stopOpacity="0.04" />
           <stop offset="1" stopColor="#000" stopOpacity="0.22" />
         </linearGradient>
       </defs>
-      {draw(s)}
+      {draw(s, sheen)}
     </svg>
   )
 }

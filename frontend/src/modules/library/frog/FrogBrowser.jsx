@@ -28,21 +28,60 @@ import './frog.css'
 // keys and a mouse all drive the same code with none of them a special case, and
 // it's what will make lifting this folder into its own repo a copy rather than a
 // rewrite.
+// The actions that move the shelf. Anything else is inert here (X = search isn't
+// built yet), and inert must mean inert — not "quietly re-render".
+const MOVES = new Set(['up', 'down', 'left', 'right', 'railPrev', 'railNext'])
+
+// Frog's place, held for the life of the tab rather than the life of the component.
+//
+// This has to live outside React. FrogBrowser UNMOUNTS every time you launch a game
+// (the player is a different route), so with `useState` alone, quitting a game would
+// replay the whole boot animation, ask you to PRESS A again, and dump you back on
+// rail zero — having forgotten which system you were three hundred games into. The
+// boot is once per app open; your place survives a session.
+const place = { booted: false, screen: 'shelf', system: null, focus: { rail: 0, index: 0 }, row: 0 }
+
 export default function FrogBrowser() {
   const navigate = useNavigate()
   const { data, loading } = useApi('/library/games', 0)
   const items = data?.items ?? []
 
-  // 'boot' → 'shelf' ⇄ 'games'. Booting once per app open, not per navigation.
-  const [screen, setScreen] = useState('boot')
-  const [system, setSystem] = useState(null)
+  // 'boot' → 'shelf' ⇄ 'games'.
+  const [screen, setScreen] = useState(place.booted ? place.screen : 'boot')
+  const [system, setSystem] = useState(place.system)
 
-  const [focus, setFocus] = useState({ rail: 0, index: 0 })
+  const [focus, setFocus] = useState(place.focus)
   const [memory, setMemory] = useState({})
-  const [row, setRow] = useState(0) // focus within a system's game list
+  const [row, setRow] = useState(place.row) // focus within a system's game list
 
   const rails = useMemo(() => buildShelf(items, getRecent()), [items])
   const games = useMemo(() => (system ? systemGames(items, system) : []), [items, system])
+
+  useEffect(() => {
+    if (screen === 'boot') return
+    Object.assign(place, { booted: true, screen, system, focus, row })
+  })
+
+  // Reconcile focus with whatever the rails just became.
+  //
+  // The rails are rebuilt when the library resolves, and they CHANGE SHAPE when they
+  // do: "Jump back in" appears, so what was rail 0 (systems) becomes rail 1. Dismiss
+  // the boot before the fetch lands, press right a few times, and focus is left
+  // pointing at index 5 of a two-item rail — nothing is highlighted, the frog wears
+  // no costume, the caption reads "Nothing here yet", and A does nothing at all.
+  useEffect(() => {
+    setFocus((f) => {
+      const rail = Math.min(f.rail, Math.max(0, rails.length - 1))
+      const count = rails[rail]?.items?.length ?? 0
+      const index = Math.min(f.index, Math.max(0, count - 1))
+      return rail === f.rail && index === f.index ? f : { rail, index }
+    })
+  }, [rails])
+
+  // Same for the game list: a system with 25 games can't hold a cursor at row 300.
+  useEffect(() => {
+    setRow((i) => Math.min(i, Math.max(0, games.length - 1)))
+  }, [games])
 
   const play = useCallback(
     (game) => {
@@ -70,6 +109,9 @@ export default function FrogBrowser() {
   const act = useRef(() => {})
   act.current = (action) => {
     if (screen === 'boot') return
+    // Nothing to point at yet. Without this, presses land against the skeleton's
+    // placeholder rails and strand focus the moment the real ones arrive.
+    if (loading && !items.length) return
 
     if (screen === 'shelf') {
       switch (action) {
@@ -92,6 +134,11 @@ export default function FrogBrowser() {
           return
         }
         default: {
+          // Only the directions move the shelf. Falling through to moveInRails with
+          // (say) 'search' returns a fresh focus object that's identical but not the
+          // same reference — which re-renders and fires a redundant smooth scroll on
+          // every press of a button that's supposed to do nothing here.
+          if (!MOVES.has(action)) return
           const next = moveInRails(rails, focus, action, memory)
           setMemory(next.memory)
           setFocus(next.focus)

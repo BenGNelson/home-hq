@@ -21,7 +21,22 @@ import Console from './Console.jsx'
 // The frog stands to the side wearing the colours of whatever you're pointing at.
 // It is not decoration — it's the focus indicator, at 200px, readable from a couch.
 
-function SystemTile({ system, focused, onFocus, onPick, delay }) {
+// The float and the focus-pop are TWO ELEMENTS, and they have to be.
+//
+// A CSS animation's `transform` outranks an inline one — including the style
+// attribute — so a `.frog-float` tile with `transform: scale(1.06)` on it renders at
+// scale 1: the keyframes win and the pop silently never happens. (It even *worked*
+// under prefers-reduced-motion, where the animation is off, which is a fun way to be
+// misled.) The wrapper bobs; the child scales.
+function Floats({ delay, children }) {
+  return (
+    <div className="frog-float" style={{ animationDelay: `${delay}ms` }}>
+      {children}
+    </div>
+  )
+}
+
+function SystemTile({ system, focused, onFocus, onPick }) {
   const s = systemStyle(system.label)
   const empty = system.count === 0
 
@@ -33,9 +48,8 @@ function SystemTile({ system, focused, onFocus, onPick, delay }) {
       onMouseMove={onFocus}
       onClick={onPick}
       disabled={empty}
-      className="frog-float group relative flex w-full flex-col items-center rounded-2xl px-2 pb-3 pt-4 transition-transform duration-200"
+      className="group relative flex w-full flex-col items-center rounded-2xl px-2 pb-3 pt-4 transition-transform duration-200"
       style={{
-        animationDelay: `${delay}ms`,
         background: focused
           ? `linear-gradient(180deg, rgba(${s.accent}, 0.20), rgba(${s.accent}, 0.05))`
           : FROG.panel,
@@ -65,7 +79,7 @@ function SystemTile({ system, focused, onFocus, onPick, delay }) {
   )
 }
 
-function GameCard({ game, focused, onFocus, onPick, delay }) {
+function GameCard({ game, focused, onFocus, onPick }) {
   const s = systemStyle(game.label)
 
   return (
@@ -75,9 +89,8 @@ function GameCard({ game, focused, onFocus, onPick, delay }) {
       data-focused={focused || undefined}
       onMouseMove={onFocus}
       onClick={onPick}
-      className="frog-float relative flex w-36 shrink-0 flex-col overflow-hidden rounded-xl text-left transition-transform duration-200 sm:w-40"
+      className="relative flex w-36 shrink-0 flex-col overflow-hidden rounded-xl text-left transition-transform duration-200 sm:w-40"
       style={{
-        animationDelay: `${delay}ms`,
         background: FROG.panel,
         border: `1px solid ${focused ? `rgba(${s.accent}, 0.6)` : FROG.line}`,
         boxShadow: focused ? reflection(s.accent, 0.45) : 'none',
@@ -178,14 +191,14 @@ export default function Shelf({ rails, focus, onFocus, onPick }) {
                 className="grid grid-cols-3 gap-3 sm:grid-cols-6"
               >
                 {rail.items.map((sys, i) => (
-                  <SystemTile
-                    key={sys.id}
-                    system={sys}
-                    focused={focus.rail === r && focus.index === i}
-                    onFocus={() => onFocus(r, i)}
-                    onPick={() => onPick(rail, sys)}
-                    delay={i * 220}
-                  />
+                  <Floats key={sys.id} delay={i * 220}>
+                    <SystemTile
+                      system={sys}
+                      focused={focus.rail === r && focus.index === i}
+                      onFocus={() => onFocus(r, i)}
+                      onPick={() => onPick(rail, sys)}
+                    />
+                  </Floats>
                 ))}
               </div>
             ) : (
@@ -195,14 +208,14 @@ export default function Shelf({ rails, focus, onFocus, onPick }) {
                 style={{ scrollbarWidth: 'none' }}
               >
                 {rail.items.map((game, i) => (
-                  <GameCard
-                    key={game.id}
-                    game={game}
-                    focused={focus.rail === r && focus.index === i}
-                    onFocus={() => onFocus(r, i)}
-                    onPick={() => onPick(rail, game)}
-                    delay={i * 260}
-                  />
+                  <Floats key={game.id} delay={i * 260}>
+                    <GameCard
+                      game={game}
+                      focused={focus.rail === r && focus.index === i}
+                      onFocus={() => onFocus(r, i)}
+                      onPick={() => onPick(rail, game)}
+                    />
+                  </Floats>
                 ))}
               </div>
             )}

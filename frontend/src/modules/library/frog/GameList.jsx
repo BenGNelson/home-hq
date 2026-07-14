@@ -34,13 +34,24 @@ export default function GameList({ system, games, focus, onFocus, onPick }) {
   const [scrollTop, setScrollTop] = useState(0)
   const [height, setHeight] = useState(600)
 
+  // The viewport height feeds the windowing, so it has to be WATCHED, not measured
+  // once: rotate the iPad from landscape to portrait and the list gets ~400px taller,
+  // but a mount-only measurement keeps rendering the landscape row count — leaving a
+  // permanent blank band at the bottom that scrolling never fills. A desktop browser
+  // at a fixed size never shows this, which is exactly why it needs a ResizeObserver.
   useEffect(() => {
     const el = scrollerRef.current
     if (!el) return
-    setHeight(el.clientHeight)
     const onScroll = () => setScrollTop(el.scrollTop)
     el.addEventListener('scroll', onScroll, { passive: true })
-    return () => el.removeEventListener('scroll', onScroll)
+
+    const ro = new ResizeObserver(([entry]) => setHeight(entry.contentRect.height))
+    ro.observe(el)
+
+    return () => {
+      el.removeEventListener('scroll', onScroll)
+      ro.disconnect()
+    }
   }, [])
 
   // Keep the focused row in view. `block: 'center'` (not 'nearest') so the eye stays
