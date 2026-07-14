@@ -21,15 +21,23 @@ function deps(d = {}) {
   }
 }
 
-// The engine's saveState event hands us `e.screenshot` — but it is ALWAYS
-// undefined: EmulatorJS destructures `{ screenshot }` out of takeScreenshot(),
-// which actually resolves `{ blob }` (upstream bug, still present in 4.2.3). So
-// grab the frame from the engine ourselves.
+// The engine's saveState event hands us `e.screenshot` — but it is ALWAYS undefined:
+// EmulatorJS destructures `{ screenshot }` out of takeScreenshot(), which actually
+// resolves `{ blob }` (upstream bug, still present in 4.2.3). So we grab the frame
+// ourselves.
+//
+// It reads the frame back off the canvas, which only works because the player
+// document's WebGL context is forced to keep its drawing buffer — see
+// emuBridge.preserveCanvas(). Without that this returns a flawless black rectangle,
+// which is exactly what every save state used to show.
+//
+// (The engine's other source, "retroarch", asks the core for the frame instead. It
+// is not usable: on these cores it aborts the Emscripten module and takes the whole
+// player iframe down with it.)
 export async function captureShot(emu) {
   try {
     if (typeof emu?.takeScreenshot !== 'function') return null
-    const cap = emu.capture?.photo || {}
-    const shot = await emu.takeScreenshot(cap.source, cap.format, cap.upscale)
+    const shot = await emu.takeScreenshot('canvas', 'png', 1)
     return shot?.blob || null
   } catch {
     return null

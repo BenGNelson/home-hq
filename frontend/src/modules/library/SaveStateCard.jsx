@@ -25,7 +25,10 @@ export default function SaveStateCard({ game, state, onSelect, onDelete, actionL
               alt=""
               loading="lazy"
               onError={() => setFailed(true)}
-              className="h-full w-full object-cover"
+              // The frame is the core's own resolution (160x144 on a Game Boy), so
+              // smooth-scaling it just smears it. Nearest-neighbour keeps it crisp,
+              // which is also what the game actually looked like.
+              className="h-full w-full object-cover [image-rendering:pixelated]"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-xs text-slate-600">

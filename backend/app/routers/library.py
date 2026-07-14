@@ -405,11 +405,29 @@ def put_sram(
 @router.get("/library/games/sram")
 def get_sram(id: str = Query(description="Game id")):
     """Serve a game's in-game battery save (SRAM), so the player can seed the
-    emulator with it on open. 404 when there's none yet."""
+    emulator with it on open. 404 when there's none yet.
+
+    `X-Saved-At` (epoch ms) is what makes newest-wins possible: the player compares
+    it against the copy cached on the device and loads whichever is newer. Without
+    it the device can only prefer its own copy, which means playing on a tablet and
+    then picking up a phone silently rewinds you to the phone's older save — and
+    then overwrites the server with it.
+    """
     path = library.sram_file(settings.games_saves_dir, id)
     if not path or not os.path.isfile(path):
         return Response(status_code=404)
-    return FileResponse(path, media_type="application/octet-stream")
+    saved_at = int(os.path.getmtime(path) * 1000)
+    return FileResponse(
+        path,
+        media_type="application/octet-stream",
+        headers={
+            "X-Saved-At": str(saved_at),
+            # The browser can't read a custom header on a cross-origin response
+            # without this. We're same-origin today, but a header nobody can read is
+            # a trap waiting for whoever moves the API.
+            "Access-Control-Expose-Headers": "X-Saved-At",
+        },
+    )
 
 
 @router.get("/library/games/save-state")

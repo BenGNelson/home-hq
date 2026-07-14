@@ -83,134 +83,17 @@
           }),
         };
 
-        // --- in-game battery save (SRAM) persistence -----------------------
-        // EmulatorJS does NOT persist the game's own save (e.g. Pokemon's "Save")
-        // across sessions — it only fires a "saveSaveFiles" event with the .sav
-        // bytes. So we own it: seed the emulator with the saved SRAM on start
-        // (so "Continue" works), and capture every write back to a local cache +
-        // the server (roams + survives offline). Keyed by game id.
-        var sramServerUrl = '/api/library/games/sram?id=' + encodeURIComponent(gid || '');
-        var sramCacheKey = '/__game-sram/' + encodeURIComponent(gid || '');
-        function readSramCache() {
-          return caches.open('hq-game-saves')
-            .then(function (c) { return c.match(sramCacheKey); })
-            .then(function (r) { return r ? r.arrayBuffer() : null; })
-            .catch(function () { return null; });
-        }
-        // The SRAM to seed the game with: the latest on THIS device (local cache)
-        // if any, else whatever the server has (a new device / first time).
-        function loadSram() {
-          if (!gid) return Promise.resolve(null);
-          return readSramCache().then(function (local) {
-            if (local) return local;
-            return fetch(sramServerUrl).then(function (r) { return r.ok ? r.arrayBuffer() : null; }).catch(function () { return null; });
-          });
-        }
-        var lastSramUpload = 0;
-        function persistSram(bytes) {
-          if (!gid || !bytes || !bytes.length) return;
-          var blob = new Blob([bytes]);
-          // Always cache locally (cheap; survives reloads + works offline).
-          try {
-            caches.open('hq-game-saves').then(function (c) { c.put(sramCacheKey, new Response(blob)); });
-          } catch (e) {}
-          // Upload to the server, throttled (the event can fire on an interval).
-          var now = Date.now();
-          if (now - lastSramUpload > 15000) {
-            lastSramUpload = now;
-            try {
-              var fd = new FormData();
-              fd.append('id', gid);
-              fd.append('sram', blob, 'sram.bin');
-              fetch(sramServerUrl, { method: 'POST', body: fd });
-            } catch (e) {}
-          }
-        }
-        // Kick off the seed fetch early (parallel with the ROM).
-        var pendingSram = loadSram();
-        // Capture the live SRAM ourselves on a timer + when the page is hidden
-        // (don't rely on EmulatorJS's own save interval/exit, which is unreliable
-        // — the iframe can be torn down before it fires). getSaveFile(true)
-        // flushes the core's battery RAM to the FS, then reads it.
-        var lastSramSig = '';
-        function captureSram(emu) {
-          try {
-            var sav = emu.gameManager.getSaveFile(true);
-            if (!sav || !sav.length) return;
-            // Cheap sampled checksum (every 64 bytes) to skip unchanged SRAM.
-            var sum = sav.length >>> 0;
-            for (var i = 0; i < sav.length; i += 64) sum = (sum * 31 + sav[i]) >>> 0;
-            var sig = '' + sum;
-            if (sig === lastSramSig) return; // unchanged → skip
-            lastSramSig = sig;
-            persistSram(sav);
-          } catch (e) {}
-        }
-        function startSramCapture(emu) {
-          setInterval(function () { captureSram(emu); }, 5000);
-          document.addEventListener('visibilitychange', function () { if (document.hidden) captureSram(emu); });
-          window.addEventListener('pagehide', function () { captureSram(emu); });
-        }
-        // When the user saves a state in the in-game menu, push it (and its
-        // screenshot) to the backend so it roams across devices + is backed up.
-        // The event's `e.screenshot` is unusable: EmulatorJS v4.2.3 destructures
-        // { screenshot } from takeScreenshot(), which actually resolves { blob },
-        // so e.screenshot is always undefined (upstream bug). Capture the frame
-        // ourselves from the engine instance instead. e = { state: Uint8Array }.
-        function captureShot() {
-          var emu = window.EJS_emulator;
-          if (!emu || typeof emu.takeScreenshot !== 'function') return Promise.resolve(null);
-          var cap = (emu.capture && emu.capture.photo) || {};
-          return emu
-            .takeScreenshot(cap.source, cap.format, cap.upscale)
-            .then(function (r) { return r && r.blob ? r.blob : null; })
-            .catch(function () { return null; });
-        }
-        window.EJS_onSaveState = function (e) {
-          if (!gid || !e || !e.state) return;
-          var state = e.state;
-          // Store the latest state locally (one per game) so reopening the game
-          // resumes it — including offline, where the server upload below can't
-          // reach. This is what makes "resume where you left off" work offline.
-          try {
-            caches.open('hq-game-saves').then(function (c) {
-              c.put('/__game-save/' + encodeURIComponent(gid), new Response(new Blob([state])));
-            });
-          } catch (err) {}
-          captureShot().then(function (shot) {
-            try {
-              var fd = new FormData();
-              fd.append('id', gid);
-              fd.append('state', new Blob([state]));
-              if (shot) fd.append('screenshot', shot, 'shot.png');
-              fetch('/api/library/games/save-states', { method: 'POST', body: fd });
-            } catch (err) {}
-          });
-        };
         // The app takes over once the game is actually running: it grabs the
         // engine (see window.HQ above) and draws its own controls over the top.
         window.EJS_onGameStart = function () {
-          var emu = window.EJS_emulator;
-          // Hand the running engine to the parent (see window.HQ above). Fired
-          // here, not on load: the game is only playable once Start is tapped.
+          // Hand the running engine to the parent (see window.HQ above). Fired here,
+          // not on load: the game is only playable once Start is tapped.
+          //
+          // The battery save is deliberately NOT handled in here any more. This
+          // document is the thing that gets destroyed when you quit, and every write
+          // it starts dies with it — so the parent owns saves now (lib/gameSaves.js).
           try {
-            started(emu);
-          } catch (e) {}
-          // Seed the game's battery save (SRAM) + capture future writes — all
-          // platforms, so "Continue" loads your save. Inject first, then start
-          // capturing, so a capture can't overwrite the seed with empty data.
-          try {
-            if (emu && emu.gameManager) {
-              pendingSram.then(function (buf) {
-                if (buf && buf.byteLength) {
-                  try {
-                    emu.gameManager.FS.writeFile(emu.gameManager.getSaveFilePath(), new Uint8Array(buf));
-                    emu.gameManager.loadSaveFiles();
-                  } catch (e) {}
-                }
-                startSramCapture(emu); // begin reliable polling capture
-              });
-            }
+            started(window.EJS_emulator);
           } catch (e) {}
         };
         // NOT EJS_startOnLoaded: auto-start gets paused immediately by iOS's
