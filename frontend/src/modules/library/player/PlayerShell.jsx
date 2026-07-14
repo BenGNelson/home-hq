@@ -8,7 +8,7 @@ import { goBack } from '../../../lib/nav.js'
 // thing you're doing is playing a game — and when Frog moves to its own repo, the
 // player goes with it. So it dresses in Frog's clothes, wherever you came in from.
 import { FROG, systemStyle, systemForCore } from '../frog/theme.js'
-import { frogLoaderSvg, frogLoaderCss, nextFill, phaseLabel } from '../frog/loader.js'
+import { frogLoaderSvg, frogLoaderCss, nextFill, phaseLabel, finishPlan } from '../frog/loader.js'
 import {
   RETROPAD,
   playerConfig,
@@ -151,15 +151,16 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
     // The frog is the loading screen. It fills with the colour of the machine you're
     // about to play — the same costume it was wearing on Frog's shelf a moment ago,
     // which is the thread that makes the handoff feel like one app instead of two.
-    const accent = systemStyle(label || systemForCore(core)).accent
+    const dress = systemStyle(label || systemForCore(core))
     styleStartScreen(frameRef.current, {
       coverUrl: coverUrl(id),
       name,
       loader: {
-        svg: frogLoaderSvg({ rgb: accent, ground: FROG.ground }),
-        css: frogLoaderCss({ rgb: accent }),
+        svg: frogLoaderSvg({ rgb: dress.accent, ground: FROG.ground, ...dress }),
+        css: frogLoaderCss({ rgb: dress.accent, ground: FROG.ground }),
         fill: nextFill,
         label: phaseLabel,
+        plan: finishPlan,
       },
     })
     dispatch('engine-loaded')

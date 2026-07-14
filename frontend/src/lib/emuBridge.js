@@ -624,37 +624,52 @@ export function styleStartScreen(frame, { coverUrl, name, loader } = {}) {
 // The fill is time-based, not a percentage read off the engine — see nextFill() for
 // why a real percentage would send it backwards. The engine's phase text rides along
 // underneath, where the honest detail belongs.
-function mountLoader(doc, { svg, fill, label }) {
-  const host = doc.querySelector('.ejs_parent') || doc.body
-  if (!host || doc.querySelector('.hq-loader')) return
+function mountLoader(doc, { svg, fill, label, plan }) {
+  const view = doc.defaultView
+  if (!view || doc.querySelector('.hq-loader')) return
+  // Body, not `.ejs_parent`. The loader is fixed to the viewport, and living outside
+  // the engine's own tree means nothing it does to its layout can reach the frog.
+  doc.body.insertAdjacentHTML('beforeend', svg)
 
-  host.insertAdjacentHTML('beforeend', svg)
   const el = doc.querySelector('.hq-loader')
   const water = el?.querySelector('.hq-loader-water')
   const text = el?.querySelector('.hq-loader-text')
   if (!el || !water) return
 
-  const started = doc.defaultView?.performance?.now?.() ?? 0
+  const born = view.performance?.now?.() ?? 0
   let value = 0
 
   const tick = () => {
-    // The frame can go at any moment (quit mid-load), and the interval outlives it.
-    if (!el.isConnected) return stop()
-    const now = doc.defaultView?.performance?.now?.() ?? started
-    value = fill(value, now - started)
+    // The frame can go at any moment (quit mid-load) and the interval outlives it.
+    if (!el.isConnected) return view.clearInterval(timer)
+    const now = view.performance?.now?.() ?? born
+    value = fill(value, now - born)
     water.style.setProperty('--fill', String(value))
     if (text) text.textContent = label(doc.querySelector('.ejs_loading_text')?.textContent)
   }
-
-  const timer = doc.defaultView?.setInterval(tick, 120)
-  function stop() {
-    doc.defaultView?.clearInterval(timer)
-  }
+  const timer = view.setInterval(tick, 100)
   tick()
 
-  // Held on the element so clearStartScreen can finish the animation and stop the
-  // clock without either of them needing to know about the other.
-  el.__hqStop = stop
+  // The game is running — but the frog doesn't get yanked off screen for it. It tops
+  // up, becomes the actual frog, hops, and only then lifts the veil. The game has been
+  // playing behind it the whole time, so none of this costs anything but a beat.
+  //
+  // Held on the element so the teardown doesn't need to know any of the timings.
+  el.__hqFinish = () => {
+    if (el.__hqFinishing) return
+    el.__hqFinishing = true
+    view.clearInterval(timer)
+
+    const at = plan((view.performance?.now?.() ?? born) - born)
+    view.setTimeout(() => {
+      water.style.setProperty('--fill', '1')
+      if (text) text.textContent = ''
+    }, at.fillAt)
+    view.setTimeout(() => el.classList.add('hq-loader-done'), at.hopAt)
+    view.setTimeout(() => el.classList.add('hq-loader-out'), at.outAt)
+    view.setTimeout(() => el.remove(), at.goneAt)
+    return at.goneAt
+  }
 }
 
 // Take the start screen out of the DOM once the game is actually running.
@@ -686,18 +701,13 @@ export function clearStartScreen(frame) {
   }
 
   // The frog gets to finish. It has spent the whole load filling up, so it fills the
-  // last of the way and hops — THAT is what "loaded" looks like, and cutting it off a
-  // frame before the payoff would be a strange thing to build and then hide.
+  // last of the way, turns into the actual frog and hops — THAT is what "loaded" looks
+  // like, and cutting it off a frame before the payoff would be a strange thing to
+  // build and then hide. The game is already running behind the veil; this is a beat,
+  // not a gate.
   //
-  // The game is already running underneath; this is a beat, not a gate.
-  loader.__hqStop?.()
-  loader.querySelector('.hq-loader-water')?.style.setProperty('--fill', '1')
-  loader.querySelector('.hq-loader-text')?.remove()
-  const view = doc.defaultView
-  view?.setTimeout(() => loader.classList.add('hq-loader-done'), 240)
-  view?.setTimeout(() => {
-    loader.remove()
-    doc.getElementById(START_STYLE_ID)?.remove()
-  }, 900)
+  // The styles have to outlive the frog, so they leave with it and not before.
+  const goneAt = loader.__hqFinish?.() ?? 0
+  doc.defaultView?.setTimeout(() => doc.getElementById(START_STYLE_ID)?.remove(), goneAt + 50)
   return true
 }
