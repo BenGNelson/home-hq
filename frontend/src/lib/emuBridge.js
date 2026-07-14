@@ -435,7 +435,11 @@ export function setFastForward(emu, on) {
 // engine's own listener and the audio unlock still works.
 const START_STYLE_ID = 'hq-start-screen'
 
-export function styleStartScreen(frame, { coverUrl, name } = {}) {
+// `loader` is the frog: { svg, css } built by the frog module and handed in, because
+// this file is the only one allowed to touch the player document and the frog module
+// is the only one allowed to draw the frog. Optional — without it the loading state
+// falls back to the engine's own.
+export function styleStartScreen(frame, { coverUrl, name, loader } = {}) {
   let doc
   try {
     doc = frame && frame.contentDocument
@@ -448,6 +452,7 @@ export function styleStartScreen(frame, { coverUrl, name } = {}) {
   const style = doc.createElement('style')
   style.id = START_STYLE_ID
   style.textContent = `
+    ${loader?.css || ''}
     /* The game's own cover art, pushed right back so it reads as atmosphere. */
     .ejs_game_background {
       filter: blur(34px) saturate(1.4) brightness(0.55) !important;
@@ -582,11 +587,18 @@ export function styleStartScreen(frame, { coverUrl, name } = {}) {
     button.parentElement.insertBefore(column, button)
     column.appendChild(button)
 
-    // The tap that starts the game also dismisses the card. Not `once`-guarded on the
-    // engine's behalf — this listener only ever adds a class, and the engine's own
-    // listener (the one that unlocks audio) is untouched, which is the whole reason
-    // the button is MOVED rather than recreated.
-    button.addEventListener('click', () => column.classList.add('hq-start-out'), { once: true })
+    // The tap that starts the game hands the screen over: the card falls away and the
+    // frog takes its place. This listener only ever swaps some DOM — the engine's own
+    // listener (the one that unlocks audio on iOS) is untouched, which is the whole
+    // reason the button is MOVED into our column rather than recreated inside it.
+    button.addEventListener(
+      'click',
+      () => {
+        column.classList.add('hq-start-out')
+        if (loader) mountLoader(doc, loader)
+      },
+      { once: true }
+    )
     return true
   }
 
@@ -600,6 +612,49 @@ export function styleStartScreen(frame, { coverUrl, name } = {}) {
     setTimeout(() => observer.disconnect(), 120_000) // don't watch forever
   }
   return true
+}
+
+// Put the frog on screen and keep it filling until the game starts.
+//
+// It replaces a gap, not a spinner: the engine's own progress text renders hidden, so
+// between the tap and the first frame there was nothing on screen at all — which is
+// indistinguishable from a crash. The frog is the one thing standing between "loading"
+// and "did it break".
+//
+// The fill is time-based, not a percentage read off the engine — see nextFill() for
+// why a real percentage would send it backwards. The engine's phase text rides along
+// underneath, where the honest detail belongs.
+function mountLoader(doc, { svg, fill, label }) {
+  const host = doc.querySelector('.ejs_parent') || doc.body
+  if (!host || doc.querySelector('.hq-loader')) return
+
+  host.insertAdjacentHTML('beforeend', svg)
+  const el = doc.querySelector('.hq-loader')
+  const water = el?.querySelector('.hq-loader-water')
+  const text = el?.querySelector('.hq-loader-text')
+  if (!el || !water) return
+
+  const started = doc.defaultView?.performance?.now?.() ?? 0
+  let value = 0
+
+  const tick = () => {
+    // The frame can go at any moment (quit mid-load), and the interval outlives it.
+    if (!el.isConnected) return stop()
+    const now = doc.defaultView?.performance?.now?.() ?? started
+    value = fill(value, now - started)
+    water.style.setProperty('--fill', String(value))
+    if (text) text.textContent = label(doc.querySelector('.ejs_loading_text')?.textContent)
+  }
+
+  const timer = doc.defaultView?.setInterval(tick, 120)
+  function stop() {
+    doc.defaultView?.clearInterval(timer)
+  }
+  tick()
+
+  // Held on the element so clearStartScreen can finish the animation and stop the
+  // clock without either of them needing to know about the other.
+  el.__hqStop = stop
 }
 
 // Take the start screen out of the DOM once the game is actually running.
@@ -620,9 +675,29 @@ export function clearStartScreen(frame) {
   if (!doc) return false
 
   doc.querySelector('.hq-start')?.remove()
-  doc.getElementById(START_STYLE_ID)?.remove()
   // The engine's own backdrop. It's the game's cover art, blurred — atmosphere before
   // the game, a smear over the top of it after.
   doc.querySelector('.ejs_game_background')?.remove()
+
+  const loader = doc.querySelector('.hq-loader')
+  if (!loader) {
+    doc.getElementById(START_STYLE_ID)?.remove()
+    return true
+  }
+
+  // The frog gets to finish. It has spent the whole load filling up, so it fills the
+  // last of the way and hops — THAT is what "loaded" looks like, and cutting it off a
+  // frame before the payoff would be a strange thing to build and then hide.
+  //
+  // The game is already running underneath; this is a beat, not a gate.
+  loader.__hqStop?.()
+  loader.querySelector('.hq-loader-water')?.style.setProperty('--fill', '1')
+  loader.querySelector('.hq-loader-text')?.remove()
+  const view = doc.defaultView
+  view?.setTimeout(() => loader.classList.add('hq-loader-done'), 240)
+  view?.setTimeout(() => {
+    loader.remove()
+    doc.getElementById(START_STYLE_ID)?.remove()
+  }, 900)
   return true
 }

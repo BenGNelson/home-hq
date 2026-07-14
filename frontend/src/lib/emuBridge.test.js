@@ -347,7 +347,7 @@ describe('clearStartScreen', () => {
     // of the running game, the card still bobbing on its float animation.
     const doc = fakeDoc(['.hq-start', '#hq-start-screen', '.ejs_game_background'])
     expect(clearStartScreen({ contentDocument: doc })).toBe(true)
-    expect(doc.removed).toEqual(['.hq-start', '#hq-start-screen', '.ejs_game_background'])
+    expect(doc.removed.sort()).toEqual(['#hq-start-screen', '.ejs_game_background', '.hq-start'])
   })
 
   it('is fine when there is nothing to clear (it runs on every boot)', () => {

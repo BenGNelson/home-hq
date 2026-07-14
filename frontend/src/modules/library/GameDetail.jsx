@@ -41,7 +41,7 @@ export default function GameDetail() {
     recordPlayed(game)
     const q = `id=${encodeURIComponent(game.id)}&core=${encodeURIComponent(
       game.core
-    )}&name=${encodeURIComponent(game.name)}`
+    )}&name=${encodeURIComponent(game.name)}&label=${encodeURIComponent(game.label || '')}`
     navigate(`/library/play?${q}${slot ? `&slot=${encodeURIComponent(slot)}` : ''}`)
   }
 

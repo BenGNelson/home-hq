@@ -60,8 +60,16 @@ describe('resumeHref', () => {
   })
   it('routes a play entry to the player (no save slot — resume is the in-game Continue/SRAM)', () => {
     expect(
-      resumeHref({ kind: 'play', id: 'Tetris.gb', core: 'gb', name: 'Tetris', slot: '123' })
-    ).toBe('/library/play?id=Tetris.gb&core=gb&name=Tetris')
+      resumeHref({ kind: 'play', id: 'Tetris.gb', core: 'gb', name: 'Tetris', label: 'Game Boy', slot: '123' })
+    ).toBe('/library/play?id=Tetris.gb&core=gb&name=Tetris&label=Game+Boy')
+  })
+
+  it('carries the SYSTEM, which the core cannot imply', () => {
+    // Game Boy Color games run on the `gba` core, so the player would dress itself in
+    // the wrong machine's colours if it had to guess from the core alone.
+    expect(resumeHref({ kind: 'play', id: 'x.gbc', core: 'gba', name: 'X', label: 'Game Boy Color' })).toContain(
+      'label=Game+Boy+Color'
+    )
   })
   it('routes a listen entry to the audiobook player at the book path', () => {
     expect(resumeHref({ kind: 'listen', id: 'Orwell/Animal Farm' })).toBe(

@@ -89,7 +89,7 @@ export default function FrogBrowser() {
       recordPlayed(game)
       const q = `id=${encodeURIComponent(game.id)}&core=${encodeURIComponent(game.core)}&name=${encodeURIComponent(
         game.name
-      )}`
+      )}&label=${encodeURIComponent(game.label || '')}`
       // No `?slot=`: jumping back in means the game's own in-game save, not an older
       // snapshot. Restoring a save state here would roll the battery save back to
       // whenever that snapshot was taken — the exact way you lose an afternoon.
