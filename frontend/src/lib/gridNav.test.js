@@ -36,6 +36,31 @@ describe('moveInGrid', () => {
     expect(moveInGrid(grid(6), 'down')).toBe(6)
   })
 
+  it('centres a lone item on the last row, and walks to it correctly', () => {
+    // The pause menu on an iPad has 7 tiles: 3-3-1. Left-aligned, that last one
+    // (Quit) hangs off the bottom-left and looks broken. Centred, it sits under the
+    // middle column — so Up from it must go to the MIDDLE tile of the row above,
+    // which is the one your eye sees directly overhead.
+    const g = (index) => ({ count: 7, cols: 3, index })
+    const opts = { centerLastRow: true }
+
+    expect(moveInGrid(g(6), 'up', opts)).toBe(4) // the middle of the row above
+    expect(moveInGrid(g(6), 'left', opts)).toBe(6) // it's alone — nowhere to go
+    expect(moveInGrid(g(6), 'right', opts)).toBe(6)
+    expect(moveInGrid(g(6), 'down', opts)).toBe(6)
+
+    // And every column above still drops onto it, since it's the only thing there.
+    for (const i of [3, 4, 5]) expect(moveInGrid(g(i), 'down', opts)).toBe(6)
+  })
+
+  it('only centres when the last row really is a lone orphan', () => {
+    const opts = { centerLastRow: true }
+    // 6 tiles = 3-3, nothing to centre: the walk is unchanged.
+    expect(moveInGrid({ count: 6, cols: 3, index: 5 }, 'up', opts)).toBe(2)
+    // 8 tiles = 3-3-2: two on the last row, so no orphan.
+    expect(moveInGrid({ count: 8, cols: 3, index: 7 }, 'up', opts)).toBe(4)
+  })
+
   it('survives an out-of-range index and an empty grid', () => {
     // Clamps to the last item (6), which is column 0 — so left refuses to move.
     expect(moveInGrid(grid(99), 'left')).toBe(6)

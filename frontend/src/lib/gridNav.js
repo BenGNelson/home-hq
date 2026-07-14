@@ -15,12 +15,26 @@ const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n))
 // The last row is usually short. Pressing down from the row above into that gap
 // lands on the last item rather than refusing to move, which is what every
 // console UI does.
-export function moveInGrid({ count, cols, index }, dir) {
+// `centerLastRow`: when the last row holds a single orphan item, it's drawn in the
+// MIDDLE column rather than dumped on the left (7 tiles read as 3-3-1 centred, not
+// 3-3 and a stray). The walk has to know that, or the cursor and your eye disagree:
+// press Up from the centred tile and you'd jump to the left-hand column, which is
+// not the tile sitting above it.
+export function moveInGrid({ count, cols, index }, dir, { centerLastRow = false } = {}) {
   if (!count || !cols) return 0
   const i = clamp(index, 0, count - 1)
   const col = i % cols
   const row = Math.floor(i / cols)
   const lastRow = Math.floor((count - 1) / cols)
+
+  const orphan = centerLastRow && count % cols === 1 && count > cols
+  const middle = Math.floor((cols - 1) / 2)
+
+  // The orphan is alone on its row: left/right/down have nowhere to go, and up
+  // lands on whatever is actually drawn above it — the middle of the row before.
+  if (orphan && i === count - 1) {
+    return dir === 'up' ? (lastRow - 1) * cols + middle : i
+  }
 
   switch (dir) {
     case 'left':

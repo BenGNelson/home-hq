@@ -43,7 +43,7 @@ import { useWakeLock } from '../../../lib/useWakeLock.js'
 import { useMediaQuery } from '../../../lib/useMediaQuery.js'
 import { moveInGrid } from '../../../lib/gridNav.js'
 import { saveState, loadState, listStates, deleteState } from '../../../lib/saveStates.js'
-import PauseMenu, { pauseItems, PAUSE_COLS } from './PauseMenu.jsx'
+import PauseMenu, { pauseItems, pauseCols } from './PauseMenu.jsx'
 import SaveStatePanel from './SaveStatePanel.jsx'
 import ControlsPanel, { controlRows } from './ControlsPanel.jsx'
 import ButtonLegend from './ButtonLegend.jsx'
@@ -88,6 +88,7 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
   // pressed anyway, so waiting for it would leave the touch controls sitting over
   // a perfectly good pad.
   const [padActive, setPadActive] = useState(false)
+  const [padHint, setPadHint] = useState(false) // the "hold ☰ for the menu" nudge
   const [padId, setPadId] = useState(null)
   const [padName, setPadName] = useState(null)
   const [settings, setSettings] = useState(() => {
@@ -472,7 +473,12 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
       }
       if (action === 'confirm') onMenuAction(menuItems[menuFocus].id)
       else if (action === 'back') dispatch('resume')
-      else setMenuFocus((i) => moveInGrid({ count: menuItems.length, cols: PAUSE_COLS, index: i }, action))
+      else
+        setMenuFocus((i) =>
+          moveInGrid({ count: menuItems.length, cols: pauseCols(menuItems.length), index: i }, action, {
+            centerLastRow: true,
+          })
+        )
     },
 
     // The analog stick as a d-pad, in-game only. These systems have no analog
@@ -484,6 +490,20 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
       if (index != null) press(emuRef.current, index, down)
     },
   })
+
+  // The controller hint introduces itself and then leaves. It answers exactly one
+  // question — "the on-screen controls vanished, how do I get back to a menu?" —
+  // and once you know, it's just something parked over the corner of your game for
+  // the rest of the session. So: a few seconds, then fade out.
+  //
+  // Re-armed whenever the pad reconnects, because that's when you might have picked
+  // up a different controller, or handed it to someone who hasn't seen it.
+  useEffect(() => {
+    if (!padActive) return
+    setPadHint(true)
+    const t = setTimeout(() => setPadHint(false), 4500)
+    return () => clearTimeout(t)
+  }, [padActive])
 
   // Don't let the screen sleep mid-game. Re-acquired on every return to the tab,
   // because iOS drops the lock whenever the page is hidden and never gives it back.
@@ -663,10 +683,17 @@ export default function PlayerShell({ id, core, name, loadStateUrl }) {
           </button>
         )}
 
-        {/* Tells you the pad took over — and, crucially, how to get back out,
-            since the on-screen menu button is now gone. */}
+        {/* Says the pad took over, and how to get back to a menu now that the
+            on-screen button is gone. Then it fades — see the timer above. */}
         {isRunning(state) && mode === 'pad' && padActive && (
-          <div className="pointer-events-none absolute right-3 top-3 z-10 rounded-full bg-slate-900/70 px-3 py-1.5 text-xs text-slate-300 backdrop-blur-sm">
+          <div
+            data-testid="pad-hint"
+            aria-hidden={!padHint}
+            className={`pointer-events-none absolute right-3 top-3 z-10 rounded-full bg-slate-900/70 px-3 py-1.5 text-xs text-slate-300 backdrop-blur-sm transition-opacity duration-700 ${
+              padHint ? 'opacity-100' : 'opacity-0'
+            }`}
+            style={{ marginTop: 'env(safe-area-inset-top)', marginRight: 'env(safe-area-inset-right)' }}
+          >
             Controller · hold <span className="font-semibold text-slate-100">☰</span> for the menu
           </div>
         )}
