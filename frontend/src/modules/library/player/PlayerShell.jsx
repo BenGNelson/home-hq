@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Menu, Maximize, Minimize } from 'lucide-react'
+import { X, Menu, Minimize } from 'lucide-react'
 import { playerSrc, coverUrl } from '../../../lib/library.js'
 import { useOnline } from '../../../lib/online.jsx'
 import { goBack } from '../../../lib/nav.js'
@@ -21,6 +21,7 @@ import {
   trackAudio,
   resumeAudio,
   pressStart,
+  flashStartCue,
   press,
   tap,
   flushInputs,
@@ -37,6 +38,7 @@ import {
   shouldPromptRotate,
   overlayVisible,
   supportsFullscreen,
+  isIOS,
 } from '../../../lib/playerMode.js'
 import {
   readSettings,
@@ -432,22 +434,12 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
 
   const paused = state === 'PAUSED'
 
-  // Hide the top bar while you're actually playing on a phone or a controller, and
-  // give the game the whole screen. It's ~48px, which is a lot on a 393px-tall
-  // landscape phone: with the bar up, the controls letterbox down to a scale where
-  // the menu button lands under the 44pt minimum touch target.
-  //
-  // Safe because it isn't the only way out: the overlay carries a ☰, the pad has
-  // its Menu button, both open the pause menu, and the pause menu has Quit. (On a
-  // desktop, with neither, the bar stays.)
   // Which way up the device is. Drives the touch layout, the game's box, and the
   // rotate prompt.
   const portrait = useMediaQuery('(orientation: portrait)')
 
   // iPhone has no Fullscreen API, so the button is a no-op there and isn't shown.
   const canFullscreen = supportsFullscreen()
-
-  const chromeless = isRunning(state) && (mode === 'touch' || padActive)
 
   // Held upright, the game goes across the top and the controls fill the space
   // below it — so the iframe has to give up the bottom half. In landscape it stays
@@ -527,12 +519,18 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
     // Menu navigation. Only wired while a menu is open — in-game the engine reads
     // the pad itself, straight from the preset.
     onAction: (action) => {
-      // On the start screen a controller has no button to tap — so A boots the game,
-      // clicking the engine's own Start button (which fires the frog + the core). The
-      // resumeAudio is best-effort: a polled pad press isn't an iOS user-gesture, so
-      // audio may stay suspended there — the "tap for sound" chip picks that up.
+      // On the start screen a controller has no button to tap. Off iOS, A boots the
+      // game by clicking the engine's Start button (fires the frog + the core). On iOS
+      // a pad simply CAN'T start a game with audio — a synthetic click just triggers
+      // the engine's grey "click to resume" screen — so there, A bounces the "TAP TO
+      // PLAY" cue instead, pointing at the one tap that works. B backs out.
       if (state === 'AWAIT_START') {
-        if (action === 'confirm' && pressStart(frameRef.current)) resumeAudio(frameRef.current)
+        if (action === 'confirm') {
+          if (isIOS()) flashStartCue(frameRef.current)
+          else if (pressStart(frameRef.current)) resumeAudio(frameRef.current)
+        } else if (action === 'back') {
+          exit()
+        }
         return
       }
 
@@ -665,10 +663,17 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
   // path unlocks audio for free (unlike the polled pad press).
   useEffect(() => {
     const onKey = (e) => {
-      if (state === 'AWAIT_START' && (e.key === 'Enter' || e.key === ' ')) {
-        e.preventDefault()
-        pressStart(frameRef.current)
-        return
+      if (state === 'AWAIT_START') {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          pressStart(frameRef.current)
+          return
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          exit() // no game running yet — Esc backs out, it doesn't pause
+          return
+        }
       }
       if (e.key !== 'Escape' || !isRunning(state)) return
       e.preventDefault()
@@ -676,7 +681,7 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [state, openMenu])
+  }, [state, openMenu, exit])
 
   // Pause when the app goes to the background, and flush the battery save on the
   // way out — an iOS tab can be discarded without warning, and an unsaved SRAM is
@@ -739,49 +744,38 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
       // TouchOverlay therefore does NOT pad itself — it letterboxes inside this
       // already-safe box. Padding in both places would inset twice and shrink
       // everything straight back down.
-      style={
-        immersive || chromeless
-          ? {
-              paddingTop: 'env(safe-area-inset-top)',
-              paddingRight: 'env(safe-area-inset-right)',
-              paddingBottom: 'env(safe-area-inset-bottom)',
-              paddingLeft: 'env(safe-area-inset-left)',
-            }
-          : undefined
-      }
+      style={{
+        // With no top bar, the wrapper carries the safe-area inset in every state, so
+        // the game and the start screen always sit clear of the notch and the home bar.
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingRight: 'env(safe-area-inset-right)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        paddingLeft: 'env(safe-area-inset-left)',
+      }}
     >
-      {chromeless ? null : immersive ? (
-        <div className="flex items-center px-2 pb-1">
-          <button
-            onClick={() => setImmersive(false)}
-            className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-slate-800/90 px-3 py-1.5 text-sm font-medium text-slate-100 ring-1 ring-white/30 active:bg-slate-700"
-          >
-            <Minimize className="h-4 w-4" aria-hidden="true" /> Exit Fullscreen
-          </button>
-        </div>
-      ) : (
-        <div
-          className="flex items-center gap-2 bg-slate-900 px-3 py-2"
-          style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
+      {/* No top bar — it broke up the game. A single small exit lives in the corner:
+          the quick way out once you're playing, and the crash-safety net (we took the
+          engine's own exit away). Red-tinted so it reads as "leave" without shouting;
+          hidden while paused, where the pause menu owns Quit. */}
+      {!paused && (
+        <button
+          onClick={exit}
+          aria-label="Exit game"
+          className="absolute left-2 top-2 z-30 rounded-full bg-slate-950/50 p-2 text-rose-300/80 ring-1 ring-rose-400/25 backdrop-blur-sm transition-colors hover:bg-rose-500/20 hover:text-rose-100 active:bg-rose-500/30"
         >
-          {/* Always mounted, outside the overlay tree: we've taken the engine's
-              own exit away, so if the overlay ever crashed this is the way out. */}
-          <button
-            onClick={exit}
-            className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 active:bg-slate-700"
-          >
-            <X className="h-4 w-4" aria-hidden="true" /> Exit
-          </button>
-          <span className="min-w-0 flex-1 truncate text-center font-medium text-slate-100">{name}</span>
-          {canFullscreen && (
-            <button
-              onClick={goFullscreen}
-              className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded bg-slate-800 px-3 py-1.5 text-sm text-slate-200 active:bg-slate-700"
-            >
-              <Maximize className="h-4 w-4" aria-hidden="true" /> Fullscreen
-            </button>
-          )}
-        </div>
+          <X className="h-5 w-5" aria-hidden="true" />
+        </button>
+      )}
+
+      {/* The CSS-fullscreen fallback's way back out (only where there's no native
+          Fullscreen API). Tucked bottom-right so it never sits under the corner exit. */}
+      {immersive && (
+        <button
+          onClick={() => setImmersive(false)}
+          className="absolute bottom-3 right-3 z-30 flex items-center gap-1.5 rounded-full bg-slate-800/90 px-3 py-1.5 text-sm font-medium text-slate-100 ring-1 ring-white/30 active:bg-slate-700"
+        >
+          <Minimize className="h-4 w-4" aria-hidden="true" /> Exit Fullscreen
+        </button>
       )}
 
       {bootAt && <FrogBoot system={label || systemForCore(core)} done={bootDone} />}
@@ -820,8 +814,7 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
           <button
             onClick={openMenu}
             aria-label="Game menu"
-            className="absolute left-2 top-2 z-10 rounded-full bg-slate-900/70 p-2 text-slate-200 backdrop-blur-sm hover:bg-slate-800 active:bg-slate-800"
-            style={{ marginTop: 'env(safe-area-inset-top)', marginLeft: 'env(safe-area-inset-left)' }}
+            className="absolute right-2 top-2 z-10 rounded-full bg-slate-900/70 p-2 text-slate-200 backdrop-blur-sm hover:bg-slate-800 active:bg-slate-800"
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
           </button>

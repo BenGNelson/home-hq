@@ -521,6 +521,22 @@ export function styleStartScreen(frame, { coverUrl, name, onStart, accent, groun
       font: 600 11px/1 system-ui, -apple-system, sans-serif;
       animation: hq-pulse 1.9s ease-in-out infinite;
     }
+    /* A quick emphasis when a controller player presses A on iOS — where a pad can't
+       start the game with audio, so we bounce the cue to say "tap instead". */
+    .hq-start-cue.hq-cue-flash { animation: hq-cueflash 0.5s ease; }
+    @keyframes hq-cueflash {
+      0%,100% { transform: scale(1); color: rgb(${rgb}); }
+      40% { transform: scale(1.3); color: #fff; }
+    }
+
+    /* The WHOLE screen starts the game. On iOS a game can only begin WITH SOUND from a
+       real touch, so the target is the entire screen, not just the button — one tap
+       anywhere, no hunting for a pill, no "click to resume". It sits above everything;
+       clicking the engine's button from a real tap keeps the user-activation that
+       unlocks audio. */
+    .hq-start-tap {
+      position: fixed; inset: 0; z-index: 4; cursor: pointer;
+    }
 
     /* Tapping Play sends the card away IMMEDIATELY. The engine removes only its own
        Start button; it knows nothing about the column we wrapped it in, so without
@@ -624,7 +640,8 @@ export function styleStartScreen(frame, { coverUrl, name, onStart, accent, groun
       column.appendChild(title)
     }
 
-    button.parentElement.insertBefore(column, button)
+    const host = button.parentElement // the engine's full-screen container
+    host.insertBefore(column, button)
     column.appendChild(button)
 
     // How to start it, in Frog's jade — and it names the A button, so a controller
@@ -634,12 +651,22 @@ export function styleStartScreen(frame, { coverUrl, name, onStart, accent, groun
     cue.textContent = 'PRESS A OR TAP'
     column.appendChild(cue)
 
+    // The whole-screen tap target. A real tap on it clicks the engine's Start button
+    // from inside a user gesture, so audio unlocks — one tap ANYWHERE starts the game
+    // with sound, instead of only the small pill (and no "click to resume" white screen
+    // from a tap that missed).
+    const tap = doc.createElement('div')
+    tap.className = 'hq-start-tap'
+    tap.addEventListener('click', () => button.click(), { once: true })
+    host.appendChild(tap)
+
     // The tap that starts the game hands the screen over: the card falls away and the
     // frog takes its place. This listener only ever swaps some DOM — the engine's own
     // listener (the one that unlocks audio on iOS) is untouched, which is the whole
     // reason the button is MOVED into our column rather than recreated inside it.
     button.addEventListener('click', () => {
       column.classList.add('hq-start-out')
+      tap.remove() // stop it eating taps meant for the running game
       onStart?.()
     }, { once: true })
     return true
@@ -699,10 +726,28 @@ export function clearStartScreen(frame) {
   if (!doc) return false
 
   doc.querySelector('.hq-start')?.remove()
+  doc.querySelector('.hq-start-tap')?.remove() // the whole-screen tap target
   // The engine's own backdrop. It's the game's cover art, blurred — atmosphere before
   // the game, a smear over the top of it after.
   doc.querySelector('.ejs_game_background')?.remove()
 
   doc.getElementById(START_STYLE_ID)?.remove()
   return true
+}
+
+// Bounce the "PRESS A OR TAP" cue. Used when a controller player presses A on iOS,
+// where a pad can't start the game with audio — the flash says "tap instead" without
+// dumping them into the engine's grey "click to resume" screen.
+export function flashStartCue(frame) {
+  let doc
+  try {
+    doc = frame && frame.contentDocument
+  } catch {
+    return
+  }
+  const cue = doc?.querySelector('.hq-start-cue')
+  if (!cue) return
+  cue.classList.remove('hq-cue-flash')
+  void cue.offsetWidth // restart the animation if it's mid-flight
+  cue.classList.add('hq-cue-flash')
 }

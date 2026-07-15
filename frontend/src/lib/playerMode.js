@@ -50,6 +50,16 @@ export function supportsFullscreen(doc = globalThis.document) {
   return !!(doc.fullscreenEnabled || doc.webkitFullscreenEnabled)
 }
 
+// iOS / iPadOS, which gates audio behind a real touch: a gamepad press can't unlock
+// it, so a game "started" from a pad there just gets the engine's grey "click to
+// resume" screen. iPadOS 13+ reports as "MacIntel" with a touch screen, hence the
+// maxTouchPoints check. Used to make A nudge the tap-cue there instead of trying (and
+// failing) to boot the game with sound.
+export function isIOS(nav = typeof navigator !== 'undefined' ? navigator : {}) {
+  const platform = nav.platform || ''
+  return /iP(hone|od|ad)/.test(platform) || (platform === 'MacIntel' && (nav.maxTouchPoints || 0) > 1)
+}
+
 export const INITIAL_PLAYER_STATE = 'BOOT'
 
 export function nextPlayerState(state, event) {
