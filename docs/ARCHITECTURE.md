@@ -677,13 +677,24 @@ Three more rules fall out of the same audit:
   had this for ages (`progressOutbox`); games simply never got it, so a save made
   offline never reached the server, the backup, or the other device.
 
-**Save-state screenshots need `preserveDrawingBuffer`.** A WebGL canvas discards its
-drawing buffer the moment the frame is composited, so reading it back afterwards
-gives a perfectly valid, perfectly *black* image — which is what every thumbnail was.
-The engine never sets the flag, and its alternative source ("retroarch", which asks
-the core for the frame) aborts the Emscripten module and takes the whole iframe down
-with it. So `emuBridge.preserveCanvas()` patches `getContext` in the player document
-before the engine builds anything, and forces the flag on.
+**Save-state screenshots: capture the frame while the game is still on screen.** A
+WebGL canvas discards its drawing buffer the moment the frame is composited, so
+reading it back afterwards gives a perfectly valid, perfectly *black* image. The
+engine never sets `preserveDrawingBuffer`, and its alternative source ("retroarch",
+which asks the core for the frame) aborts the Emscripten module and takes the whole
+iframe down with it — so `emuBridge.preserveCanvas()` patches `getContext` in the
+player document before the engine builds anything and forces the flag on. **But the
+flag alone was never enough**, and this is the part that stayed broken for weeks: the
+shot was taken at *save* time, and by then the core is paused (not presenting) and the
+save overlay covers the iframe — and iOS WebKit is free to release an occluded,
+non-presenting drawing buffer, so the readback still comes back black. Nine real
+device captures on disk were all black to prove it. The fix is **timing, not the
+flag**: PlayerShell keeps a `liveShotRef` fed by a slow timer (`captureShot` every 3s)
+that runs *only while `state === 'PLAYING'`* — i.e. while the canvas is actually
+presenting and visible — and `saveState` uploads that pre-captured frame
+(`{ shot }`) instead of grabbing one at save time. `captureShot` still discards a
+black frame, so a card shows an honest "no preview" rather than a black rectangle if
+no live frame was ever caught.
 
 ### Controller mode
 

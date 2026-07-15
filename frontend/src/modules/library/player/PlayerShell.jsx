@@ -51,7 +51,7 @@ import { useWakeLock } from '../../../lib/useWakeLock.js'
 import { useGameSaves } from '../../../lib/useGameSaves.js'
 import { useMediaQuery } from '../../../lib/useMediaQuery.js'
 import { moveInGrid } from '../../../lib/gridNav.js'
-import { saveState, loadState, listStates, deleteState } from '../../../lib/saveStates.js'
+import { saveState, loadState, listStates, deleteState, captureShot } from '../../../lib/saveStates.js'
 import PauseMenu, { pauseItems, pauseCols } from './PauseMenu.jsx'
 import SaveStatePanel from './SaveStatePanel.jsx'
 import ControlsPanel, { controlRows } from './ControlsPanel.jsx'
@@ -103,6 +103,8 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
   const [statesLoading, setStatesLoading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const [shelfFocus, setShelfFocus] = useState(0) // 0 = Save-new tile, 1..N = the states
+  const [shelfCols, setShelfCols] = useState(2) // the shelf's real column count, measured
 
   // Is a physical controller driving? Becomes true on the FIRST BUTTON PRESS —
   // never on `gamepadconnected`, which iOS Safari doesn't fire until a button is
@@ -252,8 +254,13 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
   const openShelf = useCallback(async () => {
     setShelfOpen(true)
     setError(null)
+    setShelfFocus(0)
     setStatesLoading(true)
-    setStates(await listStates(id))
+    const list = await listStates(id)
+    setStates(list)
+    // Land on the newest save, not the Save-new tile: loading is the reason you open
+    // this mid-game far more often than saving, so make it one button-press away.
+    setShelfFocus(list.length ? 1 : 0)
     setStatesLoading(false)
   }, [id])
 
@@ -261,7 +268,8 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
     setBusy(true)
     setError(null)
     try {
-      const res = await saveState(emuRef.current, id)
+      // Hand it the frame captured while the game was still on screen — see liveShotRef.
+      const res = await saveState(emuRef.current, id, { shot: liveShotRef.current })
       // The local copy always lands; only the upload can fail. Say so rather than
       // claiming success, but don't treat it as an error — the state is safe on
       // this device and the game will still resume from it.
@@ -298,6 +306,12 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
     },
     [id]
   )
+
+  // Deleting the last card can leave focus pointing past the end of the grid — pull
+  // it back to the last real cell (index range is 0 .. states.length).
+  useEffect(() => {
+    setShelfFocus((f) => Math.min(f, states.length))
+  }, [states.length])
 
   // Native fullscreen where it exists (desktop, and iPad behind a prefix); a CSS
   // immersive mode everywhere else. iPhone Safari has no Fullscreen API at all —
@@ -525,7 +539,22 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
       }
 
       if (shelfOpen) {
-        if (action === 'back') setShelfOpen(false)
+        // The save shelf, walked with the pad: [Save-new, ...states]. A = the focused
+        // cell (save a new one, or load that state), Y = delete the focused state,
+        // B = back to the pause menu.
+        if (action === 'back') {
+          setShelfOpen(false)
+          setError(null)
+        } else if (action === 'confirm') {
+          if (shelfFocus === 0) doSave()
+          else doLoad(states[shelfFocus - 1]?.slot)
+        } else if (action === 'alt') {
+          if (shelfFocus > 0 && states[shelfFocus - 1]) doDelete(states[shelfFocus - 1].slot)
+        } else {
+          setShelfFocus((i) =>
+            moveInGrid({ count: states.length + 1, cols: shelfCols, index: i }, action, { centerLastRow: true })
+          )
+        }
         return
       }
       if (action === 'confirm') onMenuAction(menuItems[menuFocus].id)
@@ -573,6 +602,33 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
   // Don't let the screen sleep mid-game. Re-acquired on every return to the tab,
   // because iOS drops the lock whenever the page is hidden and never gives it back.
   useWakeLock(isRunning(state))
+
+  // A live frame for the next save-state thumbnail.
+  //
+  // The canvas can ONLY be read back non-black while the core is actively presenting
+  // and the iframe is visible — which is NOT true at save time (by then the game is
+  // paused and the save overlay covers it, and iOS WebKit hands back solid black; that
+  // timing is why every earlier thumbnail was black). So grab a frame on a slow timer
+  // while the game plays and keep the freshest one; `doSave` uses it instead of
+  // capturing at the moment you hit Save.
+  const liveShotRef = useRef(null)
+  useEffect(() => {
+    if (!isRunning(state)) return
+    let inFlight = false
+    const grab = async () => {
+      if (inFlight) return
+      inFlight = true
+      try {
+        const shot = await captureShot(emuRef.current)
+        if (shot) liveShotRef.current = shot // captureShot already drops black frames
+      } finally {
+        inFlight = false
+      }
+    }
+    grab() // one right away, so a save moments after starting still has a frame
+    const t = setInterval(grab, 3000)
+    return () => clearInterval(t)
+  }, [state])
 
   // --- immersion ------------------------------------------------------------
 
@@ -810,6 +866,9 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
             loading={statesLoading}
             busy={busy}
             error={error}
+            focus={shelfFocus}
+            onFocus={setShelfFocus}
+            onCols={setShelfCols}
             onSave={doSave}
             onLoad={doLoad}
             onDelete={doDelete}
@@ -817,6 +876,17 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
               setShelfOpen(false)
               setError(null)
             }}
+            legend={
+              mode === 'pad' ? (
+                <ButtonLegend
+                  hints={[
+                    { button: 'A', label: shelfFocus === 0 ? 'Save' : 'Load' },
+                    { button: 'Y', label: 'Delete' },
+                    { button: 'B', label: 'Back' },
+                  ]}
+                />
+              ) : null
+            }
           />
         )}
       </div>
