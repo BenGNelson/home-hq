@@ -11,7 +11,10 @@ export default function Player() {
 
   const id = params.get('id')
   const core = params.get('core')
-  const name = params.get('name') || 'Game'
+  // A launch built as `name=${encodeURIComponent(x)}` with x undefined lands here as
+  // the literal string "undefined" — which is truthy, so guard it explicitly.
+  const rawName = params.get('name')
+  const name = rawName && rawName !== 'undefined' ? rawName : 'Game'
   // The system ("Game Boy Color"). Optional — a core can't be trusted to imply it
   // (GBC games run on the gba core), and an offline download entry never stored one.
   const label = params.get('label') || ''
