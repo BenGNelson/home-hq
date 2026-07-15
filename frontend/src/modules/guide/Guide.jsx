@@ -318,7 +318,10 @@ export default function Guide() {
           browser built for a couch and a controller, with a mascot that wears the
           colours of whichever machine you're pointing at, a shelf of consoles that
           never scrolls, and a "Jump back in" row so most sessions never touch the
-          alphabet. (iOS won't let a web app force landscape, so in controller mode it
+          alphabet. Press <strong>X</strong> for a <strong>controller keyboard</strong>{' '}
+          that searches every system at once — and dims each key that would lead nowhere{' '}
+          <em>before</em> you press it, so you feel your way to a game by which doors are
+          still open. (iOS won't let a web app force landscape, so in controller mode it
           asks you to turn the device and picks the game back up when you do.)
         </p>
         <p>
