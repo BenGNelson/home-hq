@@ -220,22 +220,6 @@ export function resumeAudio(frame) {
   }
 }
 
-// Is the game's audio currently suspended? Used to decide whether to nudge a
-// controller player to tap once for sound — on iOS a game started from a pad (not a
-// touch) has no audio user-activation, so its context stays suspended until a real
-// gesture. Returns false unless we can see a genuinely-suspended context, so it never
-// nags without cause.
-export function audioSuspended(frame) {
-  let contexts
-  try {
-    contexts = frame?.contentWindow?.[AUDIO_CONTEXTS]
-  } catch {
-    return false
-  }
-  if (!contexts || !contexts.length) return false
-  return contexts.some((ctx) => ctx.state === 'suspended')
-}
-
 // --- screenshots -----------------------------------------------------------
 
 // Make the game's canvas readable, so a save state can have a picture on it.

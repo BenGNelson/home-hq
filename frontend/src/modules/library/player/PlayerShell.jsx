@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Menu, Maximize, Minimize, Volume2 } from 'lucide-react'
+import { X, Menu, Maximize, Minimize } from 'lucide-react'
 import { playerSrc, coverUrl } from '../../../lib/library.js'
 import { useOnline } from '../../../lib/online.jsx'
 import { goBack } from '../../../lib/nav.js'
@@ -21,7 +21,6 @@ import {
   trackAudio,
   resumeAudio,
   pressStart,
-  audioSuspended,
   press,
   tap,
   flushInputs,
@@ -114,7 +113,6 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
   // a perfectly good pad.
   const [padActive, setPadActive] = useState(false)
   const [padHint, setPadHint] = useState(false) // the "hold ☰ for the menu" nudge
-  const [needsAudioTap, setNeedsAudioTap] = useState(false) // pad-started on iOS → silent until a touch
   const [padId, setPadId] = useState(null)
   const [padName, setPadName] = useState(null)
   const [settings, setSettings] = useState(() => {
@@ -646,17 +644,6 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
     return () => clearInterval(t)
   }, [state])
 
-  // "Tap for sound." A game booted from a pad on iOS has no audio user-activation, so
-  // its context is born suspended and no polled pad press can wake it — only a real
-  // gesture. So once we're playing, check (after the core has had a beat to build its
-  // AudioContext) whether it's still suspended, and if so surface a one-tap nudge. The
-  // wake listener below already resumes on the first touch; this just tells you to.
-  useEffect(() => {
-    if (state !== 'PLAYING') return
-    const t = setTimeout(() => setNeedsAudioTap(audioSuspended(frameRef.current)), 1200)
-    return () => clearTimeout(t)
-  }, [state])
-
   // --- immersion ------------------------------------------------------------
 
   // Ask a controller user to turn the device. We can't force it: iOS ignores the
@@ -706,10 +693,7 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
   // one again. Capture phase, so it still runs even though the overlay
   // preventDefaults; and synchronous, because iOS ignores a deferred resume.
   useEffect(() => {
-    const wake = () => {
-      resumeAudio(frameRef.current)
-      setNeedsAudioTap(false) // the nudge did its job (or wasn't needed)
-    }
+    const wake = () => resumeAudio(frameRef.current)
     for (const ev of ['pointerdown', 'touchstart', 'keydown']) {
       window.addEventListener(ev, wake, { capture: true, passive: true })
     }
@@ -856,24 +840,6 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
           >
             Controller · hold <span className="font-semibold text-slate-100">☰</span> for the menu
           </div>
-        )}
-
-        {/* Started from a pad on iOS, so audio is asleep and only a real touch wakes
-            it. Any tap resumes it (the wake listener above), so this is just the sign
-            that says to — it dismisses itself the instant you touch anything. */}
-        {needsAudioTap && (
-          <button
-            type="button"
-            onClick={() => {
-              resumeAudio(frameRef.current)
-              setNeedsAudioTap(false)
-            }}
-            className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-slate-900/85 px-4 py-2 text-sm font-medium text-slate-100 shadow-lg ring-1 ring-white/15 backdrop-blur-sm"
-            style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
-          >
-            <Volume2 className="h-4 w-4 text-emerald-300" aria-hidden="true" />
-            Tap for sound
-          </button>
         )}
 
         <PauseMenu
