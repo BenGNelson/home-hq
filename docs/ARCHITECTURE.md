@@ -751,9 +751,11 @@ Four screens — **boot → shelf → games**, with **search** reachable from an
   controller until a button is pressed on it, so *something* has to ask. "PRESS A" is
   a nicer way to ask than a "no controller detected" banner, and the press is also
   what tells Frog whether to lay itself out for a pad or a thumb.
-- **"Jump back in" is rail zero.** You are almost always coming back to the same
-  game, so the row that means *most sessions never touch the alphabet* is the one
-  focus lands on. It disappears entirely when it's empty.
+- **"Jump back in" is rail zero, Favorites is rail one.** You are almost always
+  coming back to the same game, so the rows that mean *most sessions never touch the
+  alphabet* come first. Favorites are starred on a game's page (`lib/favorites.js`, a
+  client-side list like recents) and, like the recents, re-hydrated against the live
+  library so a game that has left simply drops out. Each row disappears when empty.
 - **The systems row never scrolls.** There are six machines and six fit on one
   screen — no carousel, no hidden seventh tile, and you can see the shape of the
   whole collection in one look. A system with no games keeps its tile, dimmed.

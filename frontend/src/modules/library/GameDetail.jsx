@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Star } from 'lucide-react'
 import BackLink from '../../components/BackLink.jsx'
 import { useApi } from '../../lib/useApi.js'
 import { formatSize } from '../../lib/format.js'
 import { saveStatesUrl, gameOfflineUrls, gameBackHref } from '../../lib/library.js'
 import { ensureEmulatorEngine, cacheGameSram } from '../../lib/offlineStore.js'
 import { recordPlayed } from '../../lib/recentGames.js'
+import { isFavorite, toggleFavorite } from '../../lib/favorites.js'
 import GameCover from './GameCover.jsx'
 import DownloadButton from './DownloadButton.jsx'
 import SaveStateCard from './SaveStateCard.jsx'
@@ -22,6 +24,7 @@ export default function GameDetail() {
   const ret = params.get('ret')
   const { data, loading } = useApi('/library/games', 0)
   const [refresh, setRefresh] = useState(0)
+  const [favorited, setFavorited] = useState(() => isFavorite(id))
   const states = useApi(`/library/games/save-states?id=${encodeURIComponent(id)}&_=${refresh}`, 0)
 
   const game = data?.items?.find((it) => it.id === id)
@@ -74,6 +77,21 @@ export default function GameDetail() {
               className="rounded-xl bg-sky-600 px-6 py-3 font-medium text-white transition-colors active:bg-sky-700"
             >
               ▶ Play
+            </button>
+            {/* Star it: shows up on Frog's "Favorites" rail. Optimistic — the store
+                write is synchronous, so the fill flips the instant you tap. */}
+            <button
+              onClick={() => setFavorited(toggleFavorite(game).favorited)}
+              aria-pressed={favorited}
+              aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
+              title={favorited ? 'Favorited' : 'Add to favorites'}
+              className={`rounded-xl border px-4 py-3 transition-colors ${
+                favorited
+                  ? 'border-amber-400/40 bg-amber-400/10 text-amber-300'
+                  : 'border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-200'
+              }`}
+            >
+              <Star className="h-5 w-5" fill={favorited ? 'currentColor' : 'none'} aria-hidden="true" />
             </button>
             {/* Save the ROM + its core (+ the shared engine, once) so the game
                 plays in airplane mode. The in-game (SRAM) save is seeded too, so

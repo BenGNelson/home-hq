@@ -4,6 +4,7 @@ import { X } from 'lucide-react'
 import { useApi } from '../../../lib/useApi.js'
 import { systemGames, gameDetailHref } from '../../../lib/library.js'
 import { getRecent, recordPlayed } from '../../../lib/recentGames.js'
+import { getFavorites } from '../../../lib/favorites.js'
 import { moveInRails } from '../../../lib/gridNav.js'
 import { useGamepad } from '../../../lib/useGamepad.js'
 import { SkeletonLine } from '../../../components/ui.jsx'
@@ -66,7 +67,7 @@ export default function FrogBrowser() {
   const [resultRow, setResultRow] = useState(0)
   const [searchFrom, setSearchFrom] = useState('shelf')
 
-  const rails = useMemo(() => buildShelf(items, getRecent()), [items])
+  const rails = useMemo(() => buildShelf(items, getRecent(), getFavorites()), [items])
   const games = useMemo(() => (system ? systemGames(items, system) : []), [items, system])
   // Searched across EVERY system, not just the open one — from the shelf you haven't
   // picked a console yet, and "which box is Zelda in" is exactly what search is for.
