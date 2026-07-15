@@ -56,18 +56,28 @@ export function jumpBackIn(items = [], recent = [], limit = 6) {
     .slice(0, limit)
 }
 
+// The games you've starred, re-hydrated against the live library exactly like the
+// recents: a favorite whose game has left simply drops out, and the name shown is
+// always the library's, never the stale copy in storage.
+export function favoriteGames(items = [], favorites = []) {
+  const byId = new Map(items.map((g) => [g.id, g]))
+  return favorites.map((f) => byId.get(f.id)).filter(Boolean)
+}
+
 // The shelf as rails, for lib/gridNav.js — which is what gives the D-pad column
 // memory for free (leave the systems row on Genesis, go up to a game, come back:
 // still Genesis).
 //
-// "Jump back in" is rail 0 so it's where focus lands, and it disappears entirely
-// when there's nothing to jump back into — a heading over an empty row is a worse
-// first impression than no heading.
-export function buildShelf(items = [], recent = []) {
+// "Jump back in" is rail 0 so it's where focus lands, then Favorites — both the rows
+// that mean most sessions never touch the alphabet. Each disappears entirely when
+// it's empty: a heading over an empty row is a worse first impression than no heading.
+export function buildShelf(items = [], recent = [], favorites = []) {
   const jump = jumpBackIn(items, recent)
+  const favs = favoriteGames(items, favorites)
   const systems = buildSystems(items)
   return [
     ...(jump.length ? [{ id: 'jump', title: 'Jump back in', kind: 'game', items: jump }] : []),
+    ...(favs.length ? [{ id: 'favorites', title: 'Favorites', kind: 'game', items: favs }] : []),
     { id: 'systems', title: 'Systems', kind: 'system', items: systems },
   ]
 }

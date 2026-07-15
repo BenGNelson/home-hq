@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildShelf, buildSystems, jumpBackIn, agoLabel, stepLetter, SYSTEM_ORDER } from './shelf.js'
+import { buildShelf, buildSystems, jumpBackIn, favoriteGames, agoLabel, stepLetter, SYSTEM_ORDER } from './shelf.js'
 
 const g = (id, name, label) => ({ id, name, label, core: 'gb' })
 
@@ -68,6 +68,28 @@ describe('buildShelf', () => {
     // A heading over an empty row is a worse first impression than no heading.
     const rails = buildShelf(LIBRARY, [])
     expect(rails.map((r) => r.id)).toEqual(['systems'])
+  })
+
+  it('puts Favorites right after Jump back in', () => {
+    const rails = buildShelf(LIBRARY, [{ id: '1', ts: 1 }], [{ id: '3' }])
+    expect(rails.map((r) => r.id)).toEqual(['jump', 'favorites', 'systems'])
+  })
+
+  it('shows Favorites even with no recents', () => {
+    const rails = buildShelf(LIBRARY, [], [{ id: '3' }])
+    expect(rails.map((r) => r.id)).toEqual(['favorites', 'systems'])
+  })
+})
+
+describe('favoriteGames', () => {
+  it('re-hydrates against the live library, dropping games that have left', () => {
+    const favs = favoriteGames(LIBRARY, [{ id: '3' }, { id: 'gone' }])
+    expect(favs.map((g) => g.id)).toEqual(['3'])
+  })
+
+  it('uses the library name, not the stored copy', () => {
+    const favs = favoriteGames(LIBRARY, [{ id: '1', name: 'Stale Name' }])
+    expect(favs[0].name).toBe('Pokemon Red')
   })
 })
 
