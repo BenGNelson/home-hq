@@ -220,6 +220,22 @@ export function resumeAudio(frame) {
   }
 }
 
+// Is the game's audio currently suspended? Used to decide whether to nudge a
+// controller player to tap once for sound — on iOS a game started from a pad (not a
+// touch) has no audio user-activation, so its context stays suspended until a real
+// gesture. Returns false unless we can see a genuinely-suspended context, so it never
+// nags without cause.
+export function audioSuspended(frame) {
+  let contexts
+  try {
+    contexts = frame?.contentWindow?.[AUDIO_CONTEXTS]
+  } catch {
+    return false
+  }
+  if (!contexts || !contexts.length) return false
+  return contexts.some((ctx) => ctx.state === 'suspended')
+}
+
 // --- screenshots -----------------------------------------------------------
 
 // Make the game's canvas readable, so a save state can have a picture on it.
@@ -606,6 +622,30 @@ export function styleStartScreen(frame, { coverUrl, name, onStart } = {}) {
     observer.observe(doc.body, { childList: true, subtree: true })
     setTimeout(() => observer.disconnect(), 120_000) // don't watch forever
   }
+  return true
+}
+
+// Start the game from a controller.
+//
+// The Start button lives inside the player document on purpose — its tap is what
+// unlocks iOS audio — so a pad, which has no tap, can't reach it the normal way. We
+// click it programmatically instead: that fires BOTH the engine's own start listener
+// (boot the core) and ours (raise the frog), exactly like a real tap.
+//
+// The one thing a synthetic click can't do is carry iOS user-activation, so on iPhone/
+// iPad the game starts but its AudioContext may stay suspended until a real touch. The
+// caller handles that (see PlayerShell's "tap for sound" fallback). On desktop and
+// Android it just works.
+export function pressStart(frame) {
+  let doc
+  try {
+    doc = frame && frame.contentDocument
+  } catch {
+    return false
+  }
+  const button = doc?.querySelector('.ejs_start_button')
+  if (!button) return false
+  button.click()
   return true
 }
 

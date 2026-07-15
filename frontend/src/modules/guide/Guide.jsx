@@ -311,8 +311,9 @@ export default function Guide() {
           work), you can hold left while tapping B, and every button's hit area is bigger
           than the button you can see — because thumbs undershoot. Pair a{' '}
           <strong>Bluetooth controller</strong> and the on-screen buttons get out of the
-          way entirely: the pad drives the game, and a <strong>Controls</strong> screen
-          decides how it maps onto it. By default the <strong>letters match</strong> — A
+          way entirely: <strong>A starts the game</strong> from the box-art screen (no
+          reaching for the glass), the pad drives it, and a <strong>Controls</strong>{' '}
+          screen decides how it maps onto it. By default the <strong>letters match</strong> — A
           means A. You can flip it to match <strong>positions</strong> instead (the
           bottom button stays the bottom button, wherever its letter sits), and rebind
           any button on top of either. There's no mapping that wins both ways, so it's
