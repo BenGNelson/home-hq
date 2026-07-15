@@ -761,7 +761,15 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
         <button
           onClick={exit}
           aria-label="Exit game"
-          className="absolute left-2 top-2 z-30 rounded-full bg-slate-950/50 p-2 text-rose-300/80 ring-1 ring-rose-400/25 backdrop-blur-sm transition-colors hover:bg-rose-500/20 hover:text-rose-100 active:bg-rose-500/30"
+          // Absolute positioning is relative to the wrapper's PADDING box, so it
+          // ignores the wrapper's safe-area padding — a plain `top-2` lands the
+          // button under the iOS status bar (the clock/battery strip), where iOS
+          // silently eats the tap. Offset by the inset so it clears the notch.
+          style={{
+            top: 'calc(env(safe-area-inset-top) + 0.5rem)',
+            left: 'calc(env(safe-area-inset-left) + 0.5rem)',
+          }}
+          className="absolute z-30 rounded-full bg-slate-950/50 p-2 text-rose-300/80 ring-1 ring-rose-400/25 backdrop-blur-sm transition-colors hover:bg-rose-500/20 hover:text-rose-100 active:bg-rose-500/30"
         >
           <X className="h-5 w-5" aria-hidden="true" />
         </button>
