@@ -10,9 +10,11 @@ import { SkeletonLine } from '../../../components/ui.jsx'
 import ButtonLegend from '../player/ButtonLegend.jsx'
 import { FROG, systemStyle } from './theme.js'
 import { buildShelf, stepLetter } from './shelf.js'
+import { searchGames, matches, KEYS, gridMove } from './search.js'
 import { FrogMark } from './Frog.jsx'
 import Boot from './Boot.jsx'
 import Shelf from './Shelf.jsx'
+import Search from './Search.jsx'
 import GameList, { GameListHeader } from './GameList.jsx'
 import './frog.css'
 
@@ -28,8 +30,9 @@ import './frog.css'
 // keys and a mouse all drive the same code with none of them a special case, and
 // it's what will make lifting this folder into its own repo a copy rather than a
 // rewrite.
-// The actions that move the shelf. Anything else is inert here (X = search isn't
-// built yet), and inert must mean inert — not "quietly re-render".
+// The actions that move the shelf. 'search' is handled before we ever get here (it
+// opens a whole screen); everything else — the triggers, a stray button — is inert,
+// and inert must mean inert, not "quietly re-render into an identical focus object".
 const MOVES = new Set(['up', 'down', 'left', 'right', 'railPrev', 'railNext'])
 
 // Frog's place, held for the life of the tab rather than the life of the component.
@@ -54,13 +57,35 @@ export default function FrogBrowser() {
   const [memory, setMemory] = useState({})
   const [row, setRow] = useState(place.row) // focus within a system's game list
 
+  // Search is transient — a fresh keyboard every time you open it, never restored.
+  // `query` is the string you're building; `zone` is which half of the screen has the
+  // cursor (the keyboard grid or the results); `from` is where to land when you close.
+  const [query, setQuery] = useState('')
+  const [zone, setZone] = useState('grid')
+  const [keyIndex, setKeyIndex] = useState(0)
+  const [resultRow, setResultRow] = useState(0)
+  const [searchFrom, setSearchFrom] = useState('shelf')
+
   const rails = useMemo(() => buildShelf(items, getRecent()), [items])
   const games = useMemo(() => (system ? systemGames(items, system) : []), [items, system])
+  // Searched across EVERY system, not just the open one — from the shelf you haven't
+  // picked a console yet, and "which box is Zelda in" is exactly what search is for.
+  const results = useMemo(() => searchGames(items, query), [items, query])
 
   useEffect(() => {
     if (screen === 'boot') return
-    Object.assign(place, { booted: true, screen, system, focus, row })
+    // Never persist 'search' as the screen: it's a transient overlay with no saved
+    // query, so restoring it after a game launch would drop you on an empty keyboard.
+    // Persist the screen it was opened over instead.
+    Object.assign(place, { booted: true, screen: screen === 'search' ? searchFrom : screen, system, focus, row })
   })
+
+  // Typing narrows the list under the cursor: keep the result focus in range, and if
+  // the list empties out from under the results zone, hand the cursor back to the keys.
+  useEffect(() => {
+    setResultRow((i) => Math.min(i, Math.max(0, results.length - 1)))
+    if (!results.length) setZone((z) => (z === 'results' ? 'grid' : z))
+  }, [results])
 
   // Reconcile focus with whatever the rails just became.
   //
@@ -104,6 +129,31 @@ export default function FrogBrowser() {
     setScreen('games')
   }, [])
 
+  const openSearch = useCallback(() => {
+    // openSearch only ever fires from a non-search screen (the toggle calls closeSearch
+    // otherwise), so the screen we're leaving IS where to return to.
+    setSearchFrom(screen)
+    setQuery('')
+    setKeyIndex(0)
+    setResultRow(0)
+    setZone('grid')
+    setScreen('search')
+  }, [screen])
+
+  const closeSearch = useCallback(() => setScreen(searchFrom), [searchFrom])
+
+  // Append a key, but only if it keeps the list alive — the same dead-key rule the
+  // grid dims by, enforced here so you physically cannot type into an empty result
+  // set (whether by pad or by a laptop keyboard). Functional update so a fast typist
+  // never races a stale `query`.
+  const typeKey = useCallback(
+    (ch) => {
+      setQuery((q) => (items.some((g) => matches(g.name, q + ch)) ? q + ch : q))
+      setZone('grid')
+    },
+    [items]
+  )
+
   // Everything the controller can do, in one place, keyed by which screen is up.
   // Held in a ref so the poll loop is installed once and never re-installed mid-press.
   const act = useRef(() => {})
@@ -112,6 +162,85 @@ export default function FrogBrowser() {
     // Nothing to point at yet. Without this, presses land against the skeleton's
     // placeholder rails and strand focus the moment the real ones arrive.
     if (loading && !items.length) return
+
+    // X is search from anywhere, and X again closes it — a toggle you can find with
+    // one thumb without reading the legend.
+    if (action === 'search') {
+      screen === 'search' ? closeSearch() : openSearch()
+      return
+    }
+
+    if (screen === 'search') {
+      if (zone === 'grid') {
+        switch (action) {
+          case 'confirm':
+            typeKey(KEYS[keyIndex])
+            return
+          // B peels back one layer at a time: a typed character, then (empty) out of
+          // search entirely. Never a dead end.
+          case 'back':
+            query ? setQuery((q) => q.slice(0, -1)) : closeSearch()
+            return
+          // The shoulder is the express lane to the results — one press, from any key,
+          // instead of walking Down through every row. The spatial Down-exit below
+          // still works for the thumb that expects it.
+          case 'railNext':
+            if (results.length) {
+              setZone('results')
+              setResultRow(0)
+            }
+            return
+          case 'up':
+          case 'down':
+          case 'left':
+          case 'right': {
+            const move = gridMove(keyIndex, action)
+            if (move.exit === 'results') {
+              // Down off the bottom row drops into the results — but only if there are
+              // any; otherwise the keyboard keeps the cursor rather than stranding it.
+              if (results.length) {
+                setZone('results')
+                setResultRow(0)
+              }
+            } else {
+              setKeyIndex(move.index)
+            }
+            return
+          }
+          default:
+        }
+        return
+      }
+
+      // The results zone.
+      switch (action) {
+        case 'confirm':
+          play(results[resultRow])
+          return
+        case 'alt':
+          if (results[resultRow]) navigate(gameDetailHref(results[resultRow].id, '/frog'))
+          return
+        // Up off the top row hands the cursor back to the keyboard — the mirror of the
+        // down-press that brought you here. Decide the zone OUTSIDE the setState updater
+        // so the updater stays pure (StrictMode double-invokes it).
+        case 'up':
+        case 'left':
+          if (resultRow <= 0) setZone('grid')
+          else setResultRow((i) => i - 1)
+          return
+        case 'down':
+        case 'right':
+          setResultRow((i) => Math.min(results.length - 1, i + 1))
+          return
+        // The shoulder that took you here takes you back.
+        case 'railPrev':
+        case 'back':
+          setZone('grid')
+          return
+        default:
+      }
+      return
+    }
 
     if (screen === 'shelf') {
       switch (action) {
@@ -197,8 +326,35 @@ export default function FrogBrowser() {
 
   // Keyboard parity, so a desktop drives it identically. Frog is a controller app,
   // but "I'm at my laptop and I want to check something" must not require a pad.
+  // Held in a ref because the listener is installed once — reading `screen`/`typeKey`
+  // straight from the closure would freeze them at their first-render values.
+  // A physical Backspace should always EDIT the query — delete a character, or close
+  // search when there's nothing left — never just hop between zones the way pad-B does.
+  const del = () => {
+    if (query) {
+      setQuery((q) => q.slice(0, -1))
+      setZone('grid')
+    } else {
+      closeSearch()
+    }
+  }
+  const kbd = useRef({})
+  kbd.current = { screen, typeKey, del }
   useEffect(() => {
     const onKey = (e) => {
+      // On the search screen a real keyboard should just... type, bypassing the grid.
+      if (kbd.current.screen === 'search') {
+        if (e.key.length === 1 && /[a-z0-9]/i.test(e.key)) {
+          e.preventDefault()
+          kbd.current.typeKey(e.key.toUpperCase())
+          return
+        }
+        if (e.key === 'Backspace') {
+          e.preventDefault()
+          kbd.current.del()
+          return
+        }
+      }
       const map = {
         ArrowUp: 'up',
         ArrowDown: 'down',
@@ -208,6 +364,7 @@ export default function FrogBrowser() {
         Escape: 'back',
         PageUp: 'railPrev',
         PageDown: 'railNext',
+        '/': 'search',
       }
       const a = map[e.key]
       if (!a) return
@@ -220,7 +377,17 @@ export default function FrogBrowser() {
 
   if (screen === 'boot') return <Boot onDone={() => setScreen('shelf')} />
 
-  const accent = systemStyle(screen === 'games' ? system : hovered(rails, focus)).accent
+  // What the pond light is coloured by: the open system, the result you're pointing
+  // at while searching (jade until you've pointed at one), or the shelf's focus.
+  const focusedSystem =
+    screen === 'games'
+      ? system
+      : screen === 'search'
+        ? zone === 'results' && results[resultRow]
+          ? results[resultRow].label
+          : null
+        : hovered(rails, focus)
+  const accent = systemStyle(focusedSystem).accent
 
   return (
     <div
@@ -247,16 +414,20 @@ export default function FrogBrowser() {
           <div className="flex items-center gap-2">
             <FrogMark size={22} style={{ color: `rgb(${FROG.jade})` }} />
             <span className="text-sm font-semibold tracking-[0.22em]" style={{ color: FROG.ink }}>
-              FROG
+              {screen === 'search' ? 'FROG · SEARCH' : 'FROG'}
             </span>
           </div>
         )}
 
         <button
-          onClick={() => (screen === 'games' ? setScreen('shelf') : navigate('/library/games'))}
+          onClick={() => {
+            if (screen === 'search') closeSearch()
+            else if (screen === 'games') setScreen('shelf')
+            else navigate('/library/games')
+          }}
           className="shrink-0 rounded-full p-2"
           style={{ background: FROG.panel, color: FROG.soft }}
-          aria-label={screen === 'games' ? 'Back to the shelf' : 'Leave Frog'}
+          aria-label={screen === 'search' ? 'Close search' : screen === 'games' ? 'Back to the shelf' : 'Leave Frog'}
         >
           <X className="h-5 w-5" aria-hidden="true" />
         </button>
@@ -271,6 +442,24 @@ export default function FrogBrowser() {
             ))}
           </div>
         </div>
+      ) : screen === 'search' ? (
+        <Search
+          query={query}
+          results={results}
+          allGames={items}
+          zone={zone}
+          keyIndex={keyIndex}
+          resultRow={resultRow}
+          onKey={(i) => {
+            setKeyIndex(i)
+            setZone('grid')
+          }}
+          onResult={(i) => {
+            setResultRow(i)
+            setZone('results')
+          }}
+          onPick={(game, ch) => (ch != null ? typeKey(ch) : play(game))}
+        />
       ) : screen === 'games' ? (
         <GameList
           system={system}
@@ -295,20 +484,34 @@ export default function FrogBrowser() {
           paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
         }}
         hints={
-          screen === 'games'
-            ? [
-                { button: 'A', label: 'Play' },
-                { button: 'B', label: 'Shelf' },
-                { button: 'Y', label: 'Saves' },
-                { button: 'LB/RB', label: 'Skip 10' },
-                { button: 'LT/RT', label: 'Letter' },
-              ]
-            : [
-                { button: 'A', label: 'Open' },
-                { button: 'B', label: 'Home HQ' },
-                { button: 'Y', label: 'Saves' },
-                { button: 'D-pad', label: 'Move' },
-              ]
+          screen === 'search'
+            ? zone === 'grid'
+              ? [
+                  { button: 'A', label: 'Type' },
+                  { button: 'B', label: query ? 'Delete' : 'Close' },
+                  { button: 'RB', label: 'Results' },
+                  { button: 'X', label: 'Close' },
+                ]
+              : [
+                  { button: 'A', label: 'Play' },
+                  { button: 'Y', label: 'Saves' },
+                  { button: 'LB', label: 'Keys' },
+                  { button: 'X', label: 'Close' },
+                ]
+            : screen === 'games'
+              ? [
+                  { button: 'A', label: 'Play' },
+                  { button: 'B', label: 'Shelf' },
+                  { button: 'Y', label: 'Saves' },
+                  { button: 'X', label: 'Find' },
+                  { button: 'LT/RT', label: 'Letter' },
+                ]
+              : [
+                  { button: 'A', label: 'Open' },
+                  { button: 'B', label: 'Home HQ' },
+                  { button: 'X', label: 'Find' },
+                  { button: 'D-pad', label: 'Move' },
+                ]
         }
       />
     </div>

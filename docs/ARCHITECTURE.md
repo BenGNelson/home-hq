@@ -733,7 +733,8 @@ thumb on a phone, and the two products disagree about almost everything. It live
 `modules/library/frog/`, because it is meant to be lifted into its own repo later:
 the Cards → PocketBinder pattern.
 
-Three screens — **boot → shelf → games** — and the shape of them is the argument:
+Four screens — **boot → shelf → games**, with **search** reachable from anywhere (X)
+— and the shape of them is the argument:
 
 - **The boot exists for a reason, not for a logo.** iOS does not report a connected
   controller until a button is pressed on it, so *something* has to ask. "PRESS A" is
@@ -752,6 +753,21 @@ Three screens — **boot → shelf → games** — and the shape of them is the 
   pointing at — you find by reading and confirm by looking. The triggers move a
   *letter* at a time (`stepLetter`), which is what keeps 496 games from being sixty
   D-pad presses.
+
+**Search is a controller keyboard that refuses to waste your presses** (`Search.jsx`,
+`frog/search.js`). X opens a 6×6 grid — A–Z then 0–9, exactly 36 cells — and every key
+that would take the query somewhere empty is **dimmed before you press it**
+(`liveKeys`): a key `K` stays lit only while some title still contains `query + K`. The
+match is a **substring, not a prefix** (`searchGames`), because a retro title buries the
+word you remember in the middle ("*The Legend of* Zelda") far more often than it starts
+with it — which also means you never need to type a space, so there's no space key to
+fat-finger. There are two focus zones, the keys and the results; **down off the bottom
+row (or RB) drops into the results, up off the top (or LB) climbs back**, and search
+spans *every* system at once, since from the shelf you haven't picked a console yet.
+Dimming is a *discriminator*: once you've typed a whole word and the only continuations
+are spaces, every key would dim — so it dims nothing rather than showing a keyboard that
+looks broken. A physical keyboard just types (full parity), and the whole thing is pure
+functions with a DOM-free test (`search.test.js`).
 
 The **art is drawn, not scraped** (`Console.jsx`, `Frog.jsx`) — every other front-end
 pulls the same console logos from the same database, which is exactly why they all
