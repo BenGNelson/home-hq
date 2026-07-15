@@ -5,6 +5,7 @@ import {
   shouldPromptRotate,
   nextPlayerState,
   isRunning,
+  isIOS,
   overlayVisible,
   supportsFullscreen,
 } from './playerMode.js'
@@ -157,5 +158,25 @@ describe('isRunning / overlayVisible', () => {
 
   it('never mounts the touch overlay in controller mode', () => {
     expect(overlayVisible('PLAYING', 'pad')).toBe(false)
+  })
+})
+
+describe('isIOS', () => {
+  it('spots an iPhone', () => {
+    expect(isIOS({ platform: 'iPhone', maxTouchPoints: 5 })).toBe(true)
+  })
+
+  it('spots an iPadOS 13+ device (reports as MacIntel + a touch screen)', () => {
+    expect(isIOS({ platform: 'MacIntel', maxTouchPoints: 5 })).toBe(true)
+  })
+
+  it('does NOT flag a real Mac (MacIntel, no touch)', () => {
+    // Or it would wrongly withhold pad-start on a desktop that can actually do it.
+    expect(isIOS({ platform: 'MacIntel', maxTouchPoints: 0 })).toBe(false)
+  })
+
+  it('does NOT flag Windows or Android', () => {
+    expect(isIOS({ platform: 'Win32', maxTouchPoints: 0 })).toBe(false)
+    expect(isIOS({ platform: 'Linux armv8l', maxTouchPoints: 5 })).toBe(false)
   })
 })

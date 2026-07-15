@@ -803,6 +803,18 @@ screen → the loading frog → the game — is one continuous world rather than
 screen that turns green. `styleStartScreen` takes the palette as params (`accent`,
 `ground`) so the bridge stays Frog-agnostic; the player passes `FROG`'s.
 
+**The whole start screen is the tap target, and there is no top bar.** iOS only lets a
+game begin *with sound* from a real touch — so `styleStartScreen` lays a full-screen
+`.hq-start-tap` layer over everything that, on a real tap, clicks the engine's Start
+button from inside that gesture: one tap anywhere starts the game with audio, no
+hunting for the pill and no engine "click to resume" white screen from a near-miss. A
+**pad genuinely cannot** unlock iOS audio (a polled press is no gesture), so `isIOS()`
+routes A there to bounce the "TAP TO PLAY" cue instead of dumping you into that grey
+screen; off iOS, A boots it directly. The player's **top bar is gone** — it broke up
+the game — leaving one small red-tinted corner **exit** (also the crash-safety way out,
+since the engine's own exit is suppressed) plus **B/Esc → back** on the start screen;
+pause still owns Quit.
+
 Navigation is index arithmetic over rails (`lib/gridNav.js`), not DOM measurement,
 which is what lets a controller, the arrow keys and a mouse drive identical code with
 none of them a special case. The list is windowed (`lib/windowRange.js`) for the same

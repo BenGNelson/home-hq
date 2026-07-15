@@ -309,11 +309,13 @@ export default function Guide() {
           without reloading anything. On a <strong>phone</strong>, the touch controls are built for thumbs:
           the d-pad is one region you can <em>slide</em> across (so diagonals actually
           work), you can hold left while tapping B, and every button's hit area is bigger
-          than the button you can see — because thumbs undershoot. Pair a{' '}
-          <strong>Bluetooth controller</strong> and the on-screen buttons get out of the
-          way entirely: <strong>A starts the game</strong> from the box-art screen (no
-          reaching for the glass), the pad drives it, and a <strong>Controls</strong>{' '}
-          screen decides how it maps onto it. By default the <strong>letters match</strong> — A
+          than the button you can see — because thumbs undershoot. To start a game,{' '}
+          <strong>tap anywhere</strong> on the box-art screen (on a pad, press{' '}
+          <strong>A</strong> — though on an iPhone/iPad only a real tap can start it{' '}
+          <em>with sound</em>, an Apple rule no app can dodge). There's no title bar —
+          just a small exit in the corner. Pair a <strong>Bluetooth controller</strong>{' '}
+          and the on-screen buttons get out of the way entirely: the pad drives the
+          game, and a <strong>Controls</strong> screen decides how it maps onto it. By default the <strong>letters match</strong> — A
           means A. You can flip it to match <strong>positions</strong> instead (the
           bottom button stays the bottom button, wherever its letter sits), and rebind
           any button on top of either. There's no mapping that wins both ways, so it's
