@@ -813,9 +813,17 @@ hunting for the pill and no engine "click to resume" white screen from a near-mi
 **pad genuinely cannot** unlock iOS audio (a polled press is no gesture), so `isIOS()`
 routes A there to bounce the "TAP TO PLAY" cue instead of dumping you into that grey
 screen; off iOS, A boots it directly. The player's **top bar is gone** — it broke up
-the game — leaving one small red-tinted corner **exit** (also the crash-safety way out,
-since the engine's own exit is suppressed) plus **B/Esc → back** on the start screen;
-pause still owns Quit.
+the game — leaving one small red-tinted corner **exit** that shows **only on the
+pre-game screens** (`isPreGame` = BOOT / AWAIT_START), where touch has no other way
+out; plus **B/Esc → back** there. Once PLAYING the exit is hidden — the pause menu
+owns Quit (reached via the overlay ☰, the desktop ☰, or hold-Menu on a pad), so the
+✕ would only clutter the game. It's still the crash-safety way out on the start
+screen, where the engine's own exit is suppressed.
+
+The **touch d-pad** lights the *outer border* of the held arm, not just the arrow
+triangle — a thumb sits on the arrow, so the arrow-only cue was invisible mid-press;
+the border stays legible around the thumb. It's SVG stroke toggled by the same
+`hq-dir-*` class the press path already sets (`classList` on refs, off React state).
 
 Navigation is index arithmetic over rails (`lib/gridNav.js`), not DOM measurement,
 which is what lets a controller, the arrow keys and a mouse drive identical code with

@@ -240,6 +240,11 @@ export default function TouchOverlay({ core, orientation, onInput, onAction, opa
         .hq-dir-left .d-left, .hq-dir-right .d-right {
           fill: rgba(${GAMES.rgb}, 0.95);
         }
+        /* And its border, which a thumb can't cover — the legible cue mid-press. */
+        .hq-dir-up .d-edge-up, .hq-dir-down .d-edge-down,
+        .hq-dir-left .d-edge-left, .hq-dir-right .d-edge-right {
+          stroke: rgba(${GAMES.rgb}, 0.95);
+        }
       `}</style>
     </div>
   )
@@ -276,6 +281,16 @@ function DpadArt() {
         <path className="d-down" d="M50 86 l-7 -10 h14 z" />
         <path className="d-left" d="M14 50 l10 -7 v14 z" />
         <path className="d-right" d="M86 50 l-10 7 v-14 z" />
+      </g>
+      {/* The outer border of each arm — the U-shape around the stub, minus the
+          inner edge that meets the centre. Lit on press, this stays visible around
+          the thumb (which sits on the arrow), so you can always read which way the
+          input is going even mid-press. Transparent until its direction is held. */}
+      <g fill="none" stroke="transparent" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round">
+        <path className="d-edge-up" d="M37 37 V4 H63 V37" />
+        <path className="d-edge-down" d="M37 63 V96 H63 V63" />
+        <path className="d-edge-left" d="M37 37 H4 V63 H37" />
+        <path className="d-edge-right" d="M63 37 H96 V63 H63" />
       </g>
     </svg>
   )
