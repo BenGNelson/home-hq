@@ -644,11 +644,13 @@ export function styleStartScreen(frame, { coverUrl, name, onStart, accent, groun
     host.insertBefore(column, button)
     column.appendChild(button)
 
-    // How to start it, in Frog's jade — and it names the A button, so a controller
-    // player learns the pad boots the game (no reaching for the glass).
+    // How to start it, in Frog's jade. "TAP TO PLAY" because a tap is the one thing
+    // that works everywhere — on iOS a pad literally can't start a game with sound, so
+    // promising "PRESS A" there was a lie. Pressing A on iOS bounces this cue instead
+    // (flashStartCue), which reads as "no — tap".
     const cue = doc.createElement('p')
     cue.className = 'hq-start-cue'
-    cue.textContent = 'PRESS A OR TAP'
+    cue.textContent = 'TAP TO PLAY'
     column.appendChild(cue)
 
     // The whole-screen tap target. A real tap on it clicks the engine's Start button
