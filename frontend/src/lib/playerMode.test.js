@@ -5,6 +5,7 @@ import {
   shouldPromptRotate,
   nextPlayerState,
   isRunning,
+  isPreGame,
   isIOS,
   overlayVisible,
   supportsFullscreen,
@@ -158,6 +159,21 @@ describe('isRunning / overlayVisible', () => {
 
   it('never mounts the touch overlay in controller mode', () => {
     expect(overlayVisible('PLAYING', 'pad')).toBe(false)
+  })
+})
+
+describe('isPreGame', () => {
+  it('is true only on the boot + start screens', () => {
+    // The corner exit shows here — the only way out before the game runs.
+    expect(isPreGame('BOOT')).toBe(true)
+    expect(isPreGame('AWAIT_START')).toBe(true)
+  })
+
+  it('is false once the game is running or beyond', () => {
+    // Once PLAYING the pause menu owns Quit, so the corner exit is hidden.
+    for (const s of ['PLAYING', 'PAUSED', 'ROTATE', 'BACKGROUNDED', 'EXITING']) {
+      expect(isPreGame(s)).toBe(false)
+    }
   })
 })
 

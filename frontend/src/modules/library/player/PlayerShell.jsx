@@ -34,6 +34,7 @@ import {
   nextPlayerState,
   INITIAL_PLAYER_STATE,
   isRunning,
+  isPreGame,
   resolveInputMode,
   shouldPromptRotate,
   overlayVisible,
@@ -753,11 +754,13 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
         paddingLeft: 'env(safe-area-inset-left)',
       }}
     >
-      {/* No top bar — it broke up the game. A single small exit lives in the corner:
-          the quick way out once you're playing, and the crash-safety net (we took the
-          engine's own exit away). Red-tinted so it reads as "leave" without shouting;
-          hidden while paused, where the pause menu owns Quit. */}
-      {!paused && (
+      {/* No top bar — it broke up the game. A single small exit lives in the corner,
+          but ONLY on the pre-game screens (boot + the box-art Start screen), where
+          touch has no other way out. Once the game is running the pause menu owns
+          Quit (reached via the overlay's ☰, the desktop ☰, or hold-Menu on a pad),
+          so the corner ✕ would just clutter the game — hide it. Red-tinted so it
+          reads as "leave" without shouting. */}
+      {isPreGame(state) && (
         <button
           onClick={exit}
           aria-label="Exit game"

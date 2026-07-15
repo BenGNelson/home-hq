@@ -111,6 +111,14 @@ export function isRunning(state) {
   return state === 'PLAYING'
 }
 
+// The pre-game screens — booting, and the box-art "Start" screen — before the
+// game is actually running. Once started, the machine never returns here, so this
+// cleanly means "we haven't begun yet". The corner exit only shows here: it's the
+// only way out before the game runs, but once PLAYING the pause menu owns Quit.
+export function isPreGame(state) {
+  return state === 'BOOT' || state === 'AWAIT_START'
+}
+
 // The engine must be left alone until the user has tapped its Start button, so
 // the touch overlay can't mount before then (it would swallow that tap).
 //
