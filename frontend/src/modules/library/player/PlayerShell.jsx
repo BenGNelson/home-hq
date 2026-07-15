@@ -7,7 +7,7 @@ import { goBack } from '../../../lib/nav.js'
 // The player is Frog's screen. It's launched from Home HQ's Games pages too, but the
 // thing you're doing is playing a game — and when Frog moves to its own repo, the
 // player goes with it. So it dresses in Frog's clothes, wherever you came in from.
-import { systemForCore } from '../frog/theme.js'
+import { systemForCore, FROG } from '../frog/theme.js'
 import FrogBoot from '../frog/FrogBoot.jsx'
 import {
   RETROPAD,
@@ -172,6 +172,10 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
     styleStartScreen(frameRef.current, {
       coverUrl: coverUrl(id),
       name,
+      // The player is Frog's screen, so its start screen wears Frog's colours — the
+      // launch flow (Frog shelf → start → loading frog → game) reads as one world.
+      accent: FROG.jade,
+      ground: FROG.ground,
       onStart: () => setBootAt(Date.now()),
     })
     dispatch('engine-loaded')

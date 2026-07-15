@@ -793,6 +793,16 @@ HQ's blue-black. It should read as a different app, not a different page. The fr
 itself wears the focused machine's colours, which makes it the focus indicator rather
 than a decoration.
 
+That identity follows the game **into the player**, which is Frog's screen wherever
+it's launched from. The box-art start screen (`emuBridge.styleStartScreen`, CSS
+injected into the player document because the engine's Start button — the iOS audio
+unlock — has to stay there) wears Frog's colours: a jade glow over the green-black
+pond, and the cover art floating with a **reflection** cast into the water below it,
+the same signature as `Frog.jsx`'s `<Reflected>`. So the whole launch — shelf → start
+screen → the loading frog → the game — is one continuous world rather than a violet
+screen that turns green. `styleStartScreen` takes the palette as params (`accent`,
+`ground`) so the bridge stays Frog-agnostic; the player passes `FROG`'s.
+
 Navigation is index arithmetic over rails (`lib/gridNav.js`), not DOM measurement,
 which is what lets a controller, the arrow keys and a mouse drive identical code with
 none of them a special case. The list is windowed (`lib/windowRange.js`) for the same

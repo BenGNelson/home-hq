@@ -455,7 +455,7 @@ const START_STYLE_ID = 'hq-start-screen'
 // The frog deliberately does NOT live in this document: the engine resizes the iframe
 // when the game starts (the touch controls take half the screen), and anything centred
 // inside a box that changes size moves when it changes size.
-export function styleStartScreen(frame, { coverUrl, name, onStart } = {}) {
+export function styleStartScreen(frame, { coverUrl, name, onStart, accent, ground } = {}) {
   let doc
   try {
     doc = frame && frame.contentDocument
@@ -464,60 +464,88 @@ export function styleStartScreen(frame, { coverUrl, name, onStart } = {}) {
   }
   if (!doc?.head || doc.getElementById(START_STYLE_ID)) return false
 
-  const rgb = sectionAccent('games').rgb
+  // Frog's water identity by default (green-black pond, jade glow); falls back to the
+  // Games violet if no palette is passed. PlayerShell hands in FROG's colours — the
+  // player is Frog's screen now, so the launch flow (shelf → start → loading frog →
+  // game) should read as one continuous world, not a violet screen that turns green.
+  const rgb = accent || sectionAccent('games').rgb
+  // A hex, deliberately: the pond gradient appends an alpha (`${bg}00`), which only
+  // parses on a hex colour. PlayerShell passes FROG.ground (a hex); this is the fallback.
+  const bg = ground || '#020617'
   const style = doc.createElement('style')
   style.id = START_STYLE_ID
   style.textContent = `
     /* The game's own cover art, pushed right back so it reads as atmosphere. */
     .ejs_game_background {
-      filter: blur(34px) saturate(1.4) brightness(0.55) !important;
-      transform: scale(1.2);
-      opacity: 0.6;
+      filter: blur(38px) saturate(1.5) brightness(0.5) !important;
+      transform: scale(1.25);
+      opacity: 0.5;
     }
-    /* The back-lit radiance the rest of the app uses, over the top of it. */
+    /* The pond: Frog's green-black ground with a jade glow welling up from below,
+       instead of the app-wide violet radiance. */
     .ejs_parent::after {
       content: '';
       position: absolute; inset: 0; pointer-events: none;
       background:
-        radial-gradient(110% 80% at 50% 42%, rgba(${rgb},0.26), transparent 62%),
-        linear-gradient(to bottom, rgba(2,6,23,0.45), rgba(2,6,23,0.92));
+        radial-gradient(120% 85% at 50% 62%, rgba(${rgb},0.22), transparent 60%),
+        linear-gradient(to bottom, ${bg}00, ${bg}), ${bg};
     }
 
-    /* Our column: the box art, the title, then the button. */
+    /* Our column: the box art (with its reflection), the title, the button, the cue. */
     .hq-start {
       position: absolute; left: 50%; top: 50%;
       transform: translate(-50%, -50%);
       z-index: 3;
-      display: flex; flex-direction: column; align-items: center; gap: 18px;
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
       width: max-content; max-width: 86vw;
-      animation: hq-rise 520ms cubic-bezier(.2,.8,.2,1) both;
+      animation: hq-rise 560ms cubic-bezier(.2,.8,.2,1) both;
     }
     .hq-start-art {
-      width: 128px; aspect-ratio: 3/4;
+      width: 132px; aspect-ratio: 3/4;
       border-radius: 12px; object-fit: cover;
       box-shadow:
-        0 0 0 1px rgba(255,255,255,0.10),
+        0 0 0 1px rgba(255,255,255,0.12),
         0 24px 60px -12px rgba(0,0,0,0.85),
-        0 0 70px -10px rgba(${rgb},0.55);
+        0 0 80px -10px rgba(${rgb},0.55);
+      animation: hq-float 5s ease-in-out infinite;
+    }
+    /* Frog's signature: the thing floating on the pond throws a soft reflection down
+       into it. A mirrored, fading copy of the art, tucked right under it. */
+    .hq-start-reflect {
+      width: 132px; aspect-ratio: 3/4;
+      border-radius: 12px; object-fit: cover;
+      margin-top: -30px; /* pull it up under the art, past the column gap */
+      transform: scaleY(-1);
+      opacity: 0.16;
+      filter: blur(1px);
+      -webkit-mask-image: linear-gradient(to bottom, #000, transparent 62%);
+      mask-image: linear-gradient(to bottom, #000, transparent 62%);
+      pointer-events: none;
       animation: hq-float 5s ease-in-out infinite;
     }
     .hq-start-title {
       margin: 0; max-width: 22ch; text-align: center;
-      color: #f1f5f9;
+      color: #E6F5EE; /* FROG.ink */
       font: 600 18px/1.3 system-ui, -apple-system, sans-serif;
       text-shadow: 0 2px 20px rgba(0,0,0,0.7);
     }
+    /* The cue: how to start it, in Frog's jade — and it names the A button, so a
+       controller player learns they don't have to reach for the glass. */
+    .hq-start-cue {
+      margin: 2px 0 0; letter-spacing: 0.24em;
+      color: rgb(${rgb});
+      font: 600 11px/1 system-ui, -apple-system, sans-serif;
+      animation: hq-pulse 1.9s ease-in-out infinite;
+    }
 
-    /* Tapping Play sends the card away IMMEDIATELY.
-       The engine removes its own Start button when you tap it, but it knows nothing
-       about the column we wrapped that button in — so the box art stayed put, kept
-       bobbing on its float animation, and was still sitting in the middle of the
-       screen once the game was running. It hands the screen over to the loader. */
+    /* Tapping Play sends the card away IMMEDIATELY. The engine removes only its own
+       Start button; it knows nothing about the column we wrapped it in, so without
+       this the art stayed bobbing in the middle of the running game. */
     .hq-start-out {
       pointer-events: none;
       animation: hq-fall 260ms cubic-bezier(.4,0,1,1) forwards !important;
     }
-    .hq-start-out .hq-start-art { animation: none !important; }
+    .hq-start-out .hq-start-art, .hq-start-out .hq-start-reflect { animation: none !important; }
     @keyframes hq-fall {
       to { opacity: 0; transform: translate(-50%, calc(-50% + 10px)) scale(0.96); }
     }
@@ -527,14 +555,14 @@ export function styleStartScreen(frame, { coverUrl, name, onStart } = {}) {
     .ejs_start_button {
       position: static !important;
       margin: 0 !important;
-      padding: 14px 44px !important;
+      padding: 13px 46px !important;
       border: 0 !important;
       border-radius: 9999px !important;
       background: rgba(${rgb}, 0.95) !important;
-      color: #fff !important;
-      font: 600 16px/1 system-ui, -apple-system, sans-serif !important;
+      color: #04110D !important; /* dark ink on jade, so it reads as Frog, not a link */
+      font: 700 16px/1 system-ui, -apple-system, sans-serif !important;
       text-transform: none !important;
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.16), 0 12px 40px -8px rgba(${rgb},0.95);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.18), 0 12px 44px -8px rgba(${rgb},0.9);
       transition: transform 120ms ease;
       cursor: pointer;
       /* The engine centres this button with its own translate. Inside our flex column
@@ -548,7 +576,7 @@ export function styleStartScreen(frame, { coverUrl, name, onStart } = {}) {
       position: absolute; left: 50%; top: 50%;
       transform: translate(-50%, -50%);
       z-index: 3;
-      color: #cbd5e1 !important;
+      color: #93B5A8 !important; /* FROG.soft */
       font: 500 13px/1.4 system-ui, -apple-system, sans-serif !important;
       text-shadow: none !important;
       letter-spacing: 0.04em;
@@ -567,6 +595,7 @@ export function styleStartScreen(frame, { coverUrl, name, onStart } = {}) {
 
     @keyframes hq-spin { to { transform: rotate(360deg); } }
     @keyframes hq-float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-7px) } }
+    @keyframes hq-pulse { 0%,100% { opacity: 0.45 } 50% { opacity: 1 } }
     @keyframes hq-rise {
       from { opacity: 0; transform: translate(-50%, calc(-50% + 12px)) scale(0.97); }
       to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
@@ -589,8 +618,20 @@ export function styleStartScreen(frame, { coverUrl, name, onStart } = {}) {
       art.className = 'hq-start-art'
       art.src = coverUrl
       art.alt = ''
-      art.onerror = () => art.remove() // no box art for this one — drop it, don't fake it
       column.appendChild(art)
+
+      // Frog's water reflection: a mirrored, fading copy of the art on the pond below.
+      const reflect = doc.createElement('img')
+      reflect.className = 'hq-start-reflect'
+      reflect.src = coverUrl
+      reflect.setAttribute('aria-hidden', 'true')
+      column.appendChild(reflect)
+
+      // No box art for this one — drop both the art and its reflection, don't fake it.
+      art.onerror = () => {
+        art.remove()
+        reflect.remove()
+      }
     }
     if (name) {
       const title = doc.createElement('p')
@@ -601,6 +642,13 @@ export function styleStartScreen(frame, { coverUrl, name, onStart } = {}) {
 
     button.parentElement.insertBefore(column, button)
     column.appendChild(button)
+
+    // How to start it, in Frog's jade — and it names the A button, so a controller
+    // player learns the pad boots the game (no reaching for the glass).
+    const cue = doc.createElement('p')
+    cue.className = 'hq-start-cue'
+    cue.textContent = 'PRESS A OR TAP'
+    column.appendChild(cue)
 
     // The tap that starts the game hands the screen over: the card falls away and the
     // frog takes its place. This listener only ever swaps some DOM — the engine's own
