@@ -1,5 +1,5 @@
 import Frog from './Frog.jsx'
-import { FROG, systemStyle } from './theme.js'
+import { FROG } from './theme.js'
 import './frog.css'
 
 // The screen between tapping Play and the game appearing.
@@ -18,16 +18,19 @@ import './frog.css'
 // lovely and it was pointless: a cached core loads in ~300ms, so nobody ever saw it
 // fill. What you want in that second is to know the thing is alive and that it's
 // yours. A breathing frog says both, and it can't be wrong about a percentage.
-export default function FrogBoot({ system, done }) {
-  const s = systemStyle(system)
-
+// The boot frog is deliberately NOT dressed in the console's colours (no `system`
+// prop passed through to <Frog>). Everywhere else the frog wears the machine you're
+// looking at; here it's the LOGO — the one canonical jade frog — because this is the
+// app announcing itself, not a shelf tile. Tinting it to the console read as "a blue
+// frog" and broke the brand recognition. Jade, always.
+export default function FrogBoot({ done }) {
   return (
     <div
       data-testid="frog-boot-screen"
       data-phase={done ? 'done' : 'loading'}
       className="frog-boot absolute inset-0 z-40 flex items-center justify-center"
       style={{
-        background: `radial-gradient(60% 45% at 50% 50%, rgba(${s.accent}, 0.18), transparent 70%), ${FROG.ground}`,
+        background: `radial-gradient(60% 45% at 50% 50%, rgba(${FROG.jade}, 0.18), transparent 70%), ${FROG.ground}`,
       }}
       aria-label="Loading"
       role="status"
@@ -36,14 +39,13 @@ export default function FrogBoot({ system, done }) {
       <span
         aria-hidden="true"
         className="frog-boot-ring absolute rounded-full"
-        style={{ borderColor: `rgba(${s.accent}, 0.45)`, width: 'min(52vmin, 280px)', aspectRatio: 1 }}
+        style={{ borderColor: `rgba(${FROG.jade}, 0.45)`, width: 'min(52vmin, 280px)', aspectRatio: 1 }}
       />
 
       <Frog
         size={220}
-        system={system}
         className="frog-boot-frog relative"
-        style={{ filter: `drop-shadow(0 14px 44px rgba(${s.accent}, 0.45))`, maxWidth: '44vmin', height: 'auto' }}
+        style={{ filter: `drop-shadow(0 14px 44px rgba(${FROG.jade}, 0.45))`, maxWidth: '44vmin', height: 'auto' }}
       />
     </div>
   )
