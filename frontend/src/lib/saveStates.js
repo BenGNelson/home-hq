@@ -87,7 +87,13 @@ export async function saveState(emu, gameId, d) {
     // A full/blocked cache shouldn't stop the upload below.
   }
 
-  const shot = await captureShot(emu)
+  // Prefer a frame captured while the game was actually PRESENTING (see PlayerShell's
+  // live-shot timer). Capturing here instead — at save time — reads the canvas AFTER
+  // the core has paused and the save overlay has covered it, which on iOS WebKit comes
+  // back solid black no matter what preserveDrawingBuffer says. That timing, not the
+  // flag, is why every early thumbnail was black. Fall back to a live capture only when
+  // no pre-captured frame was handed in.
+  const shot = d?.shot ?? (await captureShot(emu))
   try {
     const body = new FormData()
     body.append('id', gameId)

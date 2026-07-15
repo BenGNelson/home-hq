@@ -99,6 +99,28 @@ describe('saveState', () => {
     expect(res.hasShot).toBe(false)
     expect(fetch.mock.calls[0][1].body.get('screenshot')).toBeNull()
   })
+
+  it('uploads a PRE-CAPTURED live frame and never touches the (occluded) canvas', async () => {
+    // The fix for black thumbnails: the frame is grabbed while the game is still on
+    // screen and handed in here. Capturing at save time reads the paused, covered
+    // canvas — black on iOS. So a supplied shot must be used, and takeScreenshot must
+    // NOT be called (that's the black one).
+    const fetch = vi.fn(async () => ok({}))
+    const emu = fakeEmu()
+    const live = new Blob(['live-frame'])
+    const res = await saveState(emu, 'g', { shot: live, fetch, caches: fakeCaches() })
+    expect(res.hasShot).toBe(true)
+    expect(emu.takeScreenshot).not.toHaveBeenCalled()
+    // FormData wraps the blob in a File, so it's attached (truthy) but not identity-equal.
+    expect(fetch.mock.calls[0][1].body.get('screenshot')).toBeTruthy()
+  })
+
+  it('falls back to a save-time capture when no live frame was handed in', async () => {
+    const fetch = vi.fn(async () => ok({}))
+    const emu = fakeEmu()
+    await saveState(emu, 'g', { fetch, caches: fakeCaches() })
+    expect(emu.takeScreenshot).toHaveBeenCalled()
+  })
 })
 
 describe('loadState', () => {

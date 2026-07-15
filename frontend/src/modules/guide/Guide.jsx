@@ -303,8 +303,10 @@ export default function Guide() {
           <strong>Playing them.</strong> The in-game <strong>pause menu</strong> (the ☰
           button, or hold <strong>Menu</strong> on a controller) is a grid of big tiles —
           save a state, load one, fast-forward, restart, quit — with the game blurred
-          behind it. Loading a state drops you straight back in, without reloading
-          anything. On a <strong>phone</strong>, the touch controls are built for thumbs:
+          behind it. The <strong>save-state shelf</strong> it opens is D-pad driven too
+          (A loads the one you're on, Y deletes it), so loading a save never means
+          reaching for the glass mid-game. Loading a state drops you straight back in,
+          without reloading anything. On a <strong>phone</strong>, the touch controls are built for thumbs:
           the d-pad is one region you can <em>slide</em> across (so diagonals actually
           work), you can hold left while tapping B, and every button's hit area is bigger
           than the button you can see — because thumbs undershoot. Pair a{' '}
