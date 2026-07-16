@@ -35,9 +35,9 @@ with sync_playwright() as p:
 
     page.goto(f"{BASE}/frog", wait_until="networkidle")
 
-    # Boot dismisses on a tap. Tap it while it's still up — the ghost-click swallow
-    # means the dismissing tap can't fall through onto a shelf tile, so this lands on
-    # the shelf, never inside a random console.
+    # Boot dismisses on a tap's `click` (its terminal event), so the whole gesture is
+    # consumed while the boot is still on top — the dismissing tap can't fall through
+    # onto a shelf tile, so this lands on the shelf, never inside a random console.
     boot = page.locator('[data-testid="frog-boot"]')
     for _ in range(4):
         if page.locator('[data-testid="frog-shelf"]').count():

@@ -137,8 +137,9 @@ function Heading({ children }) {
 export default function Shelf({ rails, focus, onFocus, onPick }) {
   const railRefs = useRef([])
 
-  // Keep the focused tile on screen. Only "Jump back in" can ever overflow — the
-  // systems row is sized to fit — so this is the one place the shelf scrolls at all.
+  // Keep the focused tile on screen as the pad/keyboard moves focus. `block: 'nearest'`
+  // handles both axes — the horizontal "Jump back in" rail and, on a phone, a systems
+  // tile that the vertical scroll has pushed below the fold.
   useEffect(() => {
     const el = railRefs.current[focus.rail]?.children?.[focus.index]
     el?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
@@ -154,7 +155,15 @@ export default function Shelf({ rails, focus, onFocus, onPick }) {
   const isGame = rails[focus.rail]?.kind === 'game'
 
   return (
-    <div data-testid="frog-shelf" className="flex min-h-0 flex-1 flex-col gap-6 px-6 py-4 lg:flex-row lg:items-center">
+    <div
+      data-testid="frog-shelf"
+      // Scrolls vertically when the content is taller than the screen. On a phone in
+      // touch mode the frog, "Jump back in" and the systems grid stack into a column
+      // that can run past the fold — without this the systems below it are simply
+      // unreachable (nothing to scroll to them). On a wide screen it's a centred row
+      // that never overflows, so the scroll is inert there.
+      className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-4 lg:flex-row lg:items-center"
+    >
       {/* The frog. It wears the focused machine's colours and hops when they change
           (the key is the system, so React remounts it and the hop plays once). */}
       <aside className="flex shrink-0 items-center justify-center gap-4 lg:w-60 lg:flex-col lg:justify-center">
@@ -177,7 +186,7 @@ export default function Shelf({ rails, focus, onFocus, onPick }) {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-7">
+      <div className="flex min-w-0 flex-1 flex-col justify-start gap-7 lg:justify-center">
         {rails.map((rail, r) => (
           <section key={rail.id}>
             <Heading>{rail.title}</Heading>
