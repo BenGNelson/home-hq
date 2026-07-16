@@ -737,12 +737,22 @@ overwriting would kill the engine's input handling outright.
 
 ### Frog (`/frog`)
 
-The games browser, for a couch and a controller. It's a **separate app that the
-Library hands off to**, not a wider layout of the Games pages — those are built for a
-thumb on a phone, and the two products disagree about almost everything. It lives at
-`/frog` (not under `/library`) and in one folder,
-`modules/library/frog/`, because it is meant to be lifted into its own repo later:
-the Cards → PocketBinder pattern.
+The games browser, for a couch and a controller — and now **the games screen full
+stop**. The Library's "Games" entry (its nav pill and hub card, both via
+`sectionHref('games')`) opens `/frog`; the old thumb-first grid at `/library/games`
+is **retired** — its route redirects to `/frog`, and every "Back to Games" link
+(`Player`, `GameDetail`, `gameBackHref`'s fallback) points there too. Frog earned that
+by becoming first-class **by thumb** (every tile/row is a real tap target, its own
+touch keyboard for search) and **offline** (falls back to downloaded games), not just
+by pad — so one browser now covers what took a separate grid before. Leaving Frog
+(its ✕ / B on the shelf) goes **up to the Library hub** (`/library`), not to a games
+grid that no longer exists.
+
+It's still a **separate app that the Library hands off to**, living at `/frog` (not
+under `/library`) and in one folder, `modules/library/frog/`, because it is meant to
+be lifted into its own repo later: the Cards → PocketBinder pattern. `GameDetail` (a
+game's save-state / favourite page) stays a `/library/games/detail` route that Frog
+deep-links into and back out of.
 
 Four screens — **boot → shelf → games**, with **search** reachable from anywhere (X)
 — and the shape of them is the argument:

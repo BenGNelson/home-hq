@@ -308,7 +308,9 @@ export default function FrogBrowser() {
           return
         }
         case 'back':
-          navigate('/library/games')
+          // Frog IS the games screen, so "leave" goes up to the Library hub, not to
+          // a games grid (there isn't one any more).
+          navigate('/library')
           return
         case 'alt': {
           const rail = rails[focus.rail]
@@ -537,7 +539,7 @@ export default function FrogBrowser() {
             onClick={() => {
               if (screen === 'search') closeSearch()
               else if (screen === 'games') setScreen('shelf')
-              else navigate('/library/games')
+              else navigate('/library') // leave Frog → the Library hub
             }}
             className="rounded-full p-2"
             style={{ background: FROG.panel, color: FROG.soft }}

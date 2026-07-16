@@ -4,7 +4,7 @@ import { Star } from 'lucide-react'
 import BackLink from '../../components/BackLink.jsx'
 import { useApi } from '../../lib/useApi.js'
 import { formatSize } from '../../lib/format.js'
-import { saveStatesUrl, gameOfflineUrls, gameBackHref } from '../../lib/library.js'
+import { saveStatesUrl, gameOfflineUrls, gameBackHref, frogHref } from '../../lib/library.js'
 import { ensureEmulatorEngine, cacheGameSram } from '../../lib/offlineStore.js'
 import { recordPlayed } from '../../lib/recentGames.js'
 import { isFavorite, toggleFavorite } from '../../lib/favorites.js'
@@ -34,7 +34,7 @@ export default function GameDetail() {
     return (
       <div className="space-y-3">
         <p className="text-slate-300">That game isn’t in the library.</p>
-        <BackLink to={ret || '/library/games'}>Back to Games</BackLink>
+        <BackLink to={ret || frogHref()}>Back to Games</BackLink>
       </div>
     )
   }
@@ -57,9 +57,9 @@ export default function GameDetail() {
 
   return (
     <div className="space-y-5">
-      {/* Back to exactly where you were browsing — the system view with your
-          search still typed (ret), falling back to the game's own system view. */}
-      <BackLink to={gameBackHref(ret, game.label)}>Games</BackLink>
+      {/* Back to exactly where you were browsing (ret — e.g. Frog with your place
+          kept), falling back to Frog, the games home. */}
+      <BackLink to={gameBackHref(ret)}>Games</BackLink>
 
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
         <GameCover game={game} className="w-40 shrink-0 self-center sm:self-start" />
