@@ -830,6 +830,23 @@ which is what lets a controller, the arrow keys and a mouse drive identical code
 none of them a special case. The list is windowed (`lib/windowRange.js`) for the same
 reason Big Picture's rails were: mounting 496 rows is what makes an iPad stutter.
 
+**Touch is a first-class control model, not a fallback.** Frog is the Library's games
+screen, and a phone has no controller — so the same browser has to be navigable by
+thumb. It mostly already was: every screen is built from real `<button onClick>`
+tiles/rows, so a tap plays or drills in exactly where a D-pad's A would. `frog/input.js`
+tracks ONE `mode` (`touch` | `pad`) — it opens from the pointer kind (a coarse-pointer
+phone starts in `touch`), then every real input keeps it honest: a gamepad button →
+`pad`, a finger → `touch`. So an iPad with a controller opens in `touch`, becomes `pad`
+the instant Ben presses a button, and flips back when he taps the glass — the shelf's
+`padActive` model. `mode` decides only the two places a finger and a D-pad genuinely
+disagree: **(1)** the header carries a **search button** (a pad has X + the legend; a
+thumb had no way in at all before it), and **(2)** search forks its keyboard —
+`usesNativeKeyboard(mode)` swaps the 6×6 dead-key grid for the **device's own keyboard**
+on touch (familiar, and it doesn't fight the muscle memory of every other text field),
+binding the query straight through `onType` instead of one guarded dead-key at a time.
+The controller **legend is hidden** in touch mode, and the global keydown router yields
+to a focused `<input>` so the native field's keystrokes never double-fire.
+
 *(Frog replaced "Big Picture" — same job, done properly.)*
 
 ### The touch controls
