@@ -323,16 +323,19 @@ export default function Guide() {
           bottom button stays the bottom button, wherever its letter sits), and rebind
           any button on top of either. There's no mapping that wins both ways, so it's
           yours to pick. <strong>Frog</strong> is the other half: a full-screen games
-          browser built for a couch and a controller, with a mascot that wears the
-          colours of whichever machine you're pointing at, a shelf of consoles that
-          never scrolls, and <strong>"Jump back in"</strong> and{' '}
-          <strong>Favorites</strong> rows (star a game on its page) so most sessions
-          never touch the alphabet. Press <strong>X</strong> for a{' '}
-          <strong>controller keyboard</strong>{' '}
-          that searches every system at once — and dims each key that would lead nowhere{' '}
-          <em>before</em> you press it, so you feel your way to a game by which doors are
-          still open. (iOS won't let a web app force landscape, so in controller mode it
-          asks you to turn the device and picks the game back up when you do.)
+          browser with a mascot that wears the colours of whichever machine you're
+          pointing at, a shelf of consoles that never scrolls, and{' '}
+          <strong>"Jump back in"</strong> and <strong>Favorites</strong> rows (star a
+          game on its page) so most sessions never touch the alphabet. It works the
+          same <strong>with a controller or by touch</strong>, switching the instant
+          you press a button or tap the glass: a pad walks it with a{' '}
+          <strong>dead-key keyboard</strong> (press <strong>X</strong> to search every
+          system at once — each key that leads nowhere dims <em>before</em> you press
+          it, so you feel your way by which doors are still open), while a{' '}
+          <strong>phone</strong> taps a console, taps a game to play, and searches with
+          the phone's own keyboard (the search button is in the top bar). (iOS won't
+          let a web app force landscape, so in controller mode it asks you to turn the
+          device and picks the game back up when you do.)
         </p>
         <p>
           <strong>Reading</strong> is mostly client-side: PDFs (magazines

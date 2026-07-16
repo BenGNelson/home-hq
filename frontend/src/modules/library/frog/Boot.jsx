@@ -29,13 +29,43 @@ export default function Boot({ onDone }) {
 
   // Any key, any button, any tap. The handler is deliberately indiscriminate:
   // whatever you reach for first is the thing that should work.
+  //
+  // The one subtlety is the DISMISS tap. We advance on `pointerdown`, so the instant
+  // a finger touches down the boot unmounts — and the SAME tap's trailing `click`
+  // then lands on whatever shelf tile is now under the finger, drilling into a random
+  // console. (A ghost click, and on a phone the systems grid is right where a thumb
+  // taps.) So when the dismiss fires, swallow exactly one following click in the
+  // capture phase before it can reach the shelf. A key press dismisses with no click
+  // to swallow, so that path stays plain.
   useEffect(() => {
-    const go = () => (phase === 'rising' ? setPhase('ready') : onDone?.())
-    window.addEventListener('keydown', go)
-    window.addEventListener('pointerdown', go)
+    const onKey = () => (phase === 'rising' ? setPhase('ready') : onDone?.())
+    const onPointer = () => {
+      if (phase === 'rising') return setPhase('ready')
+      // Swallow exactly the ghost click that belongs to THIS dismissing tap, then
+      // disarm. Two ways to disarm besides eating the click, so a real follow-up tap
+      // is never lost: the next genuine pointerdown (that tap's own click must pass),
+      // and a 700ms backstop in case the dismiss gesture produced no click at all
+      // (e.g. the browser treated it as a drag).
+      const disarm = () => {
+        window.removeEventListener('click', eat, true)
+        window.removeEventListener('pointerdown', disarm, true)
+        clearTimeout(t)
+      }
+      const eat = (ev) => {
+        ev.stopPropagation()
+        ev.preventDefault()
+        disarm()
+      }
+      window.addEventListener('click', eat, true)
+      window.addEventListener('pointerdown', disarm, true)
+      const t = setTimeout(disarm, 700)
+      onDone?.()
+    }
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('pointerdown', onPointer)
     return () => {
-      window.removeEventListener('keydown', go)
-      window.removeEventListener('pointerdown', go)
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('pointerdown', onPointer)
     }
   }, [phase, onDone])
 

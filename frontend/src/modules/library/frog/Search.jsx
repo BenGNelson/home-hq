@@ -15,7 +15,7 @@ import Frog, { Reflected } from './Frog.jsx'
 // grid or the results) has the cursor; this draws what it's told. That's the same
 // contract the shelf and the game list keep, and it's what will let the whole folder
 // lift into its own repo as a copy rather than a rewrite.
-export default function Search({ query, results, zone, keyIndex, resultRow, allGames, onKey, onResult, onPick }) {
+export default function Search({ query, results, zone, keyIndex, resultRow, allGames, native, onKey, onResult, onPick, onType }) {
   // Which keys still lead somewhere. Derived from the WHOLE library (not the capped
   // result list), so dimming is honest even when there are more matches than we show.
   const live = useMemo(() => liveKeys(allGames, query), [allGames, query])
@@ -46,50 +46,79 @@ export default function Search({ query, results, zone, keyIndex, resultRow, allG
       {/* Top: the keyboard, and the art of wherever the query is pointing. */}
       <div className="flex items-start gap-6">
         <div className="min-w-0 flex-1">
-          {/* The field. A caret that pulses so an empty query still looks alive. */}
-          <div
-            className="mb-3 flex h-11 items-center gap-1 rounded-xl px-4"
-            style={{ background: FROG.panel, border: `1px solid ${FROG.line}` }}
-          >
-            <span className="text-lg font-semibold tracking-wide" style={{ color: query ? FROG.ink : FROG.faint }}>
-              {query || 'Type to search'}
-            </span>
-            <span
-              className="frog-invite ml-0.5 inline-block h-5 w-0.5"
-              style={{ background: `rgb(${FROG.jade})` }}
-              aria-hidden="true"
+          {native ? (
+            // Touch: the device's own keyboard. A finger doesn't want to walk a 6×6
+            // grid one dead key at a time — it wants the keyboard it uses everywhere
+            // else. autoFocus raises it as the screen opens; results tap to play.
+            <input
+              data-testid="frog-search-input"
+              autoFocus
+              value={query}
+              onChange={(e) => onType(e.target.value)}
+              placeholder="Type to search"
+              type="text"
+              inputMode="search"
+              enterKeyHint="search"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              aria-label="Search games"
+              className="h-12 w-full rounded-xl px-4 text-lg font-semibold tracking-wide outline-none"
+              style={{
+                background: FROG.panel,
+                border: `1px solid rgba(${FROG.jade}, 0.5)`,
+                color: FROG.ink,
+                boxShadow: `0 0 18px rgba(${FROG.jade}, 0.15)`,
+              }}
             />
-          </div>
+          ) : (
+            <>
+              {/* The field. A caret that pulses so an empty query still looks alive. */}
+              <div
+                className="mb-3 flex h-11 items-center gap-1 rounded-xl px-4"
+                style={{ background: FROG.panel, border: `1px solid ${FROG.line}` }}
+              >
+                <span className="text-lg font-semibold tracking-wide" style={{ color: query ? FROG.ink : FROG.faint }}>
+                  {query || 'Type to search'}
+                </span>
+                <span
+                  className="frog-invite ml-0.5 inline-block h-5 w-0.5"
+                  style={{ background: `rgb(${FROG.jade})` }}
+                  aria-hidden="true"
+                />
+              </div>
 
-          {/* The 6×6 grid. */}
-          <div
-            className="grid gap-1.5"
-            style={{ gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))`, maxWidth: 520 }}
-            role="group"
-            aria-label="On-screen keyboard"
-          >
-            {KEYS.map((ch, i) => {
-              const on = zone === 'grid' && i === keyIndex
-              const dead = discriminates && !live.has(ch) // a key that leads nowhere
-              return (
-                <button
-                  key={ch}
-                  type="button"
-                  onMouseMove={() => onKey(i)}
-                  onClick={() => onPick(null, ch)}
-                  className="flex aspect-square items-center justify-center rounded-lg text-lg font-semibold transition-colors"
-                  style={{
-                    background: on ? `rgb(${FROG.jade})` : FROG.panel,
-                    color: on ? FROG.ground : dead ? FROG.faint : FROG.soft,
-                    opacity: dead ? 0.35 : 1,
-                    boxShadow: on ? `0 0 18px rgba(${FROG.jade}, 0.6)` : 'none',
-                  }}
-                >
-                  {ch}
-                </button>
-              )
-            })}
-          </div>
+              {/* The 6×6 grid. */}
+              <div
+                className="grid gap-1.5"
+                style={{ gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))`, maxWidth: 520 }}
+                role="group"
+                aria-label="On-screen keyboard"
+              >
+                {KEYS.map((ch, i) => {
+                  const on = zone === 'grid' && i === keyIndex
+                  const dead = discriminates && !live.has(ch) // a key that leads nowhere
+                  return (
+                    <button
+                      key={ch}
+                      type="button"
+                      onMouseMove={() => onKey(i)}
+                      onClick={() => onPick(null, ch)}
+                      className="flex aspect-square items-center justify-center rounded-lg text-lg font-semibold transition-colors"
+                      style={{
+                        background: on ? `rgb(${FROG.jade})` : FROG.panel,
+                        color: on ? FROG.ground : dead ? FROG.faint : FROG.soft,
+                        opacity: dead ? 0.35 : 1,
+                        boxShadow: on ? `0 0 18px rgba(${FROG.jade}, 0.6)` : 'none',
+                      }}
+                    >
+                      {ch}
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
         </div>
 
         {/* The preview art — and the frog, still on the pond, tying this screen to

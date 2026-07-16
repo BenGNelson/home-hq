@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X } from 'lucide-react'
+import { X, Search as SearchIcon } from 'lucide-react'
 import { useApi } from '../../../lib/useApi.js'
 import { systemGames, gameDetailHref } from '../../../lib/library.js'
 import { getRecent, recordPlayed } from '../../../lib/recentGames.js'
 import { getFavorites } from '../../../lib/favorites.js'
 import { moveInRails } from '../../../lib/gridNav.js'
 import { useGamepad } from '../../../lib/useGamepad.js'
+import { mediaMatches } from '../../../lib/useMediaQuery.js'
 import { SkeletonLine } from '../../../components/ui.jsx'
 import ButtonLegend from '../player/ButtonLegend.jsx'
+import { defaultFrogMode, nextFrogMode, usesNativeKeyboard } from './input.js'
 import { FROG, systemStyle } from './theme.js'
 import { buildShelf, stepLetter } from './shelf.js'
 import { searchGames, matches, KEYS, gridMove } from './search.js'
@@ -66,6 +68,19 @@ export default function FrogBrowser() {
   const [keyIndex, setKeyIndex] = useState(0)
   const [resultRow, setResultRow] = useState(0)
   const [searchFrom, setSearchFrom] = useState('shelf')
+
+  // Touch vs pad. Opens from the pointer kind (a phone starts in touch), then every
+  // real input keeps it honest — a gamepad button flips to pad, a finger back to
+  // touch. It decides the two places a finger and a D-pad disagree: the search
+  // keyboard (native vs the 6×6 grid) and whether the controller legend even shows.
+  const [mode, setMode] = useState(() => defaultFrogMode(mediaMatches('(pointer: coarse)')))
+  const native = usesNativeKeyboard(mode)
+
+  // Which keyboard the OPEN search screen uses, snapshotted when it opens rather than
+  // read live. If it tracked `mode`, tapping a 6×6 grid key with a finger (which flips
+  // mode to touch on pointerdown) would unmount the grid before the tap's click landed
+  // — the key would be lost. Frozen per session, the grid stays put; the tap types.
+  const [searchNative, setSearchNative] = useState(false)
 
   const rails = useMemo(() => buildShelf(items, getRecent(), getFavorites()), [items])
   const games = useMemo(() => (system ? systemGames(items, system) : []), [items, system])
@@ -138,8 +153,10 @@ export default function FrogBrowser() {
     setKeyIndex(0)
     setResultRow(0)
     setZone('grid')
+    // Freeze the keyboard kind for this search session (see `searchNative`).
+    setSearchNative(usesNativeKeyboard(mode))
     setScreen('search')
-  }, [screen])
+  }, [screen, mode])
 
   const closeSearch = useCallback(() => setScreen(searchFrom), [searchFrom])
 
@@ -319,7 +336,10 @@ export default function FrogBrowser() {
     // Any button on a sleeping pad is how we learn a controller exists at all — iOS
     // never fires `gamepadconnected` until then. On the boot screen that press is
     // also the "press A" that dismisses it.
-    onPadButton: () => setScreen((s) => (s === 'boot' ? 'shelf' : s)),
+    onPadButton: () => {
+      setMode((m) => nextFrogMode(m, 'pad'))
+      setScreen((s) => (s === 'boot' ? 'shelf' : s))
+    },
     onMenuAction: (a) => {
       if (a === 'start') act.current('confirm')
     },
@@ -343,6 +363,18 @@ export default function FrogBrowser() {
   kbd.current = { screen, typeKey, del }
   useEffect(() => {
     const onKey = (e) => {
+      // The native search field (touch mode, but reachable with a Magic Keyboard)
+      // owns its own text keys — typing, Backspace, the arrows-as-caret-movement.
+      // Routing those through the grid handler too would double-type or hijack the
+      // caret. Escape is the exception: the field has no way to close search, so let
+      // it through to toggle search shut.
+      if (e.target?.tagName === 'INPUT') {
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          act.current('search') // screen is 'search' → toggles it closed
+        }
+        return
+      }
       // On the search screen a real keyboard should just... type, bypassing the grid.
       if (kbd.current.screen === 'search') {
         if (e.key.length === 1 && /[a-z0-9]/i.test(e.key)) {
@@ -376,6 +408,16 @@ export default function FrogBrowser() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // A finger on the glass means touch mode — even on an iPad that a moment ago had a
+  // controller driving it. The mirror of the pad-button flip above.
+  useEffect(() => {
+    const onPointer = (e) => {
+      if (e.pointerType === 'touch') setMode((m) => nextFrogMode(m, 'touch'))
+    }
+    window.addEventListener('pointerdown', onPointer)
+    return () => window.removeEventListener('pointerdown', onPointer)
+  }, [])
+
   if (screen === 'boot') return <Boot onDone={() => setScreen('shelf')} />
 
   // What the pond light is coloured by: the open system, the result you're pointing
@@ -399,6 +441,11 @@ export default function FrogBrowser() {
         paddingTop: 'env(safe-area-inset-top)',
         paddingLeft: 'env(safe-area-inset-left)',
         paddingRight: 'env(safe-area-inset-right)',
+        // The root carries the bottom inset so the last row of games/results always
+        // clears the iOS home indicator — the legend used to be the only thing padding
+        // the bottom, and it's hidden in touch mode, which is exactly where the inset
+        // is nonzero.
+        paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
       {/* The pond light. It takes the colour of whatever is in focus, which is the
@@ -420,18 +467,34 @@ export default function FrogBrowser() {
           </div>
         )}
 
-        <button
-          onClick={() => {
-            if (screen === 'search') closeSearch()
-            else if (screen === 'games') setScreen('shelf')
-            else navigate('/library/games')
-          }}
-          className="shrink-0 rounded-full p-2"
-          style={{ background: FROG.panel, color: FROG.soft }}
-          aria-label={screen === 'search' ? 'Close search' : screen === 'games' ? 'Back to the shelf' : 'Leave Frog'}
-        >
-          <X className="h-5 w-5" aria-hidden="true" />
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {/* Search, reachable by thumb. On a pad it's X (and the legend says so); by
+              touch there was no way in at all until this button — the header only had
+              the ✕. Hidden on the search screen itself, where the ✕ becomes "close". */}
+          {screen !== 'search' && (
+            <button
+              onClick={openSearch}
+              className="rounded-full p-2"
+              style={{ background: FROG.panel, color: FROG.soft }}
+              aria-label="Search games"
+            >
+              <SearchIcon className="h-5 w-5" aria-hidden="true" />
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              if (screen === 'search') closeSearch()
+              else if (screen === 'games') setScreen('shelf')
+              else navigate('/library/games')
+            }}
+            className="rounded-full p-2"
+            style={{ background: FROG.panel, color: FROG.soft }}
+            aria-label={screen === 'search' ? 'Close search' : screen === 'games' ? 'Back to the shelf' : 'Leave Frog'}
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
       </header>
 
       {loading && !items.length ? (
@@ -451,6 +514,7 @@ export default function FrogBrowser() {
           zone={zone}
           keyIndex={keyIndex}
           resultRow={resultRow}
+          native={searchNative}
           onKey={(i) => {
             setKeyIndex(i)
             setZone('grid')
@@ -459,6 +523,10 @@ export default function FrogBrowser() {
             setResultRow(i)
             setZone('results')
           }}
+          // The native keyboard hands over the whole string at once (type, paste,
+          // autocorrect), so it sets the query directly rather than one dead-key-guarded
+          // character at a time the way the grid does.
+          onType={setQuery}
           onPick={(game, ch) => (ch != null ? typeKey(ch) : play(game))}
         />
       ) : screen === 'games' ? (
@@ -478,11 +546,17 @@ export default function FrogBrowser() {
         />
       )}
 
+      {/* The controller legend. Meaningless without a controller, so it's hidden in
+          touch mode — the tappable tiles, the header search/close, and tap-to-play
+          are self-evident to a thumb. It returns the instant a pad button is pressed. */}
+      {!native && (
       <ButtonLegend
         className="relative py-3"
         style={{
           borderTop: `1px solid ${FROG.line}`,
-          paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+          // The root now owns the safe-area inset, so the legend only needs its own
+          // breathing room above it (no double inset).
+          paddingBottom: '0.75rem',
         }}
         hints={
           screen === 'search'
@@ -515,6 +589,7 @@ export default function FrogBrowser() {
                 ]
         }
       />
+      )}
     </div>
   )
 }
