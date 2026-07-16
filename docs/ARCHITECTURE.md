@@ -847,6 +847,27 @@ binding the query straight through `onType` instead of one guarded dead-key at a
 The controller **legend is hidden** in touch mode, and the global keydown router yields
 to a focused `<input>` so the native field's keystrokes never double-fire.
 
+**Frog works offline**, the same way the rest of the Library does. The shelf, the game
+list and search are all built from one array of `{ id, name, core, label }` items —
+online that's the library API; offline it's the games you've **downloaded** (the
+on-device manifest, `allEntries()` in `offlineStore`). `frog/offline.js`'s pure
+`offlineGamesToItems()` maps a manifest row to that shape, deriving the system `label`
+from the stored `core` via `systemForCore` (a download only ever kept a core — GBC runs
+on the `gba` core, so it groups under Game Boy Advance offline, the one collision a core
+genuinely can't resolve). The **live library wins whenever it has answered** —
+`items = apiItems.length ? apiItems : offlineItems` is deliberately NOT gated on the
+health probe, so a flaky `/health` never hides a reachable library behind the
+downloaded-only view; the fallback engages only when the API has handed back nothing.
+An **"Offline" chip** appears exactly when it did fall back (probe says offline *and*
+the API gave nothing), never over a reachable library. The fetch stays **one-shot**
+(no polling — that churned a steady session's array refs and yanked the game-list
+scroll); instead it re-runs once on the **offline→online edge** (a nonce in the path,
+ignored by the API), so a Frog opened in airplane mode fills in the full library by
+itself when the network returns. Launching a downloaded game offline hands off to the
+player exactly as online — it boots from the cached ROM + engine. (This is what let
+Frog *replace* the old `/library/games` grid, which had been the only offline-capable
+games surface.)
+
 *(Frog replaced "Big Picture" — same job, done properly.)*
 
 ### The touch controls
