@@ -209,6 +209,35 @@ CREATE TABLE IF NOT EXISTS game_progress (
 );
 CREATE INDEX IF NOT EXISTS idx_game_progress_updated ON game_progress (updated_ms);
 
+-- IGDB metadata cache — the rich data behind the game screen (screenshots,
+-- summary, genres, rating, developer/publisher, trailer ids). A background
+-- matcher looks each ROM up on IGDB once; `rom_mtime` lets it skip unchanged
+-- files. `matched=0` is a REAL result ("IGDB has nothing good for this ROM" —
+-- e.g. a ROM hack), cached so it isn't re-queried forever. `source` guards a
+-- manual re-match/clear (M2) from being stomped by the auto matcher. JSON blobs
+-- (genres/screenshot_ids/videos/candidates) keep the row self-contained.
+CREATE TABLE IF NOT EXISTS igdb_meta (
+    game_id        TEXT PRIMARY KEY,  -- Library games item id (relative ROM path)
+    igdb_id        INTEGER,           -- chosen IGDB game id (NULL when unmatched)
+    matched        INTEGER NOT NULL,  -- 1 = a candidate cleared the threshold
+    name           TEXT,
+    summary        TEXT,
+    release_year   INTEGER,
+    rating         INTEGER,           -- 0..100 (rounded IGDB total_rating)
+    developer      TEXT,
+    publisher      TEXT,
+    genres         TEXT,              -- JSON array of strings
+    cover_image_id TEXT,
+    screenshot_ids TEXT,              -- JSON array of image-id strings
+    videos         TEXT,              -- JSON array of {id, name}
+    candidates     TEXT,              -- JSON shortlist (for the M2 re-match picker)
+    confidence     REAL,              -- best match score, 0..1
+    source         TEXT NOT NULL,     -- 'auto' | 'manual' | 'cleared'
+    match_version  TEXT,              -- matcher logic version this row was made with
+    rom_mtime      REAL,              -- ROM mtime at match time (change detection)
+    updated_at     REAL NOT NULL
+);
+
 -- Pinned (starred) Library folders, so a frequently-revisited deep folder (e.g.
 -- a comic series buried a few levels down) is one tap away. Just (section, path)
 -- of the folder; the UI deep-links to it. Roams across devices like the rest.
@@ -272,6 +301,10 @@ _MIGRATIONS = [
     # Battery columns added to the solar trend after its first release.
     "ALTER TABLE solar_samples ADD COLUMN soc_percent INTEGER",
     "ALTER TABLE solar_samples ADD COLUMN battery_watts INTEGER",
+    # Per-row matcher-logic version on the IGDB cache (added during M1 development so
+    # a re-match is resumable). A DB whose igdb_meta table predates the column gets it
+    # here; a fresh one already has it from CREATE TABLE (this ALTER then no-ops).
+    "ALTER TABLE igdb_meta ADD COLUMN match_version TEXT",
 ]
 
 
@@ -937,6 +970,91 @@ def count_books_meta():
     """How many books are indexed (the search 'total')."""
     with get_conn() as conn:
         return conn.execute("SELECT COUNT(*) AS n FROM book_meta").fetchone()["n"]
+
+
+# --- IGDB game metadata cache ----------------------------------------------
+
+# JSON-encoded columns on igdb_meta, decoded back to Python on read.
+_IGDB_JSON_COLS = ("genres", "screenshot_ids", "videos", "candidates")
+_IGDB_COLS = (
+    "game_id", "igdb_id", "matched", "name", "summary", "release_year", "rating",
+    "developer", "publisher", "genres", "cover_image_id", "screenshot_ids",
+    "videos", "candidates", "confidence", "source", "match_version", "rom_mtime",
+    "updated_at",
+)
+
+
+def upsert_igdb_meta(game_id, record, updated_at=None):
+    """Store one game's IGDB match. `record` is a dict of the igdb_meta columns
+    (minus game_id/updated_at); missing keys default to NULL, and the JSON
+    columns (genres/screenshot_ids/videos/candidates) are encoded here. `matched`
+    and `source` should always be set by the caller."""
+    if updated_at is None:
+        updated_at = time.time()
+    row = {c: None for c in _IGDB_COLS}
+    row.update(record)
+    row["game_id"] = game_id
+    row["updated_at"] = updated_at
+    row["matched"] = 1 if row["matched"] else 0
+    row["source"] = row["source"] or "auto"
+    for col in _IGDB_JSON_COLS:
+        row[col] = json.dumps(row[col]) if row[col] is not None else None
+    cols = ",".join(_IGDB_COLS)
+    placeholders = ",".join("?" for _ in _IGDB_COLS)
+    updates = ",".join(f"{c} = excluded.{c}" for c in _IGDB_COLS if c != "game_id")
+    with get_conn() as conn:
+        conn.execute(
+            f"INSERT INTO igdb_meta ({cols}) VALUES ({placeholders})"
+            f" ON CONFLICT(game_id) DO UPDATE SET {updates}",
+            tuple(row[c] for c in _IGDB_COLS),
+        )
+
+
+def get_igdb_meta(game_id):
+    """One game's cached IGDB metadata (JSON columns decoded), or None if the
+    matcher hasn't looked it up yet."""
+    with get_conn() as conn:
+        r = conn.execute(
+            "SELECT * FROM igdb_meta WHERE game_id = ?", (game_id,)
+        ).fetchone()
+    if not r:
+        return None
+    out = dict(r)
+    out["matched"] = bool(out["matched"])
+    for col in _IGDB_JSON_COLS:
+        out[col] = json.loads(out[col]) if out[col] else None
+    return out
+
+
+def igdb_mtimes():
+    """{game_id: (rom_mtime, source, match_version)} for every looked-up ROM. Lets
+    the matcher skip a ROM that's unchanged (mtime) AND matched under the current
+    logic (match_version), leave manual overrides alone (source), and prune rows
+    for ROMs that are gone. Returns every row — the caller decides what to skip."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT game_id, rom_mtime, source, match_version FROM igdb_meta"
+        ).fetchall()
+    return {r["game_id"]: (r["rom_mtime"], r["source"], r["match_version"]) for r in rows}
+
+
+def delete_igdb_meta_many(game_ids):
+    """Drop cache rows for ROMs no longer present on disk."""
+    ids = list(game_ids)
+    if not ids:
+        return
+    with get_conn() as conn:
+        conn.executemany("DELETE FROM igdb_meta WHERE game_id = ?", [(i,) for i in ids])
+
+
+def count_igdb_meta():
+    """(total looked up, of which matched) — for the collector status."""
+    with get_conn() as conn:
+        total = conn.execute("SELECT COUNT(*) AS n FROM igdb_meta").fetchone()["n"]
+        matched = conn.execute(
+            "SELECT COUNT(*) AS n FROM igdb_meta WHERE matched = 1"
+        ).fetchone()["n"]
+    return total, matched
 
 
 def _like_escape(s):

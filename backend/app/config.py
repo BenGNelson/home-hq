@@ -80,6 +80,21 @@ class Settings(BaseSettings):
     # saves roam across devices AND ride the off-site restic backup (the RAID is
     # NOT in that backup). Capped per upload so a bad client can't fill the disk.
     games_saves_dir: str = "/data/saves"
+    # --- IGDB (rich game metadata for the Games / Frog game screen) ---
+    # IGDB is Twitch's games database; the API authenticates with Twitch OAuth.
+    # Register a free app at https://dev.twitch.tv/console/apps to get a Client
+    # ID + Secret. BOTH unset = the collector stays dormant and the game screen
+    # shows its basic layout (feature "not configured"). Secrets — .env only.
+    igdb_client_id: str = ""
+    igdb_client_secret: str = ""
+    # Where downloaded IGDB art (cover + screenshots) is cached as WebP, keyed by
+    # image id. Same writable volume as the DB, so it roams across devices and
+    # rides the off-site backup — matches the box-art cache.
+    igdb_art_dir: str = "/data/igdb-art"
+    # Background matcher: on by default; interval is how often it re-scans for
+    # ROMs that still need a lookup (matched rows are skipped by ROM mtime).
+    igdb_sync_enabled: bool = True
+    igdb_sync_interval: int = 86400
     # Where Plex posters are cached (downscaled WebP, keyed by rating key) so
     # repeat loads skip the per-image Plex round-trip. Same writable volume.
     plex_art_dir: str = "/data/plex-art"
