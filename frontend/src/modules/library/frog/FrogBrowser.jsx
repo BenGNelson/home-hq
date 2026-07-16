@@ -4,7 +4,10 @@ import { X, Search as SearchIcon, Plane } from 'lucide-react'
 import { useApi } from '../../../lib/useApi.js'
 import { useOnline } from '../../../lib/online.jsx'
 import { useDownloadedEntries } from '../../../lib/useDownloaded.js'
-import { systemGames, gameDetailHref } from '../../../lib/library.js'
+import { useDownload } from '../../../lib/useDownload.js'
+import { systemGames, gameOfflineUrls, saveStatesUrl } from '../../../lib/library.js'
+import { isFavorite, toggleFavorite } from '../../../lib/favorites.js'
+import { ensureEmulatorEngine, cacheGameSram } from '../../../lib/offlineStore.js'
 import { offlineGamesToItems } from './offline.js'
 import { getRecent, recordPlayed } from '../../../lib/recentGames.js'
 import { getFavorites } from '../../../lib/favorites.js'
@@ -21,6 +24,7 @@ import { FrogMark } from './Frog.jsx'
 import Boot from './Boot.jsx'
 import Shelf from './Shelf.jsx'
 import Search from './Search.jsx'
+import GameScreen from './GameScreen.jsx'
 import GameList, { GameListHeader } from './GameList.jsx'
 import './frog.css'
 
@@ -118,18 +122,86 @@ export default function FrogBrowser() {
   // — the key would be lost. Frozen per session, the grid stays put; the tap types.
   const [searchNative, setSearchNative] = useState(false)
 
+  // The game page ('detail' screen). `detailGame` is the game being viewed, `detailFrom`
+  // the screen to return to. Its focus is two zones — the actions row and the save list
+  // — mirroring search's grid⇄results. `confirm` guards a destructive action (delete a
+  // save / remove a download) behind one deliberate step.
+  const [detailGame, setDetailGame] = useState(null)
+  const [detailFrom, setDetailFrom] = useState('shelf')
+  const [detailFocus, setDetailFocus] = useState({ zone: 'actions', index: 0 })
+  const [confirm, setConfirm] = useState(null)
+  const [favorited, setFavorited] = useState(false)
+  const [saves, setSaves] = useState([])
+  const [savesLoading, setSavesLoading] = useState(false)
+  const [savesRefresh, setSavesRefresh] = useState(0)
+
   const rails = useMemo(() => buildShelf(items, getRecent(), getFavorites()), [items])
   const games = useMemo(() => (system ? systemGames(items, system) : []), [items, system])
   // Searched across EVERY system, not just the open one — from the shelf you haven't
   // picked a console yet, and "which box is Zelda in" is exactly what search is for.
   const results = useMemo(() => searchGames(items, query), [items, query])
 
+  // The game page's offline download — same state machine (and single-writer rule) as
+  // the rest of the Library, via the shared hook. Keyed on the open game; harmless when
+  // none is open (empty id → idle).
+  const dlItem = detailGame
+    ? {
+        section: 'games',
+        id: detailGame.id,
+        name: detailGame.name,
+        core: detailGame.core,
+        urls: gameOfflineUrls(detailGame.id, detailGame.core),
+      }
+    : { section: 'games', id: '', urls: [] }
+  const dl = useDownload(dlItem, async () => {
+    await ensureEmulatorEngine()
+    if (detailGame) await cacheGameSram(detailGame.id) // seed the in-game save for offline resume
+  })
+
+  // The open game's save states, fetched straight (not via useApi) so it only fires when
+  // a game is actually open, and re-fetches after a delete.
+  const savesGameRef = useRef(null)
+  useEffect(() => {
+    if (!detailGame) {
+      setSaves([])
+      savesGameRef.current = null
+      return
+    }
+    // Clear ONLY on a real game switch — never on a post-delete refetch (the optimistic
+    // update already narrowed the list) — so one game's snapshots never flash under
+    // another game's cover.
+    if (savesGameRef.current !== detailGame.id) setSaves([])
+    savesGameRef.current = detailGame.id
+    let alive = true
+    setSavesLoading(true)
+    fetch(saveStatesUrl(detailGame.id))
+      .then((r) => (r.ok ? r.json() : { states: [] }))
+      .then((d) => alive && (setSaves(d.states ?? []), setSavesLoading(false)))
+      .catch(() => alive && (setSaves([]), setSavesLoading(false)))
+    return () => {
+      alive = false
+    }
+  }, [detailGame, savesRefresh])
+
   useEffect(() => {
     if (screen === 'boot') return
     // Never persist 'search' as the screen: it's a transient overlay with no saved
     // query, so restoring it after a game launch would drop you on an empty keyboard.
     // Persist the screen it was opened over instead.
-    Object.assign(place, { booted: true, screen: screen === 'search' ? searchFrom : screen, system, focus, row })
+    // 'search' and 'detail' are transient overlays with no saved contents — persist the
+    // screen they were opened over, so a game launch restores you there, not to an empty
+    // keyboard or a stale game page. A game page opened FROM search resolves one more hop
+    // (detailFrom==='search' → the screen search itself was opened over), or quitting the
+    // game would strand you on a blank keyboard.
+    const persistScreen =
+      screen === 'search'
+        ? searchFrom
+        : screen === 'detail'
+          ? detailFrom === 'search'
+            ? searchFrom
+            : detailFrom
+          : screen
+    Object.assign(place, { booted: true, screen: persistScreen, system, focus, row })
   })
 
   // Typing narrows the list under the cursor: keep the result focus in range, and if
@@ -161,16 +233,17 @@ export default function FrogBrowser() {
   }, [games])
 
   const play = useCallback(
-    (game) => {
+    (game, slot) => {
       if (!game) return
       recordPlayed(game)
       const q = `id=${encodeURIComponent(game.id)}&core=${encodeURIComponent(game.core)}&name=${encodeURIComponent(
         game.name || ''
       )}&label=${encodeURIComponent(game.label || '')}`
-      // No `?slot=`: jumping back in means the game's own in-game save, not an older
-      // snapshot. Restoring a save state here would roll the battery save back to
-      // whenever that snapshot was taken — the exact way you lose an afternoon.
-      navigate(`/library/play?${q}`)
+      // A `slot` launches into that snapshot; without one it's a plain boot on the
+      // game's own in-game (battery) save. Play with no slot is deliberately the default
+      // — restoring an older snapshot would roll the battery save back to whenever it
+      // was taken, the exact way you lose an afternoon.
+      navigate(`/library/play?${q}${slot ? `&slot=${encodeURIComponent(slot)}` : ''}`)
     },
     [navigate]
   )
@@ -196,6 +269,59 @@ export default function FrogBrowser() {
 
   const closeSearch = useCallback(() => setScreen(searchFrom), [searchFrom])
 
+  // The game page. Opens over whatever screen you were on (so B returns there), lands
+  // focus on Play, and reads the game's current favourite state.
+  const openDetail = (game, from) => {
+    if (!game) return
+    setDetailGame(game)
+    setDetailFrom(from)
+    setDetailFocus({ zone: 'actions', index: 0 })
+    setConfirm(null)
+    setFavorited(isFavorite(game.id))
+    setScreen('detail')
+  }
+  const closeDetail = () => {
+    setConfirm(null)
+    setScreen(detailFrom)
+  }
+  const toggleFav = () => detailGame && setFavorited(toggleFavorite(detailGame).favorited)
+  const startOrRemoveDownload = () => {
+    // A press while it's already working (or still checking) is a no-op — otherwise a
+    // controller A would kick a SECOND downloadJob for the same game (the touch button's
+    // `disabled` guards only the click path, not this one).
+    if (dl.state === 'downloading' || dl.state === 'checking') return
+    if (dl.state === 'done') setConfirm({ kind: 'download' })
+    else dl.start()
+  }
+  const requestDeleteSave = (slot) => setConfirm({ kind: 'save', slot })
+  const deleteSave = async (slot) => {
+    // Drop the row at once (optimistic): the focus-clamp effect then moves the cursor off
+    // it this render, so a confirm-press in the delete's round-trip window can't launch
+    // the player into the snapshot that's on its way out. The refetch reconciles after.
+    setSaves((list) => list.filter((snap) => snap.slot !== slot))
+    try {
+      await fetch(`${saveStatesUrl(detailGame.id)}&slot=${encodeURIComponent(slot)}`, { method: 'DELETE' })
+    } finally {
+      setSavesRefresh((n) => n + 1)
+    }
+  }
+  const confirmYes = () => {
+    if (!confirm) return
+    if (confirm.kind === 'download') dl.remove()
+    else deleteSave(confirm.slot)
+    setConfirm(null)
+  }
+
+  // Keep the save-list focus in range as the list shrinks (a delete), handing the
+  // cursor back to the actions row when the last snapshot goes.
+  useEffect(() => {
+    setDetailFocus((f) => {
+      if (f.zone !== 'saves') return f
+      if (saves.length === 0) return { zone: 'actions', index: 0 }
+      return f.index < saves.length ? f : { zone: 'saves', index: saves.length - 1 }
+    })
+  }, [saves])
+
   // Append a key, but only if it keeps the list alive — the same dead-key rule the
   // grid dims by, enforced here so you physically cannot type into an empty result
   // set (whether by pad or by a laptop keyboard). Functional update so a fast typist
@@ -216,6 +342,15 @@ export default function FrogBrowser() {
     // Nothing to point at yet. Without this, presses land against the skeleton's
     // placeholder rails and strand focus the moment the real ones arrive.
     if (booting) return
+
+    // A confirm dialog on the game page traps ALL input until it's resolved (A yes /
+    // B no) — ahead of even the global X-search toggle, or X would slip past it and
+    // leave the dialog stranded open behind the search screen.
+    if (screen === 'detail' && confirm) {
+      if (action === 'confirm') confirmYes()
+      else if (action === 'back') setConfirm(null)
+      return
+    }
 
     // X is search from anywhere, and X again closes it — a toggle you can find with
     // one thumb without reading the legend.
@@ -269,10 +404,8 @@ export default function FrogBrowser() {
       // The results zone.
       switch (action) {
         case 'confirm':
-          play(results[resultRow])
-          return
         case 'alt':
-          if (results[resultRow]) navigate(gameDetailHref(results[resultRow].id, '/frog'))
+          if (results[resultRow]) openDetail(results[resultRow], 'search')
           return
         // Up off the top row hands the cursor back to the keyboard — the mirror of the
         // down-press that brought you here. Decide the zone OUTSIDE the setState updater
@@ -296,6 +429,53 @@ export default function FrogBrowser() {
       return
     }
 
+    // The game page. (A confirm dialog, if up, was already handled at the top.)
+    if (screen === 'detail') {
+      switch (action) {
+        case 'back':
+          closeDetail()
+          return
+        case 'confirm': {
+          const f = detailFocus
+          if (f.zone === 'actions') {
+            if (f.index === 0) play(detailGame)
+            else if (f.index === 1) toggleFav()
+            else startOrRemoveDownload()
+          } else if (saves[f.index]) {
+            play(detailGame, saves[f.index].slot)
+          }
+          return
+        }
+        // Y deletes the focused snapshot — behind the confirm, and only in the save zone.
+        case 'alt':
+          if (detailFocus.zone === 'saves' && saves[detailFocus.index]) {
+            requestDeleteSave(saves[detailFocus.index].slot)
+          }
+          return
+        case 'left':
+          if (detailFocus.zone === 'actions') setDetailFocus((f) => ({ zone: 'actions', index: Math.max(0, f.index - 1) }))
+          return
+        case 'right':
+          if (detailFocus.zone === 'actions') setDetailFocus((f) => ({ zone: 'actions', index: Math.min(2, f.index + 1) }))
+          return
+        case 'up':
+          if (detailFocus.zone === 'saves') {
+            if (detailFocus.index <= 0) setDetailFocus({ zone: 'actions', index: 0 })
+            else setDetailFocus((f) => ({ zone: 'saves', index: f.index - 1 }))
+          }
+          return
+        case 'down':
+          if (detailFocus.zone === 'actions') {
+            if (saves.length) setDetailFocus({ zone: 'saves', index: 0 })
+          } else {
+            setDetailFocus((f) => ({ zone: 'saves', index: Math.min(saves.length - 1, f.index + 1) }))
+          }
+          return
+        default:
+      }
+      return
+    }
+
     if (screen === 'shelf') {
       switch (action) {
         case 'confirm': {
@@ -304,7 +484,11 @@ export default function FrogBrowser() {
           if (!item) return
           if (rail.kind === 'system') {
             if (item.count > 0) openSystem(item.label)
-          } else play(item)
+          } else if (rail.id === 'jump') {
+            // "Jump back in" is the fast-resume lane: straight into the game (battery
+            // save), no page in between. Every other game opens its page (Y does too).
+            play(item)
+          } else openDetail(item, 'shelf')
           return
         }
         case 'back':
@@ -315,7 +499,7 @@ export default function FrogBrowser() {
         case 'alt': {
           const rail = rails[focus.rail]
           const item = rail?.items?.[focus.index]
-          if (rail?.kind === 'game' && item) navigate(gameDetailHref(item.id, '/frog'))
+          if (rail?.kind === 'game' && item) openDetail(item, 'shelf')
           return
         }
         default: {
@@ -337,13 +521,11 @@ export default function FrogBrowser() {
     const clamp = (i) => Math.max(0, Math.min(last, i))
     switch (action) {
       case 'confirm':
-        play(games[row])
+      case 'alt':
+        if (games[row]) openDetail(games[row], 'games')
         return
       case 'back':
         setScreen('shelf')
-        return
-      case 'alt':
-        if (games[row]) navigate(gameDetailHref(games[row].id, '/frog'))
         return
       case 'up':
       case 'left':
@@ -433,6 +615,7 @@ export default function FrogBrowser() {
         ArrowRight: 'right',
         Enter: 'confirm',
         Escape: 'back',
+        Delete: 'alt', // the game page: delete the focused save
         PageUp: 'railPrev',
         PageDown: 'railNext',
         '/': 'search',
@@ -463,11 +646,13 @@ export default function FrogBrowser() {
   const focusedSystem =
     screen === 'games'
       ? system
-      : screen === 'search'
-        ? zone === 'results' && results[resultRow]
-          ? results[resultRow].label
-          : null
-        : hovered(rails, focus)
+      : screen === 'detail'
+        ? detailGame?.label
+        : screen === 'search'
+          ? zone === 'results' && results[resultRow]
+            ? results[resultRow].label
+            : null
+          : hovered(rails, focus)
   const accent = systemStyle(focusedSystem).accent
 
   return (
@@ -524,7 +709,7 @@ export default function FrogBrowser() {
           {/* Search, reachable by thumb. On a pad it's X (and the legend says so); by
               touch there was no way in at all until this button — the header only had
               the ✕. Hidden on the search screen itself, where the ✕ becomes "close". */}
-          {screen !== 'search' && (
+          {screen !== 'search' && screen !== 'detail' && (
             <button
               onClick={openSearch}
               className="rounded-full p-2"
@@ -538,12 +723,21 @@ export default function FrogBrowser() {
           <button
             onClick={() => {
               if (screen === 'search') closeSearch()
+              else if (screen === 'detail') closeDetail()
               else if (screen === 'games') setScreen('shelf')
               else navigate('/library') // leave Frog → the Library hub
             }}
             className="rounded-full p-2"
             style={{ background: FROG.panel, color: FROG.soft }}
-            aria-label={screen === 'search' ? 'Close search' : screen === 'games' ? 'Back to the shelf' : 'Leave Frog'}
+            aria-label={
+              screen === 'search'
+                ? 'Close search'
+                : screen === 'detail'
+                  ? 'Back'
+                  : screen === 'games'
+                    ? 'Back to the shelf'
+                    : 'Leave Frog'
+            }
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -580,7 +774,25 @@ export default function FrogBrowser() {
           // autocorrect), so it sets the query directly rather than one dead-key-guarded
           // character at a time the way the grid does.
           onType={setQuery}
-          onPick={(game, ch) => (ch != null ? typeKey(ch) : play(game))}
+          onPick={(game, ch) => (ch != null ? typeKey(ch) : openDetail(game, 'search'))}
+        />
+      ) : screen === 'detail' && detailGame ? (
+        <GameScreen
+          game={detailGame}
+          favorited={favorited}
+          saves={saves}
+          loadingSaves={savesLoading}
+          download={dl}
+          focus={detailFocus}
+          confirm={confirm}
+          onFocus={(zone, index) => setDetailFocus({ zone, index })}
+          onPlay={() => play(detailGame)}
+          onPlaySlot={(slot) => play(detailGame, slot)}
+          onToggleFavorite={toggleFav}
+          onDownload={startOrRemoveDownload}
+          onRequestDeleteSave={requestDeleteSave}
+          onConfirmYes={confirmYes}
+          onConfirmNo={() => setConfirm(null)}
         />
       ) : screen === 'games' ? (
         <GameList
@@ -588,14 +800,20 @@ export default function FrogBrowser() {
           games={games}
           focus={row}
           onFocus={setRow}
-          onPick={play}
+          onPick={(g) => openDetail(g, 'games')}
         />
       ) : (
         <Shelf
           rails={rails}
           focus={focus}
           onFocus={(rail, index) => setFocus({ rail, index })}
-          onPick={(rail, item) => (rail.kind === 'system' ? item.count > 0 && openSystem(item.label) : play(item))}
+          onPick={(rail, item) =>
+            rail.kind === 'system'
+              ? item.count > 0 && openSystem(item.label)
+              : rail.id === 'jump'
+                ? play(item)
+                : openDetail(item, 'shelf')
+          }
         />
       )}
 
@@ -621,25 +839,35 @@ export default function FrogBrowser() {
                   { button: 'X', label: 'Close' },
                 ]
               : [
-                  { button: 'A', label: 'Play' },
-                  { button: 'Y', label: 'Saves' },
+                  { button: 'A', label: 'Open' },
                   { button: 'LB', label: 'Keys' },
                   { button: 'X', label: 'Close' },
                 ]
-            : screen === 'games'
-              ? [
-                  { button: 'A', label: 'Play' },
-                  { button: 'B', label: 'Shelf' },
-                  { button: 'Y', label: 'Saves' },
-                  { button: 'X', label: 'Find' },
-                  { button: 'LT/RT', label: 'Letter' },
-                ]
-              : [
-                  { button: 'A', label: 'Open' },
-                  { button: 'B', label: 'Home HQ' },
-                  { button: 'X', label: 'Find' },
-                  { button: 'D-pad', label: 'Move' },
-                ]
+            : screen === 'detail'
+              ? confirm
+                ? [
+                    { button: 'A', label: 'Confirm' },
+                    { button: 'B', label: 'Cancel' },
+                  ]
+                : [
+                    { button: 'A', label: detailFocus.zone === 'saves' ? 'Load' : 'Select' },
+                    { button: 'B', label: 'Back' },
+                    { button: 'Y', label: 'Delete save' },
+                    { button: 'D-pad', label: 'Move' },
+                  ]
+              : screen === 'games'
+                ? [
+                    { button: 'A', label: 'Open' },
+                    { button: 'B', label: 'Shelf' },
+                    { button: 'X', label: 'Find' },
+                    { button: 'LT/RT', label: 'Letter' },
+                  ]
+                : [
+                    { button: 'A', label: 'Open' },
+                    { button: 'B', label: 'Home HQ' },
+                    { button: 'X', label: 'Find' },
+                    { button: 'D-pad', label: 'Move' },
+                  ]
         }
       />
       )}

@@ -740,8 +740,8 @@ overwriting would kill the engine's input handling outright.
 The games browser, for a couch and a controller — and now **the games screen full
 stop**. The Library's "Games" entry (its nav pill and hub card, both via
 `sectionHref('games')`) opens `/frog`; the old thumb-first grid at `/library/games`
-is **retired** — its route redirects to `/frog`, and every "Back to Games" link
-(`Player`, `GameDetail`, `gameBackHref`'s fallback) points there too. Frog earned that
+is **retired** — its route redirects to `/frog`, and the player's "Back to Games"
+(`PlayerShell`'s Quit) returns there too. Frog earned that
 by becoming first-class **by thumb** (every tile/row is a real tap target, its own
 touch keyboard for search) and **offline** (falls back to downloaded games), not just
 by pad — so one browser now covers what took a separate grid before. Leaving Frog
@@ -751,11 +751,13 @@ grid that no longer exists.
 It's still a **separate app that the Library hands off to**, living at `/frog` (not
 under `/library`) and in one folder, `modules/library/frog/`, because it is meant to
 be lifted into its own repo later: the Cards → PocketBinder pattern. `GameDetail` (a
-game's save-state / favourite page) stays a `/library/games/detail` route that Frog
-deep-links into and back out of.
+game page — play, save states, favourite, download — is a Frog screen now
+(`GameScreen.jsx`), not a deep-link out to the old HQ `/library/games/detail` page,
+which is **retired** (its route redirects to `/frog`, and the player's Quit returns to
+`/frog` too). Frog owns a game start to finish.
 
-Four screens — **boot → shelf → games**, with **search** reachable from anywhere (X)
-— and the shape of them is the argument:
+Five screens — **boot → shelf → games → game page**, with **search** reachable from
+anywhere (X) — and the shape of them is the argument:
 
 - **The boot exists for a reason, not for a logo.** iOS does not report a connected
   controller until a button is pressed on it, so *something* has to ask. "PRESS A" is
@@ -776,6 +778,18 @@ Four screens — **boot → shelf → games**, with **search** reachable from an
   pointing at — you find by reading and confirm by looking. The triggers move a
   *letter* at a time (`stepLetter`), which is what keeps 496 games from being sixty
   D-pad presses.
+- **Picking a game opens its page, not the game** (`GameScreen.jsx`) — cover, a big
+  Play (the battery save, default focus), favourite, download-for-offline, and the
+  save-state shelf (each snapshot launches with its `?slot=`; delete is guarded by a
+  confirm, controller- and touch-drivable). Two focus zones — the actions row and the
+  save list — cross with up/down, the same shape search uses. The **one exception is
+  "Jump back in": A there resumes the game instantly** (that rail is *for* fast resume;
+  Y still opens the page). The download reuses the Library's own state machine via the
+  shared `useDownload` hook, and a reserved empty band up top is the seat for future
+  IGDB artwork/summary.
+- **The frog holds its console.** Colour alone can't tell the two Game Boys apart, so
+  `SystemFrog` pins a small drawn `Console` badge to the mascot's corner wherever it
+  stands in for the focused system (shelf, game list, game page).
 
 **Search is a controller keyboard that refuses to waste your presses** (`Search.jsx`,
 `frog/search.js`). X opens a 6×6 grid — A–Z then 0–9, exactly 36 cells — and every key

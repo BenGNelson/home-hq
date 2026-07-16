@@ -253,11 +253,12 @@ export default function PlayerShell({ id, core, name, label, loadStateUrl }) {
   }, [state])
 
   const exit = useCallback(() => {
-    // Offline, the game's detail page needs the live API — so a downloaded game
-    // exits to Downloads instead of dead-ending on "that game isn't in the
-    // library".
-    goBack(navigate, online ? `/library/games/detail?id=${encodeURIComponent(id)}` : '/library/downloads')
-  }, [navigate, online, id])
+    // The player is Frog's screen wherever it launched, so quitting returns to Frog
+    // (which restores the shelf/list you were on). Offline, Frog needs the live API to
+    // list everything — so a downloaded game exits to Downloads instead of a shelf that
+    // can only show what's cached.
+    goBack(navigate, online ? '/frog' : '/library/downloads')
+  }, [navigate, online])
 
   const openShelf = useCallback(async () => {
     setShelfOpen(true)

@@ -9,7 +9,6 @@ import PlexInsights from './modules/plex/Insights.jsx'
 import PlexWatchStats from './modules/plex/WatchStats.jsx'
 import Library from './modules/library/Library.jsx'
 import LibraryLayout from './modules/library/LibraryLayout.jsx'
-import GameDetail from './modules/library/GameDetail.jsx'
 import Player from './modules/library/Player.jsx'
 import FrogBrowser from './modules/library/frog/FrogBrowser.jsx'
 import PapersList from './modules/library/PapersList.jsx'
@@ -132,12 +131,13 @@ export default function App() {
           <Route path="/library/comics" element={<ComicsList />} />
           <Route path="/library/audiobooks" element={<AudiobooksList />} />
         </Route>
-        <Route path="/library/games/detail" element={<GameDetail />} />
         <Route path="/library/play" element={<Player />} />
         <Route path="/frog" element={<FrogBrowser />} />
-        {/* Games IS Frog now — the old grid is retired, so its route (and any old
-            bookmark) redirects into the browser. */}
+        {/* Games IS Frog now — the old grid AND the game-detail page are retired (Frog
+            hosts play / saves / favourite / download itself), so their routes (and any
+            old bookmark) redirect into the browser. */}
         <Route path="/library/games" element={<Navigate to="/frog" replace />} />
+        <Route path="/library/games/detail" element={<Navigate to="/frog" replace />} />
         <Route path="/library/read" element={<Reader />} />
         <Route path="/library/downloads" element={<Downloads />} />
         <Route path="/containers" element={<Containers />} />

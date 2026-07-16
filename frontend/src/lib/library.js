@@ -333,21 +333,6 @@ export function sectionHref(key) {
   return key === 'games' ? frogHref() : `/library/${key}`
 }
 
-// A game's detail "title page". `ret` is the full return location (path+search)
-// of wherever the tile was tapped — carried along so the detail page's Back link
-// lands exactly there (with the search still typed), not on a fresh Games page.
-export function gameDetailHref(id, ret) {
-  let href = `/library/games/detail?id=${encodeURIComponent(id)}`
-  if (ret) href += `&ret=${encodeURIComponent(ret)}`
-  return href
-}
-
-// Where a game's Back link goes: the exact page it was opened from (`ret`) when we
-// have it, else Frog — the games browser is the one games home now, so a direct link
-// or old bookmark lands there rather than a system view that no longer exists.
-export function gameBackHref(ret) {
-  return ret || frogHref()
-}
 
 // The scrubber bucket for a title: its uppercase first A–Z letter, else '#'
 // (numbers, symbols, non-latin, empty). Diacritics are stripped first (NFD

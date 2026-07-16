@@ -26,8 +26,6 @@ import {
   gameOfflineUrls,
   systemGames,
   sectionHref,
-  gameDetailHref,
-  gameBackHref,
   letterOf,
 } from './library.js'
 
@@ -204,23 +202,6 @@ describe('games browse-state hrefs', () => {
     expect(sectionHref('games')).toBe('/frog')
     expect(sectionHref('books')).toBe('/library/books')
     expect(sectionHref('audiobooks')).toBe('/library/audiobooks')
-  })
-  it('gameDetailHref carries an encoded return location', () => {
-    const ret = '/frog'
-    expect(gameDetailHref('NintendoGameBoyAdvance/Pokemon - Emerald.gba', ret)).toBe(
-      '/library/games/detail?id=NintendoGameBoyAdvance%2FPokemon%20-%20Emerald.gba&ret=%2Ffrog'
-    )
-  })
-  it('gameDetailHref omits ret when not provided', () => {
-    expect(gameDetailHref('a.gba')).toBe('/library/games/detail?id=a.gba')
-  })
-  it('gameBackHref prefers the return location, verbatim', () => {
-    const ret = '/library/games/detail?id=x'
-    expect(gameBackHref(ret)).toBe(ret)
-  })
-  it('gameBackHref falls back to Frog when ret is missing', () => {
-    expect(gameBackHref(null)).toBe('/frog')
-    expect(gameBackHref()).toBe('/frog')
   })
 })
 
