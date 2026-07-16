@@ -1,5 +1,6 @@
 import { FROG, systemStyle } from './theme.js'
 import { frogCharacterMarkup, frogMarkMarkup } from './art.js'
+import Console from './Console.jsx'
 
 // The frog.
 //
@@ -55,6 +56,38 @@ export function Reflected({ children, scale = 0.5, className = '' }) {
       >
         {children}
       </div>
+    </div>
+  )
+}
+
+// The frog wearing a console's colours AND holding its machine as a badge.
+//
+// The colour alone doesn't say which system — two of the six are greenish Game Boys —
+// so a small `Console` icon is pinned to the frog's lower corner (Ben's pick). Used
+// wherever the big frog stands in for the focused system: the shelf, the game list,
+// the game screen. Without a `system` it's just the plain frog (boot, search), so this
+// is a safe drop-in for `<Frog system>`. The badge rides inside `<Reflected>` with the
+// frog, so it reflects on the water like everything else.
+export function SystemFrog({ size = 96, system, asleep = false, className = '', style }) {
+  const badge = Math.round(size * 0.4)
+  return (
+    <div className={`relative inline-block ${className}`} style={{ width: size, height: size, ...style }}>
+      <Frog size={size} system={system} asleep={asleep} />
+      {system && (
+        <div
+          className="absolute flex items-center justify-center rounded-full"
+          style={{
+            right: -size * 0.02,
+            bottom: size * 0.04,
+            padding: Math.max(2, Math.round(size * 0.035)),
+            background: FROG.ground,
+            border: '1px solid rgba(160, 255, 214, 0.22)',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.55)',
+          }}
+        >
+          <Console system={system} size={badge} />
+        </div>
+      )}
     </div>
   )
 }

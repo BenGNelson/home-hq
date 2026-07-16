@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { coverUrl } from '../../../lib/library.js'
 import { FROG, systemStyle, reflection } from './theme.js'
 import { agoLabel } from './shelf.js'
-import Frog, { Reflected } from './Frog.jsx'
+import { Reflected, SystemFrog } from './Frog.jsx'
 import Console from './Console.jsx'
 
 // The shelf: Frog's home screen.
@@ -169,8 +169,8 @@ export default function Shelf({ rails, focus, onFocus, onPick }) {
       <aside className="flex shrink-0 items-center justify-center gap-4 lg:w-60 lg:flex-col lg:justify-center">
         <div className="frog-hop shrink-0" key={system || 'none'}>
           <Reflected scale={0.5}>
-            <Frog size={128} system={system} className="lg:hidden" />
-            <Frog size={210} system={system} className="hidden lg:block" />
+            <SystemFrog size={128} system={system} className="lg:hidden" />
+            <SystemFrog size={210} system={system} className="hidden lg:block" />
           </Reflected>
         </div>
 

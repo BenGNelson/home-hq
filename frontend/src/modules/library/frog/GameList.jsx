@@ -3,7 +3,7 @@ import { coverUrl, ALPHABET, letterOf } from '../../../lib/library.js'
 import { windowRange, spacers } from '../../../lib/windowRange.js'
 import { FROG, systemStyle, reflection } from './theme.js'
 import Console from './Console.jsx'
-import Frog, { Reflected } from './Frog.jsx'
+import { Reflected, SystemFrog } from './Frog.jsx'
 
 const ROW = 44
 
@@ -88,7 +88,7 @@ export default function GameList({ system, games, focus, onFocus, onPick }) {
             it stays. It's the thread that makes three screens feel like one app. */}
         <div className="flex justify-center pb-8">
           <Reflected scale={0.45}>
-            <Frog size={76} system={system} />
+            <SystemFrog size={76} system={system} />
           </Reflected>
         </div>
 
