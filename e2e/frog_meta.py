@@ -92,17 +92,18 @@ with sync_playwright() as p:
     check("haunted archipelago" in detail.inner_text(), "the summary text renders")
     check("Adventure" in detail.inner_text(), "a genre chip renders")
     check("Testtendo" in detail.inner_text(), "the developer fact renders")
-    shots = page.locator('[data-testid="frog-detail-shot"]')
-    check(shots.count() == 3, f"the screenshot strip lists all shots ({shots.count()})")
+    hero = page.locator('[data-testid="frog-detail-hero"]')
+    check(hero.count() == 1, "the screenshots are the hero banner (no separate strip)")
+    check(page.locator('[data-testid="frog-detail-shot"]').count() == 0, "the old strip is gone")
     check(page.locator('[data-testid="frog-detail-play"]').count() == 1, "Play is still present")
 
-    # A screenshot opens the fullscreen lightbox; Escape closes it.
-    shots.first.click(force=True)
+    # Clicking the hero banner opens the fullscreen gallery; Escape closes it.
+    hero.click(force=True)
     page.wait_for_selector('[data-testid="frog-lightbox"]', timeout=4000)
-    check(True, "tapping a screenshot opens the lightbox")
+    check(True, "clicking the hero opens the screenshot gallery")
     page.keyboard.press("Escape")
     page.wait_for_selector('[data-testid="frog-lightbox"]', state="detached", timeout=4000)
-    check(True, "the lightbox closes")
+    check(True, "the gallery closes")
 
     page.screenshot(path=os.environ.get("SHOT", "/work/frog_meta.png"), full_page=False)
 
@@ -111,8 +112,8 @@ with sync_playwright() as p:
     page.goto(f"{BASE}/frog", wait_until="networkidle")
     drill_to_game(page)
     check(
-        page.locator('[data-testid="frog-detail-shot"]').count() == 0,
-        "an unmatched game shows no screenshot strip",
+        page.locator('[data-testid="frog-detail-hero"]').count() == 0,
+        "an unmatched game shows no screenshot hero (basic page)",
     )
     check(
         page.locator('[data-testid="frog-detail-play"]').count() == 1,
