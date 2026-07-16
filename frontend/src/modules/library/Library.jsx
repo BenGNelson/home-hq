@@ -13,6 +13,8 @@ import {
   textbookCoverUrl,
   sectionHref,
 } from '../../lib/library.js'
+import Frog, { Reflected } from './frog/Frog.jsx'
+import { FROG } from './frog/theme.js'
 import { progressLabel, progressFraction } from '../../lib/reading.js'
 import { formatAgo, formatSize } from '../../lib/format.js'
 import { radiantBackdrop, glowFilter } from '../../lib/glow.js'
@@ -432,15 +434,20 @@ function SectionCard({ s }) {
           <span className="ml-auto text-sm text-slate-500">{sub}</span>
         )}
       </div>
-      {enabled && preview.length > 0 && (
-        <div className="mt-3 flex gap-2">
-          {preview.map((refId) => (
-            <div key={refId} className="w-1/4">
-              <SectionCover sectionKey={s.key} refId={refId} />
+      {enabled &&
+        (s.key === 'games' ? (
+          <FrogBanner />
+        ) : (
+          preview.length > 0 && (
+            <div className="mt-3 flex gap-2">
+              {preview.map((refId) => (
+                <div key={refId} className="w-1/4">
+                  <SectionCover sectionKey={s.key} refId={refId} />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          )
+        ))}
     </div>
   )
 
@@ -451,6 +458,43 @@ function SectionCard({ s }) {
   ) : (
     <div className="block cursor-default opacity-70" title="Not configured">
       {inner}
+    </div>
+  )
+}
+
+// The games card's flourish. Tapping "Games" opens Frog — the full-screen browser —
+// so in place of the generic box-art strip the other sections show, the games card
+// wears a sliver of Frog itself: its WATER motif (jade pond-light on a green-black
+// ground, the mascot floating with its reflection) and the "FROG / GAME LIBRARY"
+// wordmark from the boot screen. The header still reads "Games"; this just says where
+// the tap goes. Pulls straight from Frog's own art + theme, so it stays in lockstep
+// with the app it advertises (and rides along if Frog is ever lifted out).
+function FrogBanner() {
+  return (
+    // Breaks the card's `p-4` on the left, right and bottom (negative margins) so it
+    // fills flush to the card's rounded edges — the card's `overflow-hidden rounded-2xl`
+    // clips the banner's bottom corners to match. Only the top keeps a gap under the
+    // header, with a hairline to separate them.
+    <div
+      className="relative -mx-4 -mb-4 mt-3 flex h-24 items-center gap-4 overflow-hidden px-5"
+      style={{ background: FROG.ground, borderTop: `1px solid ${FROG.line}` }}
+    >
+      {/* the pond light, rising from the frog's corner */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ background: `radial-gradient(70% 130% at 16% 100%, rgba(${FROG.jade}, 0.22), transparent 72%)` }}
+      />
+      <Reflected scale={0.5} className="relative shrink-0">
+        <Frog size={62} />
+      </Reflected>
+      <div className="relative min-w-0">
+        <p className="text-2xl font-semibold tracking-[0.22em]" style={{ color: FROG.ink }}>
+          FROG
+        </p>
+        <p className="mt-1 text-xs tracking-[0.3em]" style={{ color: FROG.faint }}>
+          GAME LIBRARY
+        </p>
+      </div>
     </div>
   )
 }
