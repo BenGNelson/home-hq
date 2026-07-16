@@ -435,3 +435,110 @@ def test_screenshot_404_when_unmatched(client):
 def test_meta_status_endpoint(client):
     body = client.get("/api/library/games/meta/status").json()
     assert "configured" in body and "looked_up" in body
+
+
+def test_meta_reports_can_rematch_from_candidates(client):
+    db.upsert_igdb_meta(
+        "gb/z.gb",
+        {"matched": True, "source": "auto", "igdb_id": 1, "screenshot_ids": [],
+         "candidates": [{"id": 1, "name": "Z"}]},
+    )
+    body = client.get("/api/library/games/meta", params={"id": "gb/z.gb"}).json()
+    assert body["can_rematch"] is True
+
+
+# --- re-match ("Wrong game?") ---------------------------------------------
+
+def test_fetch_by_id_returns_full_game(monkeypatch):
+    def fake_post(url, **kw):
+        if "oauth2" in url:
+            return _Resp({"access_token": "TOK", "expires_in": 5000})
+        return _Resp([{"id": 42, "name": "Zelda", "summary": "hi"}])
+
+    monkeypatch.setattr(igdb.requests, "post", fake_post)
+    g = igdb.fetch_by_id(42, settings)
+    assert g["id"] == 42 and g["name"] == "Zelda"
+
+
+def test_fetch_by_id_none_when_unconfigured(monkeypatch):
+    monkeypatch.setattr(settings, "igdb_client_id", "")
+    assert igdb.fetch_by_id(42, settings) is None
+
+
+def test_fetch_by_id_none_on_empty(monkeypatch):
+    def fake_post(url, **kw):
+        if "oauth2" in url:
+            return _Resp({"access_token": "TOK", "expires_in": 5000})
+        return _Resp([])
+
+    monkeypatch.setattr(igdb.requests, "post", fake_post)
+    assert igdb.fetch_by_id(42, settings) is None
+
+
+def test_candidates_endpoint_returns_shortlist_and_current(client):
+    db.upsert_igdb_meta(
+        "gb/z.gb",
+        {"matched": True, "source": "auto", "igdb_id": 42,
+         "candidates": [{"id": 1, "name": "A", "release_year": 1990},
+                        {"id": 42, "name": "Z", "release_year": 1993}]},
+    )
+    body = client.get("/api/library/games/meta/candidates", params={"id": "gb/z.gb"}).json()
+    assert body["current"] == 42 and len(body["candidates"]) == 2
+    assert body["candidates"][0]["name"] == "A"
+
+
+def test_candidates_empty_when_no_row(client):
+    assert client.get(
+        "/api/library/games/meta/candidates", params={"id": "nope.gb"}
+    ).json() == {"candidates": [], "current": None}
+
+
+def _rematch_env(monkeypatch, fetch=None):
+    from app.routers import library as libr
+    monkeypatch.setattr(libr.library, "safe_path", lambda *a: "/roms/z.gb")
+    monkeypatch.setattr(libr.os.path, "getmtime", lambda p: 9.0)
+    if fetch is not None:
+        monkeypatch.setattr(libr.igdb, "fetch_by_id", fetch)
+
+
+def test_rematch_to_candidate_stores_manual_and_keeps_candidates(client, monkeypatch):
+    db.upsert_igdb_meta(
+        "gb/z.gb",
+        {"matched": True, "source": "auto", "igdb_id": 1, "name": "Wrong",
+         "candidates": [{"id": 42, "name": "Z", "release_year": 1993}], "rom_mtime": 5.0},
+    )
+    _rematch_env(monkeypatch, fetch=lambda i, s: {"id": 42, "name": "Zelda", "summary": "ok"})
+    r = client.post("/api/library/games/meta", json={"id": "gb/z.gb", "igdb_id": 42})
+    assert r.status_code == 200 and r.json() == {"matched": True}
+    row = db.get_igdb_meta("gb/z.gb")
+    assert row["source"] == "manual" and row["igdb_id"] == 42 and row["name"] == "Zelda"
+    assert row["candidates"] == [{"id": 42, "name": "Z", "release_year": 1993}]  # preserved
+
+
+def test_rematch_clear_sets_cleared_and_keeps_candidates(client, monkeypatch):
+    db.upsert_igdb_meta(
+        "gb/z.gb",
+        {"matched": True, "source": "auto", "igdb_id": 1,
+         "candidates": [{"id": 42, "name": "Z"}], "rom_mtime": 5.0},
+    )
+    _rematch_env(monkeypatch)
+    r = client.post("/api/library/games/meta", json={"id": "gb/z.gb", "igdb_id": None})
+    assert r.status_code == 200 and r.json() == {"matched": False}
+    row = db.get_igdb_meta("gb/z.gb")
+    assert row["source"] == "cleared" and row["matched"] is False
+    assert row["candidates"] == [{"id": 42, "name": "Z"}]
+
+
+def test_rematch_404_for_unknown_rom(client):
+    # games unconfigured → safe_path None → 404 (guards against arbitrary ids)
+    assert client.post(
+        "/api/library/games/meta", json={"id": "gb/nope.gb", "igdb_id": 1}
+    ).status_code == 404
+
+
+def test_rematch_502_when_fetch_fails_leaves_row_untouched(client, monkeypatch):
+    db.upsert_igdb_meta("gb/z.gb", {"matched": True, "source": "auto", "igdb_id": 1, "candidates": []})
+    _rematch_env(monkeypatch, fetch=lambda i, s: None)
+    r = client.post("/api/library/games/meta", json={"id": "gb/z.gb", "igdb_id": 999})
+    assert r.status_code == 502
+    assert db.get_igdb_meta("gb/z.gb")["source"] == "auto"  # unchanged

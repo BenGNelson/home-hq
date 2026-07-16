@@ -193,6 +193,8 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/library/games/meta?id=` | a game's rich IGDB metadata (screenshots/summary/genres/rating/dev) for the game screen | reads the `igdb_meta` cache the background matcher fills; `{matched:false}` when unmatched (ROM hack) or IGDB isn't configured, so the frontend shows the basic page |
 | `GET /api/library/games/screenshot?id=&shot=` | one IGDB screenshot/cover, proxied + cached WebP | validated (the image id must be one the game's cached row references — not an open proxy), fetched from IGDB on first view and downscaled into `IGDB_ART_DIR` |
 | `GET /api/library/games/meta/status` | IGDB matcher progress (configured/running/looked-up/matched) | from the `IgdbMatcher` + cache counts |
+| `GET /api/library/games/meta/candidates?id=` | the shortlisted IGDB matches for a game + the current one | reads the cached `candidates` shortlist (feeds the "Wrong game?" picker) |
+| `POST /api/library/games/meta` | manually re-match a game to an IGDB id, or clear it (`igdb_id:null`) | validates the ROM id, fetches the chosen game (`fetch_by_id`), stores it `source='manual'`/`'cleared'` so the auto matcher leaves it be |
 | `GET /api/library/books/search?q=&limit=` | search Books by title/author | queries the `book_meta` cache (empty `q` = first results alphabetically) |
 | `GET /api/library/books/index-status` | book-indexer progress | from the indexer + cache count (drives the "indexing…" UI) |
 | `GET /api/library/books/cover?id=` | a book's cover art (cached) | EPUB/MOBI → embedded cover; PDF book → rendered first page (no embedded cover); downscaled to a small WebP on first view, served locally thereafter (404 → titled placeholder) |
@@ -1023,11 +1025,21 @@ daemon-thread + SQLite-cache pattern as the book indexer, not a host-script brid
   `source` column ('auto'/'manual'/'cleared') reserves the M2 re-match override so the
   auto matcher won't stomp it.
 - **Endpoints** (`routers/library.py`): `GET /library/games/meta` reads the cache
-  (degraded `{matched:false}` when unmatched/dormant); `GET /library/games/screenshot`
-  is a **validated** proxy — the requested IGDB image id must be one the game's cached
-  row references, so it's not an open image proxy — reusing the box-art
-  fetch→`to_thumbnail`→`write_atomic` WebP cache into `IGDB_ART_DIR`;
-  `GET /library/games/meta/status` reports collector progress.
+  (degraded `{matched:false}` when unmatched/dormant; `can_rematch` flags whether a fix
+  is possible); `GET /library/games/screenshot` is a **validated** proxy — the requested
+  IGDB image id must be one the game's cached row references, so it's not an open image
+  proxy — reusing the box-art fetch→`to_thumbnail`→`write_atomic` WebP cache into
+  `IGDB_ART_DIR`; `GET /library/games/meta/status` reports collector progress.
+- **Fixing a wrong match (the "Wrong game?" control).** Auto-matching sometimes picks
+  the wrong game of several similar titles, so the shortlist the matcher considered is
+  cached per row. `GET /library/games/meta/candidates` returns it, and
+  `POST /library/games/meta {id, igdb_id}` re-matches to a chosen candidate
+  (`fetch_by_id` pulls its full data, stored `source='manual'`) or **clears** it
+  (`igdb_id:null` → `source='cleared'`, the basic page). Both **preserve the candidate
+  shortlist** (so the choice is reversible — a cleared game still offers "Find on IGDB")
+  and both are left alone by the auto matcher (the `source` guard). The POST validates
+  the game id is a real listed ROM and coerces `igdb_id` to int, so it can't be turned
+  into an arbitrary fetch.
 - **Keys are the one setup step:** register a free Twitch app and set
   `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` (see README). No key = the feature is simply
   dormant, and every game shows the basic page.

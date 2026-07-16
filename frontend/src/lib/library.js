@@ -180,6 +180,19 @@ export function gameMetaUrl(id) {
 export function igdbShotUrl(id, imageId) {
   return `${API_BASE}/library/games/screenshot?id=${encodeURIComponent(id)}&shot=${encodeURIComponent(imageId)}`
 }
+// The IGDB match candidates the matcher shortlisted for a game (for "Wrong game?").
+export function gameCandidatesUrl(id) {
+  return `${API_BASE}/library/games/meta/candidates?id=${encodeURIComponent(id)}`
+}
+// Manually fix a game's IGDB match: an igdbId re-matches to it, null clears to the
+// basic page. Resolves when the server has stored it (caller then refetches meta).
+export function postGameMatch(id, igdbId) {
+  return fetch(`${API_BASE}/library/games/meta`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, igdb_id: igdbId }),
+  })
+}
 
 // A game's in-game battery save (SRAM) — the game's OWN save (e.g. Pokemon's
 // "Save"), one per game, stored server-side so it roams. GET serves it, POST

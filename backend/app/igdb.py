@@ -248,6 +248,23 @@ def _post_games(token: str, settings, body: str):
     return data if isinstance(data, list) else None
 
 
+def fetch_by_id(igdb_id: int, settings) -> dict | None:
+    """The full IGDB game dict for a specific id — used by a manual re-match, where
+    the user picked a candidate and we need its full data (summary/screenshots/…),
+    not just the shortlist's id+name. None on unconfigured / unreachable / not found.
+    `igdb_id` is coerced to int, so it can't inject into the query."""
+    if not configured(settings):
+        return None
+    token = _get_token(settings)
+    if not token:
+        return None
+    body = f"fields {_FIELDS}; where id = {int(igdb_id)};"
+    data = _post_games(token, settings, body)
+    if not data:
+        return None
+    return data[0]
+
+
 def lookup(name: str, label: str | None, settings) -> dict | None:
     """Look up one game by ROM display-name + system label. Returns:
         {matched, igdb, score, candidates}

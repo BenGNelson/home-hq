@@ -5,7 +5,9 @@ import { useApi } from '../../../lib/useApi.js'
 import { useOnline } from '../../../lib/online.jsx'
 import { useDownloadedEntries } from '../../../lib/useDownloaded.js'
 import { useDownload } from '../../../lib/useDownload.js'
-import { systemGames, gameOfflineUrls, saveStatesUrl, gameMetaUrl } from '../../../lib/library.js'
+import {
+  systemGames, gameOfflineUrls, saveStatesUrl, gameMetaUrl, gameCandidatesUrl, postGameMatch,
+} from '../../../lib/library.js'
 import { isFavorite, toggleFavorite } from '../../../lib/favorites.js'
 import { ensureEmulatorEngine, cacheGameSram } from '../../../lib/offlineStore.js'
 import { offlineGamesToItems } from './offline.js'
@@ -144,6 +146,10 @@ export default function FrogBrowser() {
   // (and the D-pad can peek). Owned here so the auto-advance pauses while the lightbox
   // is open and resets when you open a different game.
   const [heroSlide, setHeroSlide] = useState(0)
+  // The "Wrong game?" picker: null, or { candidates, current, matched, index }. Bumping
+  // metaRefresh re-fetches the open game's meta after a manual re-match/clear.
+  const [rematch, setRematch] = useState(null)
+  const [metaRefresh, setMetaRefresh] = useState(0)
 
   const rails = useMemo(() => buildShelf(items, getRecent(), getFavorites()), [items])
   const games = useMemo(() => (system ? systemGames(items, system) : []), [items, system])
@@ -213,7 +219,7 @@ export default function FrogBrowser() {
     return () => {
       alive = false
     }
-  }, [detailGame])
+  }, [detailGame, metaRefresh])
 
   // The screenshots the game screen shows (only when IGDB matched this game). Drives
   // both the strip's focus range and the fullscreen lightbox.
@@ -221,13 +227,17 @@ export default function FrogBrowser() {
   // The vertical focus order on the game page — actions, then the screenshot strip
   // (only if there are shots), then the save list (only if there are saves). up/down
   // cross between whichever zones are present; left/right move within actions/screens.
+  // Whether a "Wrong game?" / "Find on IGDB" fix control is offered (there's a
+  // candidate shortlist to fix the match against).
+  const canRematch = !!meta?.can_rematch
   const detailZones = useMemo(() => {
     const z = []
     if (shots.length) z.push('hero') // the banner sits above the actions
     z.push('actions')
+    if (canRematch) z.push('fix') // the "Wrong game?" control, below the facts
     if (saves.length) z.push('saves')
     return z
-  }, [shots.length, saves.length])
+  }, [shots.length, canRematch, saves.length])
 
   // Slowly crossfade the hero's background through the screenshots. Paused while the
   // lightbox is open (you're looking at one) and under reduced-motion (leave it still).
@@ -334,6 +344,7 @@ export default function FrogBrowser() {
     setDetailFocus({ zone: 'actions', index: 0 })
     setConfirm(null)
     setLightbox(null)
+    setRematch(null)
     setHeroSlide(0)
     // Clear the previous game's metadata SYNCHRONOUSLY here, not only in the fetch
     // effect (which runs after paint): otherwise the new game's page renders for one
@@ -346,6 +357,7 @@ export default function FrogBrowser() {
   const closeDetail = () => {
     setConfirm(null)
     setLightbox(null)
+    setRematch(null)
     setScreen(detailFrom)
   }
   const toggleFav = () => detailGame && setFavorited(toggleFavorite(detailGame).favorited)
@@ -376,19 +388,65 @@ export default function FrogBrowser() {
     setConfirm(null)
   }
 
+  // The "Wrong game?" picker. Its option list is the candidate games, then a "Clear"
+  // option when the game is currently matched (so a wrong match can return to the
+  // basic page). The index navigates over exactly this list.
+  const rematchOptions = (r) =>
+    r
+      ? [
+          ...(r.candidates || []).map((c) => ({ type: 'game', ...c })),
+          ...(r.matched ? [{ type: 'clear' }] : []),
+        ]
+      : []
+  const openRematch = () => {
+    if (!detailGame) return
+    const gid = detailGame.id
+    const matched = !!meta?.matched
+    // Guard against a game switch mid-fetch (like the meta/saves fetches): only open
+    // the picker if we're still on the game it was requested for — otherwise a slow
+    // response would open game A's candidates over game B and a pick would mis-write.
+    const land = (d) => {
+      if (metaGameRef.current !== gid) return
+      setRematch({ candidates: d.candidates ?? [], current: d.current ?? null, matched, index: 0 })
+    }
+    fetch(gameCandidatesUrl(gid))
+      .then((r) => (r.ok ? r.json() : { candidates: [], current: null }))
+      .then(land)
+      .catch(() => land({ candidates: [], current: null }))
+  }
+  // Apply a pick: an igdbId re-matches, null clears. Close + refetch the game's meta
+  // on success so the page redraws as the newly-chosen game (or the basic page). On
+  // failure (IGDB unreachable → 502) keep the dialog open with an error rather than
+  // closing silently and leaving the user thinking the fix took.
+  const applyMatch = async (igdbId) => {
+    const gid = detailGame?.id
+    if (!gid) return
+    setRematch((r) => (r ? { ...r, busy: true, error: null } : r))
+    try {
+      const res = await postGameMatch(gid, igdbId)
+      if (!res.ok) throw new Error('re-match failed')
+      setRematch(null)
+      setHeroSlide(0)
+      setMetaRefresh((n) => n + 1)
+    } catch {
+      setRematch((r) => (r ? { ...r, busy: false, error: 'Couldn’t update — try again.' } : r))
+    }
+  }
+
   // Keep the game-page focus valid as its zones change: a save-list delete shrinks
   // the list, and meta arriving (or a game switch) adds/removes the screenshot strip.
   // Clamp the index and, when a zone empties, hand the cursor to the nearest one above.
   useEffect(() => {
     setDetailFocus((f) => {
       if (f.zone === 'actions') return f
-      // The hero is a single target; if its screenshots went away, fall to actions.
+      // The hero / fix control are single targets; if they went away, fall to actions.
       if (f.zone === 'hero') return shots.length ? { zone: 'hero', index: 0 } : { zone: 'actions', index: 0 }
+      if (f.zone === 'fix') return canRematch ? { zone: 'fix', index: 0 } : { zone: 'actions', index: 0 }
       // saves
       if (saves.length === 0) return { zone: 'actions', index: 0 }
       return f.index < saves.length ? f : { zone: 'saves', index: saves.length - 1 }
     })
-  }, [saves, shots.length])
+  }, [saves, shots.length, canRematch])
 
   // Append a key, but only if it keeps the list alive — the same dead-key rule the
   // grid dims by, enforced here so you physically cannot type into an empty result
@@ -426,6 +484,19 @@ export default function FrogBrowser() {
       if (action === 'left') setLightbox((i) => Math.max(0, i - 1))
       else if (action === 'right') setLightbox((i) => Math.min(shots.length - 1, i + 1))
       else if (action === 'back' || action === 'confirm') setLightbox(null)
+      return
+    }
+
+    // The "Wrong game?" picker traps input too: up/down move the highlight, A picks
+    // (re-match / clear), B cancels.
+    if (screen === 'detail' && rematch) {
+      const opts = rematchOptions(rematch)
+      if (action === 'up') setRematch((r) => ({ ...r, index: Math.max(0, r.index - 1) }))
+      else if (action === 'down') setRematch((r) => ({ ...r, index: Math.min(opts.length - 1, r.index + 1) }))
+      else if (action === 'confirm') {
+        const o = opts[rematch.index]
+        if (o) applyMatch(o.type === 'clear' ? null : o.id)
+      } else if (action === 'back') setRematch(null)
       return
     }
 
@@ -522,6 +593,8 @@ export default function FrogBrowser() {
         case 'confirm':
           if (f.zone === 'hero') {
             if (shots.length) setLightbox(heroSlide) // open the hero's shots fullscreen
+          } else if (f.zone === 'fix') {
+            openRematch()
           } else if (f.zone === 'actions') {
             if (f.index === 0) play(detailGame)
             else if (f.index === 1) toggleFav()
@@ -871,6 +944,12 @@ export default function FrogBrowser() {
           confirm={confirm}
           lightbox={lightbox}
           slide={heroSlide}
+          canRematch={canRematch}
+          rematch={rematch}
+          onOpenRematch={openRematch}
+          onRematchHover={(index) => setRematch((r) => (r ? { ...r, index } : r))}
+          onRematchPick={(igdbId) => applyMatch(igdbId)}
+          onRematchCancel={() => setRematch(null)}
           onFocus={(zone, index) => setDetailFocus({ zone, index })}
           onPlay={() => play(detailGame)}
           onPlaySlot={(slot) => play(detailGame, slot)}
@@ -945,20 +1024,28 @@ export default function FrogBrowser() {
                       { button: 'B', label: 'Close' },
                       { button: 'D-pad', label: 'Browse' },
                     ]
-                  : [
-                      {
-                        button: 'A',
-                        label:
-                          detailFocus.zone === 'saves'
-                            ? 'Load'
-                            : detailFocus.zone === 'hero'
-                              ? 'Screenshots'
-                              : 'Select',
-                      },
-                      { button: 'B', label: 'Back' },
-                      ...(detailFocus.zone === 'saves' ? [{ button: 'Y', label: 'Delete save' }] : []),
-                      { button: 'D-pad', label: detailFocus.zone === 'hero' ? 'Peek' : 'Move' },
-                    ]
+                  : rematch
+                    ? [
+                        { button: 'A', label: 'Choose' },
+                        { button: 'B', label: 'Cancel' },
+                        { button: 'D-pad', label: 'Move' },
+                      ]
+                    : [
+                        {
+                          button: 'A',
+                          label:
+                            detailFocus.zone === 'saves'
+                              ? 'Load'
+                              : detailFocus.zone === 'hero'
+                                ? 'Screenshots'
+                                : detailFocus.zone === 'fix'
+                                  ? 'Fix match'
+                                  : 'Select',
+                        },
+                        { button: 'B', label: 'Back' },
+                        ...(detailFocus.zone === 'saves' ? [{ button: 'Y', label: 'Delete save' }] : []),
+                        { button: 'D-pad', label: detailFocus.zone === 'hero' ? 'Peek' : 'Move' },
+                      ]
               : screen === 'games'
                 ? [
                     { button: 'A', label: 'Open' },
