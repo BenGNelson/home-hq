@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
 import { Download, Check, TriangleAlert } from 'lucide-react'
-import { downloadKey, getEntry, downloadJob, removeDownload } from '../../lib/offlineStore.js'
+import { useDownload } from '../../lib/useDownload.js'
 import { formatSize } from '../../lib/format.js'
 
 // Compact "save this for offline" control for a reader's top bar. States:
@@ -9,60 +8,13 @@ import { formatSize } from '../../lib/format.js'
 //   downloading — live percentage (streamed; big magazines take a moment)
 //   done        — check, green; tap to remove (confirmed)
 //   error       — warning, tap to retry
-// `item` = { section, id, name, type, urls } — the download job. The only writer
-// of offline content is downloadJob(), so a tap here is the sole way bytes land
-// on the device (the audit-grade single-writer rule).
+// `item` = { section, id, name, type, urls } — the download job. The state machine
+// lives in useDownload (shared with Frog's own control); the single-writer rule
+// (downloadJob is the only path bytes land) holds there.
 export default function DownloadButton({ item, onBefore }) {
-  const key = downloadKey(item.section, item.id)
-  const [state, setState] = useState('checking')
-  const [pct, setPct] = useState(0)
-  const [bytes, setBytes] = useState(0)
-  const mounted = useRef(true)
-
-  useEffect(() => {
-    mounted.current = true
-    getEntry(key)
-      .then((e) => {
-        if (!mounted.current) return
-        if (e) {
-          setBytes(e.bytes || 0)
-          setState('done')
-        } else setState('idle')
-      })
-      .catch(() => mounted.current && setState('idle'))
-    return () => {
-      mounted.current = false
-    }
-  }, [key])
-
-  const start = async () => {
-    setState('downloading')
-    setPct(0)
-    try {
-      if (onBefore) await onBefore() // e.g. games ensure the shared emulator engine first
-      const entry = await downloadJob(item, ({ fraction, loaded }) => {
-        if (!mounted.current) return
-        setPct(Math.min(100, Math.round((fraction || 0) * 100)))
-        setBytes(loaded)
-      })
-      if (!mounted.current) return
-      setBytes(entry.bytes)
-      setState('done')
-    } catch {
-      if (mounted.current) setState('error')
-    }
-  }
-
-  const remove = async () => {
-    if (!window.confirm('Remove this offline download from your device?')) return
-    try {
-      await removeDownload(key)
-    } finally {
-      if (mounted.current) {
-        setBytes(0)
-        setState('idle')
-      }
-    }
+  const { state, pct, bytes, start, remove } = useDownload(item, onBefore)
+  const confirmRemove = () => {
+    if (window.confirm('Remove this offline download from your device?')) remove()
   }
 
   const base = 'shrink-0 rounded px-2.5 py-1.5 text-sm active:scale-95'
@@ -79,7 +31,7 @@ export default function DownloadButton({ item, onBefore }) {
   if (state === 'done')
     return (
       <button
-        onClick={remove}
+        onClick={confirmRemove}
         aria-label={`Saved offline (${formatSize(bytes)}) — tap to remove`}
         title={`Saved offline (${formatSize(bytes)}) — tap to remove`}
         className={`${base} bg-emerald-900/40 text-emerald-300 active:bg-emerald-900/70`}

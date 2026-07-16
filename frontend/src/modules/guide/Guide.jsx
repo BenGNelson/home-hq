@@ -324,8 +324,9 @@ export default function Guide() {
           any button on top of either. There's no mapping that wins both ways, so it's
           yours to pick. Opening <strong>Games</strong> from the Library launches{' '}
           <strong>Frog</strong> — it's the games screen now: a full-screen browser with
-          a mascot that wears the colours of whichever machine you're
-          pointing at, a shelf of consoles that never scrolls, and{' '}
+          a mascot that wears the colours of whichever machine you're pointing at —{' '}
+          <em>and holds a little drawing of it</em>, so the two Game Boys don't look
+          alike — a shelf of consoles that never scrolls, and{' '}
           <strong>"Jump back in"</strong> and <strong>Favorites</strong> rows (star a
           game on its page) so most sessions never touch the alphabet. It works the
           same <strong>with a controller or by touch</strong>, switching the instant
@@ -339,7 +340,11 @@ export default function Guide() {
           device and picks the game back up when you do.) Frog also{' '}
           <strong>works offline</strong>: with the server unreachable it shows the games
           you've <strong>downloaded</strong> (an "Offline" badge appears), and swaps the
-          full library back in on its own once you're reconnected.
+          full library back in on its own once you're reconnected. Picking a game opens{' '}
+          <strong>its own page</strong> — a big Play, a favourite star, save-for-offline,
+          and its <strong>save states</strong> to jump straight back into (deleting one
+          asks first) — so you manage a game without ever leaving Frog. ("Jump back in"
+          skips the page and drops you right into the game.)
         </p>
         <p>
           <strong>Reading</strong> is mostly client-side: PDFs (magazines

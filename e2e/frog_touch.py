@@ -76,12 +76,15 @@ with sync_playwright() as p:
     check(n > 0, f"typing filters the results ({n})")
     check("mario" in rows.first.inner_text().lower(), "a result contains the typed query")
 
-    # Tap a result → the game launches. Stop policing console errors: we leave Frog
-    # for the emulator page here.
-    track[0] = False
+    # Tap a result → its game page; Play there launches. Stop policing console errors
+    # once we leave Frog for the emulator page.
     rows.first.tap()
+    page.wait_for_selector('[data-testid="frog-detail"]', timeout=5000)
+    check(True, "tapping a result opens its game page")
+    track[0] = False
+    page.locator('[data-testid="frog-detail-play"]').tap()
     page.wait_for_url("**/library/play**", timeout=8000)
-    check("/library/play" in page.url, "tapping a result launches the game")
+    check("/library/play" in page.url, "Play on the game page launches the game")
 
     context.close()
     browser.close()

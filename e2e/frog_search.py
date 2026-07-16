@@ -79,12 +79,16 @@ with sync_playwright() as p:
     focused = page.locator('[data-testid="frog-search-row"][data-focused]')
     check(focused.count() == 1, "RB jumps focus into the results list")
 
-    # ...and Enter on a focused result launches the player. Stop policing console
-    # errors first — from here on we're on the emulator page, not Frog.
+    # ...and Enter on a focused result opens its game page; Enter again (Play is the
+    # default focus) launches the player. Stop policing console errors once we leave
+    # Frog for the emulator page.
+    page.keyboard.press("Enter")
+    page.wait_for_selector('[data-testid="frog-detail"]', timeout=5000)
+    check(True, "Enter on a result opens its game page")
     track[0] = False
     page.keyboard.press("Enter")
     page.wait_for_url("**/library/play**", timeout=8000)
-    check("/library/play" in page.url, "Enter on a result launches the game")
+    check("/library/play" in page.url, "Enter on the game page (Play focused) launches the game")
 
     browser.close()
 
