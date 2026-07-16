@@ -11,6 +11,7 @@ import {
   sectionAccent,
   continueAccentKey,
   textbookCoverUrl,
+  sectionHref,
 } from '../../lib/library.js'
 import { progressLabel, progressFraction } from '../../lib/reading.js'
 import { formatAgo, formatSize } from '../../lib/format.js'
@@ -444,7 +445,7 @@ function SectionCard({ s }) {
   )
 
   return enabled ? (
-    <Link to={`/library/${s.key}`} className="block">
+    <Link to={sectionHref(s.key)} className="block">
       {inner}
     </Link>
   ) : (

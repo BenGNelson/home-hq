@@ -9,7 +9,6 @@ import PlexInsights from './modules/plex/Insights.jsx'
 import PlexWatchStats from './modules/plex/WatchStats.jsx'
 import Library from './modules/library/Library.jsx'
 import LibraryLayout from './modules/library/LibraryLayout.jsx'
-import GamesList from './modules/library/GamesList.jsx'
 import GameDetail from './modules/library/GameDetail.jsx'
 import Player from './modules/library/Player.jsx'
 import FrogBrowser from './modules/library/frog/FrogBrowser.jsx'
@@ -127,7 +126,6 @@ export default function App() {
             unmount/remount flicker. Detail/player/reader routes stay outside
             it (they never showed the switcher). */}
         <Route element={<LibraryLayout />}>
-          <Route path="/library/games" element={<GamesList />} />
           <Route path="/library/papers" element={<PapersList />} />
           <Route path="/library/books" element={<BooksList />} />
           <Route path="/library/textbooks" element={<TextbooksList />} />
@@ -137,6 +135,9 @@ export default function App() {
         <Route path="/library/games/detail" element={<GameDetail />} />
         <Route path="/library/play" element={<Player />} />
         <Route path="/frog" element={<FrogBrowser />} />
+        {/* Games IS Frog now — the old grid is retired, so its route (and any old
+            bookmark) redirects into the browser. */}
+        <Route path="/library/games" element={<Navigate to="/frog" replace />} />
         <Route path="/library/read" element={<Reader />} />
         <Route path="/library/downloads" element={<Downloads />} />
         <Route path="/containers" element={<Containers />} />

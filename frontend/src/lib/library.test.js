@@ -8,7 +8,6 @@ import {
   playerSrc,
   resumeHref,
   readerHref,
-  groupByLabel,
   browseFolder,
   searchItems,
   folderCrumbs,
@@ -25,15 +24,11 @@ import {
   bookSubtitle,
   libraryNavSections,
   gameOfflineUrls,
-  ALPHABET,
-  listSystems,
   systemGames,
-  gamesSystemHref,
+  sectionHref,
   gameDetailHref,
   gameBackHref,
   letterOf,
-  groupByLetter,
-  scrubIndex,
 } from './library.js'
 
 describe('bookSubtitle', () => {
@@ -190,42 +185,6 @@ describe('save-state urls', () => {
   })
 })
 
-describe('groupByLabel', () => {
-  it('groups by label and sorts the groups', () => {
-    const items = [
-      { id: 'a', label: 'Game Boy Color' },
-      { id: 'b', label: 'Game Boy' },
-      { id: 'c', label: 'Game Boy' },
-    ]
-    const groups = groupByLabel(items)
-    expect(groups.map(([label]) => label)).toEqual(['Game Boy', 'Game Boy Color'])
-    expect(groups[0][1].map((i) => i.id)).toEqual(['b', 'c'])
-  })
-  it('handles empty/undefined', () => {
-    expect(groupByLabel(undefined)).toEqual([])
-  })
-})
-
-describe('listSystems', () => {
-  const items = [
-    { id: 'b.gb', name: 'Bonk', label: 'Game Boy' },
-    { id: 'a.gb', name: 'Alleyway', label: 'Game Boy' },
-    { id: 'z.gbc', name: 'Zelda', label: 'Game Boy Color' },
-  ]
-  it('lists systems alphabetically with counts + capped, in-system-alpha covers', () => {
-    expect(listSystems(items, 1)).toEqual([
-      { label: 'Game Boy', count: 2, covers: ['a.gb'] }, // 'Alleyway' before 'Bonk'
-      { label: 'Game Boy Color', count: 1, covers: ['z.gbc'] },
-    ])
-  })
-  it('caps covers at maxCovers', () => {
-    expect(listSystems(items, 4)[0].covers).toEqual(['a.gb', 'b.gb'])
-  })
-  it('handles empty/undefined', () => {
-    expect(listSystems(undefined)).toEqual([])
-  })
-})
-
 describe('systemGames', () => {
   const items = [
     { id: 'p10.gb', name: 'Pokemon 10', label: 'Game Boy' },
@@ -241,37 +200,27 @@ describe('systemGames', () => {
 })
 
 describe('games browse-state hrefs', () => {
-  it('gamesSystemHref encodes the system and omits q when there is no query', () => {
-    expect(gamesSystemHref('Game Boy Advance')).toBe(
-      '/library/games?system=Game%20Boy%20Advance'
-    )
-  })
-  it('gamesSystemHref appends an encoded search query', () => {
-    expect(gamesSystemHref('Game Boy Advance', 'pokemon x')).toBe(
-      '/library/games?system=Game%20Boy%20Advance&q=pokemon%20x'
-    )
+  it('sectionHref sends games to Frog and every other section to its library page', () => {
+    expect(sectionHref('games')).toBe('/frog')
+    expect(sectionHref('books')).toBe('/library/books')
+    expect(sectionHref('audiobooks')).toBe('/library/audiobooks')
   })
   it('gameDetailHref carries an encoded return location', () => {
-    const ret = '/library/games?system=Game Boy Advance&q=pokemon'
+    const ret = '/frog'
     expect(gameDetailHref('NintendoGameBoyAdvance/Pokemon - Emerald.gba', ret)).toBe(
-      '/library/games/detail?id=NintendoGameBoyAdvance%2FPokemon%20-%20Emerald.gba' +
-        '&ret=%2Flibrary%2Fgames%3Fsystem%3DGame%20Boy%20Advance%26q%3Dpokemon'
+      '/library/games/detail?id=NintendoGameBoyAdvance%2FPokemon%20-%20Emerald.gba&ret=%2Ffrog'
     )
   })
   it('gameDetailHref omits ret when not provided', () => {
     expect(gameDetailHref('a.gba')).toBe('/library/games/detail?id=a.gba')
   })
   it('gameBackHref prefers the return location, verbatim', () => {
-    const ret = '/library/games?system=Game Boy Advance&q=pokemon'
-    expect(gameBackHref(ret, 'Game Boy Advance')).toBe(ret)
+    const ret = '/library/games/detail?id=x'
+    expect(gameBackHref(ret)).toBe(ret)
   })
-  it('gameBackHref falls back to the system view when ret is missing', () => {
-    expect(gameBackHref(null, 'Game Boy Advance')).toBe(
-      '/library/games?system=Game%20Boy%20Advance'
-    )
-  })
-  it('gameBackHref falls back to "Other" when the label is missing too', () => {
-    expect(gameBackHref(null, undefined)).toBe('/library/games?system=Other')
+  it('gameBackHref falls back to Frog when ret is missing', () => {
+    expect(gameBackHref(null)).toBe('/frog')
+    expect(gameBackHref()).toBe('/frog')
   })
 })
 
@@ -291,37 +240,6 @@ describe('letterOf', () => {
     expect(letterOf('Élevator')).toBe('E')
     expect(letterOf('Über Blaster')).toBe('U')
     expect(letterOf('Ñu')).toBe('N')
-  })
-})
-
-describe('groupByLetter', () => {
-  it('keeps only non-empty buckets, # last, in ALPHABET order', () => {
-    const groups = groupByLetter([
-      { name: 'Alpha' },
-      { name: '99 Bullets' },
-      { name: 'Castlevania' },
-      { name: 'Asteroids' },
-    ])
-    expect(groups.map((g) => g.letter)).toEqual(['A', 'C', '#'])
-    expect(groups[0].items.map((i) => i.name)).toEqual(['Alpha', 'Asteroids'])
-  })
-  it('handles empty/undefined', () => {
-    expect(groupByLetter(undefined)).toEqual([])
-  })
-})
-
-describe('scrubIndex', () => {
-  const rect = { top: 100, height: 270 } // 27 letters → 10px each
-  it('clamps above the top to 0 and below the bottom to count-1', () => {
-    expect(scrubIndex(50, rect, ALPHABET.length)).toBe(0)
-    expect(scrubIndex(9999, rect, ALPHABET.length)).toBe(ALPHABET.length - 1)
-  })
-  it('maps a midpoint to a middle index', () => {
-    expect(scrubIndex(100 + 135, rect, ALPHABET.length)).toBe(13) // halfway → 13 of 27
-  })
-  it('respects rect.top offset', () => {
-    expect(scrubIndex(105, rect, ALPHABET.length)).toBe(0) // 5px in → first letter
-    expect(scrubIndex(115, rect, ALPHABET.length)).toBe(1) // 15px in → second
   })
 })
 

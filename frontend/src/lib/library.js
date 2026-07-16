@@ -302,32 +302,13 @@ export function gameOfflineUrls(id, core) {
   ]
 }
 
-// Group play items by their system label → ordered [[label, items], ...].
-export function groupByLabel(items) {
-  const groups = {}
-  for (const it of items ?? []) (groups[it.label || 'Other'] ??= []).push(it)
-  return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b))
-}
+// --- Games: per-system drill-in ---------------------------------------------
+// Frog browses one system at a time (Game Boy alone has hundreds of titles). These
+// pure helpers shape the data behind that; the components just draw it.
 
-// --- Games: per-system drill-in + A→Z scrubber ------------------------------
-// The Games section browses one system at a time (Game Boy alone has hundreds of
-// titles, so one giant stacked grid is unscrollable). The landing lists systems
-// as collage cards; tapping one opens that system's games alphabetically with an
-// alphabet scrubber. These helpers are the pure data shaping behind that.
-
-// The scrubber's buckets, in display order: A–Z then '#' (numeric/other titles)
-// last. The single source of truth shared by groupByLetter and AlphaScrubber.
+// The letter buckets, in display order: A–Z then '#' (numeric/other titles) last.
+// Frog's game-list letter rail (GameList.jsx) reads it.
 export const ALPHABET = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ', '#']
-
-// Distinct systems (by label) with their game count and a few representative
-// cover ids (first N in-system alphabetical) for the landing's collage tiles.
-// Ordered alphabetically by label, same as groupByLabel. → [{ label, count, covers }]
-export function listSystems(items, maxCovers = 4) {
-  return groupByLabel(items).map(([label, list]) => {
-    const sorted = [...list].sort((a, b) => naturalCompare(a.name, b.name))
-    return { label, count: sorted.length, covers: sorted.slice(0, maxCovers).map((it) => it.id) }
-  })
-}
 
 // One system's games, alphabetised by title (natural compare so "Pokemon 2"
 // orders before "Pokemon 10"). → items[]
@@ -337,21 +318,19 @@ export function systemGames(items, label) {
     .sort((a, b) => naturalCompare(a.name, b.name))
 }
 
-// The Games view keeps its browse state in the URL (like `?system=`), so the
-// search text survives opening a game + coming back — and refresh/share/back all
-// restore the same view. `system` picks the console; `query` (→ `q`) is the
-// in-system search box. Omitting query leaves `q` off the URL entirely.
-export function gamesSystemHref(system, query) {
-  let href = `/library/games?system=${encodeURIComponent(system)}`
-  if (query) href += `&q=${encodeURIComponent(query)}`
-  return href
-}
-
 // Frog — the full-screen, controller-driven games browser. It lives at the root
 // rather than under /library because it isn't a library page: it's a separate app
 // that the library hands off to, and it will one day be served from its own repo.
 export function frogHref() {
   return '/frog'
+}
+
+// Where the Library's section entries point. Games IS Frog now — its nav pill and hub
+// card open the full-screen browser directly (Frog handles touch, controller AND
+// offline, so it fully replaces the old /library/games grid, which now just redirects
+// here). Every other section stays an ordinary /library/<key> page.
+export function sectionHref(key) {
+  return key === 'games' ? frogHref() : `/library/${key}`
 }
 
 // A game's detail "title page". `ret` is the full return location (path+search)
@@ -363,11 +342,11 @@ export function gameDetailHref(id, ret) {
   return href
 }
 
-// Where a game's Back link goes: the exact page it was opened from (`ret`) when
-// we have it, else fall back to that game's own system view (so a direct link /
-// old bookmark still lands somewhere sensible instead of the systems landing).
-export function gameBackHref(ret, label) {
-  return ret || gamesSystemHref(label || 'Other')
+// Where a game's Back link goes: the exact page it was opened from (`ret`) when we
+// have it, else Frog — the games browser is the one games home now, so a direct link
+// or old bookmark lands there rather than a system view that no longer exists.
+export function gameBackHref(ret) {
+  return ret || frogHref()
 }
 
 // The scrubber bucket for a title: its uppercase first A–Z letter, else '#'
@@ -378,24 +357,6 @@ export function gameBackHref(ret, label) {
 export function letterOf(name) {
   const c = (name || '').trim().normalize('NFD').charAt(0).toUpperCase()
   return c >= 'A' && c <= 'Z' ? c : '#'
-}
-
-// Group already-alpha-sorted items into letter sections, in ALPHABET order
-// ('#' last). Only non-empty buckets are returned. → [{ letter, items }]
-export function groupByLetter(items) {
-  const buckets = {}
-  for (const it of items ?? []) (buckets[letterOf(it.name)] ??= []).push(it)
-  return ALPHABET.filter((l) => buckets[l]).map((letter) => ({ letter, items: buckets[letter] }))
-}
-
-// Pure Y→index map for the scrubber, extracted so the math is testable without a
-// DOM. Maps a pointer's clientY against the bar's { top, height } rect to a
-// letter index, clamped to [0, count-1].
-export function scrubIndex(clientY, rect, count) {
-  if (count <= 0) return 0
-  const frac = (clientY - rect.top) / (rect.height || 1)
-  const idx = Math.floor(frac * count)
-  return Math.max(0, Math.min(count - 1, idx))
 }
 
 // Subtitle line for a Books search result — the author, or a clear fallback

@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useApi } from '../../lib/useApi.js'
-import { libraryNavSections } from '../../lib/library.js'
+import { libraryNavSections, sectionHref } from '../../lib/library.js'
 import { SkeletonLine } from '../../components/ui.jsx'
 
 // A horizontal section switcher for the Library area, so you can hop between
@@ -46,7 +46,7 @@ export default function LibraryNav() {
         All
       </Pill>
       {sections.map((s) => (
-        <Pill key={s.key} to={`/library/${s.key}`}>
+        <Pill key={s.key} to={sectionHref(s.key)}>
           <span className="mr-1" aria-hidden>
             {s.icon}
           </span>

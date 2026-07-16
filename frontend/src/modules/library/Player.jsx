@@ -27,7 +27,7 @@ export default function Player() {
     return (
       <div className="p-6 text-rose-400">
         Missing game.{' '}
-        <button onClick={() => navigate('/library/games')} className="underline">
+        <button onClick={() => navigate('/frog')} className="underline">
           Back to Games
         </button>
       </div>

@@ -322,8 +322,9 @@ export default function Guide() {
           means A. You can flip it to match <strong>positions</strong> instead (the
           bottom button stays the bottom button, wherever its letter sits), and rebind
           any button on top of either. There's no mapping that wins both ways, so it's
-          yours to pick. <strong>Frog</strong> is the other half: a full-screen games
-          browser with a mascot that wears the colours of whichever machine you're
+          yours to pick. Opening <strong>Games</strong> from the Library launches{' '}
+          <strong>Frog</strong> — it's the games screen now: a full-screen browser with
+          a mascot that wears the colours of whichever machine you're
           pointing at, a shelf of consoles that never scrolls, and{' '}
           <strong>"Jump back in"</strong> and <strong>Favorites</strong> rows (star a
           game on its page) so most sessions never touch the alphabet. It works the
