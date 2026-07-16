@@ -169,8 +169,17 @@ export default function Shelf({ rails, focus, onFocus, onPick }) {
       <aside className="flex shrink-0 items-center justify-center gap-4 lg:w-60 lg:flex-col lg:justify-center">
         <div className="frog-hop shrink-0" key={system || 'none'}>
           <Reflected scale={0.5}>
-            <SystemFrog size={128} system={system} className="lg:hidden" />
-            <SystemFrog size={210} system={system} className="hidden lg:block" />
+            {/* One frog, two sizes — small on a phone, big on a wide screen. The
+                show/hide toggle lives on these wrappers, NOT on SystemFrog itself:
+                SystemFrog's root is `inline-block`, and that display utility beats a
+                `hidden` passed alongside it, so toggling it directly leaves BOTH
+                frogs on screen. A plain wrapper has no such fight. */}
+            <div className="lg:hidden">
+              <SystemFrog size={128} system={system} />
+            </div>
+            <div className="hidden lg:block">
+              <SystemFrog size={210} system={system} />
+            </div>
           </Reflected>
         </div>
 
