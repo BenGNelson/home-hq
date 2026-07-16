@@ -331,13 +331,17 @@ _IGDB_IMAGE_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 # have ⇒ matched=False. The frontend renders its basic layout for both.
 
 class GameVideoModel(BaseModel):
-    id: str = Field(description="YouTube video id (used by the M2 trailer player)")
+    id: str = Field(description="YouTube video id")
     name: str | None = None
 
 
 class GameMetaModel(BaseModel):
     matched: bool = Field(description="True when IGDB had a confident match for this ROM")
     configured: bool = Field(description="False when IGDB creds are unset (feature dormant)")
+    can_rematch: bool = Field(
+        default=False,
+        description="True when there's a candidate shortlist to fix the match against",
+    )
     igdb_id: int | None = None
     name: str | None = None
     summary: str | None = None
@@ -355,14 +359,17 @@ class GameMetaModel(BaseModel):
 def get_game_meta(id: str = Query(description="Game id from the section listing")):
     """The cached IGDB metadata for a game, or a degraded shape (matched=False)
     when it hasn't matched / isn't looked up yet. `configured` tells the frontend
-    'dormant, no key' apart from 'looked up, no match'."""
+    'dormant, no key' apart from 'looked up, no match'; `can_rematch` says whether
+    there's a shortlist to fix a wrong (or missing) match against."""
     configured = igdb.configured(settings)
     row = db.get_igdb_meta(id)
+    can_rematch = bool(configured and row and row.get("candidates"))
     if not row or not row["matched"]:
-        return GameMetaModel(matched=False, configured=configured)
+        return GameMetaModel(matched=False, configured=configured, can_rematch=can_rematch)
     return GameMetaModel(
         matched=True,
         configured=configured,
+        can_rematch=can_rematch,
         igdb_id=row["igdb_id"],
         name=row["name"],
         summary=row["summary"],
@@ -437,6 +444,60 @@ def get_game_meta_status():
         return {"enabled": False, "configured": igdb.configured(settings),
                 "running": False, "looked_up": total, "matched": matched}
     return matcher.status()
+
+
+@router.get("/library/games/meta/candidates")
+def get_game_meta_candidates(id: str = Query(description="Game id from the section listing")):
+    """The IGDB match candidates the matcher shortlisted for this game (id + name +
+    year), plus which one is currently chosen — feeds the 'Wrong game?' picker."""
+    row = db.get_igdb_meta(id)
+    if not row:
+        return {"candidates": [], "current": None}
+    return {"candidates": row.get("candidates") or [], "current": row.get("igdb_id")}
+
+
+class RematchBody(BaseModel):
+    id: str = Field(description="Game id from the section listing")
+    igdb_id: int | None = Field(
+        default=None, description="IGDB game id to match to; null clears to the basic page"
+    )
+
+
+@router.post("/library/games/meta")
+def set_game_meta(body: RematchBody):
+    """Manually fix a game's IGDB match: re-match to a chosen `igdb_id` (fetches its
+    full data and stores it as source='manual'), or clear it (`igdb_id: null` →
+    source='cleared', the basic page). Both preserve the candidate shortlist so the
+    choice is reversible, and both are left alone by the auto matcher (source guard).
+    The id must be a real listed ROM."""
+    games = library.get_section("games")
+    rom_path = library.safe_path(games, settings, body.id) if games else None
+    if not rom_path:
+        return Response(status_code=404)
+    existing = db.get_igdb_meta(body.id) or {}
+    candidates = existing.get("candidates") or []
+    try:
+        mtime = os.path.getmtime(rom_path)
+    except OSError:
+        mtime = existing.get("rom_mtime")
+
+    if body.igdb_id is None:
+        db.upsert_igdb_meta(body.id, {
+            "matched": False, "source": "cleared", "candidates": candidates,
+            "match_version": None, "rom_mtime": mtime,
+        })
+        return {"matched": False}
+
+    cand = igdb.fetch_by_id(body.igdb_id, settings)
+    if not cand:
+        # Unconfigured / unreachable / no such id — don't clobber the existing row.
+        return Response(status_code=502)
+    db.upsert_igdb_meta(body.id, {
+        "matched": True, "source": "manual", "confidence": 1.0,
+        "candidates": candidates, "match_version": None, "rom_mtime": mtime,
+        **igdb.flatten(cand),
+    })
+    return {"matched": True}
 
 
 class SaveStateModel(BaseModel):

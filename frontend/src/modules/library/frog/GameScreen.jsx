@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import {
-  Play, Star, Download, Check, Trash2, TriangleAlert, Loader, X, ChevronLeft, ChevronRight, Maximize2,
+  Play, Star, Download, Check, Trash2, TriangleAlert, Loader, X, ChevronLeft, ChevronRight,
+  Maximize2, RefreshCw,
 } from 'lucide-react'
 import { coverUrl, saveStateShotUrl, igdbShotUrl } from '../../../lib/library.js'
 import { FROG, systemStyle, reflection } from './theme.js'
@@ -34,6 +35,8 @@ export default function GameScreen({
   confirm,
   lightbox,
   slide,
+  canRematch,
+  rematch,
   onFocus,
   onPlay,
   onPlaySlot,
@@ -43,6 +46,10 @@ export default function GameScreen({
   onOpenShot,
   onCloseLightbox,
   onLightboxNav,
+  onOpenRematch,
+  onRematchHover,
+  onRematchPick,
+  onRematchCancel,
   onConfirmYes,
   onConfirmNo,
 }) {
@@ -125,6 +132,16 @@ export default function GameScreen({
 
           {rich && <About meta={meta} />}
 
+          {canRematch && (
+            <RematchButton
+              matched={rich}
+              focused={on('fix', 0)}
+              accent={s.accent}
+              onFocus={() => onFocus('fix', 0)}
+              onClick={onOpenRematch}
+            />
+          )}
+
           <SaveShelf
             game={game}
             saves={saves}
@@ -137,6 +154,16 @@ export default function GameScreen({
           />
         </div>
       </div>
+
+      {rematch && (
+        <RematchDialog
+          rematch={rematch}
+          accent={s.accent}
+          onHover={onRematchHover}
+          onPick={onRematchPick}
+          onCancel={onRematchCancel}
+        />
+      )}
 
       {lightbox !== null && shots[lightbox] && (
         <Lightbox
@@ -505,6 +532,123 @@ function LightboxArrow({ side, onClick }) {
     >
       <Icon className="h-6 w-6" aria-hidden="true" />
     </button>
+  )
+}
+
+// The "Wrong game?" affordance (zone 'fix'). Reads "Wrong game?" when a match is
+// showing, "Find on IGDB" on the basic page — both open the same picker.
+function RematchButton({ matched, focused, accent, onFocus, onClick }) {
+  return (
+    <div className="flex">
+      <button
+        type="button"
+        data-testid="frog-detail-fix"
+        data-focused={focused || undefined}
+        onMouseMove={onFocus}
+        onClick={onClick}
+        className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors"
+        style={{
+          background: focused ? `rgba(${accent}, 0.14)` : 'transparent',
+          color: focused ? `rgb(${accent})` : FROG.faint,
+          border: `1px solid ${focused ? `rgba(${accent}, 0.5)` : FROG.line}`,
+        }}
+      >
+        <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+        {matched ? 'Wrong game?' : 'Find on IGDB'}
+      </button>
+    </div>
+  )
+}
+
+// The re-match picker — the candidate games IGDB shortlisted (the current one ticked),
+// then "Use the basic page" when a match is showing. Controller-drivable (the parent
+// owns the highlight index + A/B) and tappable. Options are built in the SAME order as
+// FrogBrowser's rematchOptions so the index lines up.
+function RematchDialog({ rematch, accent, onHover, onPick, onCancel }) {
+  // `matched` comes from the frozen snapshot (not the live meta) so this list is built
+  // the SAME way FrogBrowser's rematchOptions builds the controller's — otherwise the
+  // trailing "Clear" row could differ and the D-pad cursor would misalign with the rows.
+  const { candidates, current, index, matched, error, busy } = rematch
+  const options = [
+    ...candidates.map((c) => ({ type: 'game', ...c })),
+    ...(matched ? [{ type: 'clear' }] : []),
+  ]
+  return (
+    <div
+      data-testid="frog-rematch"
+      className="absolute inset-0 z-20 flex items-center justify-center p-6"
+      style={{ background: 'rgba(5, 17, 13, 0.72)', backdropFilter: 'blur(3px)' }}
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl p-4"
+        style={{ background: FROG.panel, border: `1px solid ${FROG.line}`, boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="px-1 text-sm font-semibold" style={{ color: FROG.ink }}>
+          Pick the right game
+        </p>
+        <p className="mb-3 mt-0.5 px-1 text-xs leading-relaxed" style={{ color: FROG.faint }}>
+          {candidates.length
+            ? 'Choose the correct IGDB match, or fall back to the basic page.'
+            : 'No close matches were found for this ROM.'}
+        </p>
+        <ul className="max-h-72 space-y-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+          {options.map((o, i) => {
+            const focused = i === index
+            const isClear = o.type === 'clear'
+            const isCurrent = !isClear && o.id === current
+            return (
+              <li key={isClear ? 'clear' : o.id}>
+                <button
+                  type="button"
+                  data-testid={isClear ? 'frog-rematch-clear' : 'frog-rematch-option'}
+                  data-focused={focused || undefined}
+                  onMouseMove={() => onHover(i)}
+                  onClick={() => onPick(isClear ? null : o.id)}
+                  className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left"
+                  style={{
+                    background: focused ? `rgba(${accent}, 0.16)` : 'transparent',
+                    boxShadow: focused ? `inset 0 0 0 1px rgba(${accent}, 0.5)` : 'none',
+                  }}
+                >
+                  {isClear ? (
+                    <span className="text-sm font-medium" style={{ color: FROG.soft }}>
+                      Use the basic page
+                    </span>
+                  ) : (
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium" style={{ color: FROG.ink }}>
+                        {o.name}
+                      </span>
+                      {o.release_year && (
+                        <span className="text-xs tabular-nums" style={{ color: FROG.faint }}>
+                          {o.release_year}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  {isCurrent && <Check className="h-4 w-4 shrink-0" style={{ color: `rgb(${accent})` }} aria-hidden="true" />}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+        {error && (
+          <p data-testid="frog-rematch-error" className="mt-3 px-1 text-xs font-medium" style={{ color: 'rgb(239, 90, 90)' }}>
+            {error}
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={onCancel}
+          className="mt-3 w-full rounded-xl px-4 py-2 text-sm font-medium"
+          style={{ background: 'transparent', color: FROG.soft, border: `1px solid ${FROG.line}`, opacity: busy ? 0.6 : 1 }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
   )
 }
 

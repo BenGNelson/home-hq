@@ -61,7 +61,7 @@ const ENDPOINTS = [
     '/api/plex · …',
     'Status (streams/transcodes), now-playing sessions, recently added, libraries, background sync, cached library items & show episodes, on-demand item detail, and a poster proxy.',
   ],
-  ['/api/library · /{section} · /file · /games/cover · /games/meta · /games/screenshot · /books/cover · /papers/cover · /comics/page · /listen-progress · /reading-progress · /continue', 'The owned-content hub: sections + counts + a few cover previews (games, books, comics, audiobooks, magazines & papers), a section’s items, a range-capable traversal-guarded file stream (used by the emulator, the PDF + ebook readers, and the audiobook player — audio gets a real MIME type so it plays on iOS), proxied/cached covers for every format — game box art, embedded ebook/audiobook art, and a rendered first page for magazines and PDF books (which carry no embedded cover), rich IGDB game metadata + validated screenshot proxy for the game screen (a background matcher looks each ROM up on IGDB and caches it; unmatched games and ROM hacks fall back to the basic page), comic page count + per-page extraction (each comic page pulled from its CBZ/CBR/CB7 archive on the server, downscaled to a cached WebP), server-side game saves (the in-game battery save / "Continue" AND explicit save states) + reading + listening position + pinned folders (all roam across devices), and the unified resume surface (a radiant spotlight + "Jump back in" shelf) that resumes books/comics/documents (to your spot), audiobooks (chapter + position), and games (boot + in-game Continue).'],
+  ['/api/library · /{section} · /file · /games/cover · /games/meta (+ /candidates, POST re-match) · /games/screenshot · /books/cover · /papers/cover · /comics/page · /listen-progress · /reading-progress · /continue', 'The owned-content hub: sections + counts + a few cover previews (games, books, comics, audiobooks, magazines & papers), a section’s items, a range-capable traversal-guarded file stream (used by the emulator, the PDF + ebook readers, and the audiobook player — audio gets a real MIME type so it plays on iOS), proxied/cached covers for every format — game box art, embedded ebook/audiobook art, and a rendered first page for magazines and PDF books (which carry no embedded cover), rich IGDB game metadata + validated screenshot proxy for the game screen (a background matcher looks each ROM up on IGDB and caches it; unmatched games and ROM hacks fall back to the basic page), comic page count + per-page extraction (each comic page pulled from its CBZ/CBR/CB7 archive on the server, downscaled to a cached WebP), server-side game saves (the in-game battery save / "Continue" AND explicit save states) + reading + listening position + pinned folders (all roam across devices), and the unified resume surface (a radiant spotlight + "Jump back in" shelf) that resumes books/comics/documents (to your spot), audiobooks (chapter + position), and games (boot + in-game Continue).'],
 ]
 
 // Plain-language one-liners for the tools named on this page, so the guide
@@ -348,8 +348,10 @@ export default function Guide() {
           <strong>IGDB</strong> key set, that page turns into a proper game page — a big
           banner whose background is the game's <strong>screenshots slowly crossfading</strong>{' '}
           behind the title, summary, genres and rating (matched to your ROM and cached
-          locally); tap the banner to open the shots fullscreen. Without a key, or for a
-          ROM hack IGDB doesn't have, it shows the basic page instead.
+          locally); tap the banner to open the shots fullscreen. If the auto-match picks
+          the wrong game, a <strong>Wrong game?</strong> picker lets you choose the right
+          one (or clear it). Without a key, or for a ROM hack IGDB doesn't have, it shows
+          the basic page instead.
         </p>
         <p>
           <strong>Reading</strong> is mostly client-side: PDFs (magazines
