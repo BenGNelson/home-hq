@@ -27,52 +27,35 @@ export default function Boot({ onDone }) {
     return () => clearTimeout(t)
   }, [])
 
-  // Any key, any button, any tap. The handler is deliberately indiscriminate:
-  // whatever you reach for first is the thing that should work.
+  // Any key, any button, any tap advances the boot. One rule holds it together: a
+  // single input may EITHER fast-forward the animation OR dismiss — never both.
   //
-  // The one subtlety is the DISMISS tap. We advance on `pointerdown`, so the instant
-  // a finger touches down the boot unmounts — and the SAME tap's trailing `click`
-  // then lands on whatever shelf tile is now under the finger, drilling into a random
-  // console. (A ghost click, and on a phone the systems grid is right where a thumb
-  // taps.) So when the dismiss fires, swallow exactly one following click in the
-  // capture phase before it can reach the shelf. A key press dismisses with no click
-  // to swallow, so that path stays plain.
+  // Touch is dismissed by the surface's own `onClick` (below), NOT a window listener,
+  // and deliberately on `click` rather than `pointerdown`. `click` is the LAST event
+  // of a tap (pointerdown → pointerup → click), so dismissing on it consumes the whole
+  // gesture while the boot is still the top element — nothing is left to fall through.
+  // Dismissing earlier, on pointerdown, unmounts the boot mid-tap, and iOS then
+  // retargets the tap's delayed synthetic `click` to whatever shelf tile is now under
+  // the finger — drilling into a random console. (Swallowing that ghost click in the
+  // capture phase looked fine in a headless tap but lost the race on real iOS.)
+  //
+  // Keys and gamepad-as-key stay on window; they have no ghost click to worry about.
   useEffect(() => {
     const onKey = () => (phase === 'rising' ? setPhase('ready') : onDone?.())
-    const onPointer = () => {
-      if (phase === 'rising') return setPhase('ready')
-      // Swallow exactly the ghost click that belongs to THIS dismissing tap, then
-      // disarm. Two ways to disarm besides eating the click, so a real follow-up tap
-      // is never lost: the next genuine pointerdown (that tap's own click must pass),
-      // and a 700ms backstop in case the dismiss gesture produced no click at all
-      // (e.g. the browser treated it as a drag).
-      const disarm = () => {
-        window.removeEventListener('click', eat, true)
-        window.removeEventListener('pointerdown', disarm, true)
-        clearTimeout(t)
-      }
-      const eat = (ev) => {
-        ev.stopPropagation()
-        ev.preventDefault()
-        disarm()
-      }
-      window.addEventListener('click', eat, true)
-      window.addEventListener('pointerdown', disarm, true)
-      const t = setTimeout(disarm, 700)
-      onDone?.()
-    }
     window.addEventListener('keydown', onKey)
-    window.addEventListener('pointerdown', onPointer)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      window.removeEventListener('pointerdown', onPointer)
-    }
+    return () => window.removeEventListener('keydown', onKey)
   }, [phase, onDone])
+
+  // rising → fast-forward; ready → dismiss. Same rule as the key handler, for taps.
+  const advance = () => (phase === 'rising' ? setPhase('ready') : onDone?.())
 
   return (
     <div
       data-testid="frog-boot"
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden"
+      onClick={advance}
+      // `cursor-pointer` is not cosmetic here: iOS only fires a `click` for a tap on a
+      // non-native element when it looks clickable, and this is the flag that flips it.
+      className="fixed inset-0 z-50 flex cursor-pointer flex-col items-center justify-center overflow-hidden"
       style={{ background: FROG.ground }}
     >
       {/* The pond: a pool of light under the frog, not behind it. */}
