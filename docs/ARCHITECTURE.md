@@ -788,12 +788,14 @@ anywhere (X) — and the shape of them is the argument:
   there resumes the game instantly** (that rail is *for* fast resume; Y still opens the
   page). The download reuses the Library's own state machine via the shared
   `useDownload` hook.
-  - **When IGDB has matched the ROM, the page fills with the real game** — a
-    screenshot backdrop glows behind the title (the back-lit motif), with the summary,
-    genres, rating and developer/publisher, plus a **screenshot strip you can open
-    fullscreen** (a controller-drivable lightbox). Focus zones stack vertically —
-    actions → screenshot strip → save list — and up/down cross between whichever are
-    present. When IGDB *hasn't* matched (a ROM hack, or no key configured) the page
+  - **When IGDB has matched the ROM, the page fills with the real game** — a big hero
+    banner whose **background IS the screenshots, slowly crossfading** (no separate
+    strip; the cover + title + summary + genres + rating + developer/publisher sit over
+    it), and **clicking the banner (or A) opens the shots fullscreen** (a
+    controller-drivable lightbox; ◀▶ peek through them in the background). The
+    crossfade is opacity-only and pauses under reduced-motion / while the lightbox is
+    open. Focus zones stack vertically — hero → actions → save list — and up/down cross
+    between whichever are present. When IGDB *hasn't* matched (a ROM hack, or no key configured) the page
     **degrades to exactly the basic cover + name layout**, so nothing ever looks
     broken. The metadata comes from a background collector (below); art is proxied +
     cached locally on first view, so it isn't a per-load external call.

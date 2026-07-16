@@ -140,6 +140,10 @@ export default function FrogBrowser() {
   const [meta, setMeta] = useState(null)
   // A screenshot opened fullscreen: its index into meta.screenshot_ids, or null.
   const [lightbox, setLightbox] = useState(null)
+  // The game hero's active background screenshot — it slowly crossfades on its own
+  // (and the D-pad can peek). Owned here so the auto-advance pauses while the lightbox
+  // is open and resets when you open a different game.
+  const [heroSlide, setHeroSlide] = useState(0)
 
   const rails = useMemo(() => buildShelf(items, getRecent(), getFavorites()), [items])
   const games = useMemo(() => (system ? systemGames(items, system) : []), [items, system])
@@ -218,11 +222,22 @@ export default function FrogBrowser() {
   // (only if there are shots), then the save list (only if there are saves). up/down
   // cross between whichever zones are present; left/right move within actions/screens.
   const detailZones = useMemo(() => {
-    const z = ['actions']
-    if (shots.length) z.push('screens')
+    const z = []
+    if (shots.length) z.push('hero') // the banner sits above the actions
+    z.push('actions')
     if (saves.length) z.push('saves')
     return z
   }, [shots.length, saves.length])
+
+  // Slowly crossfade the hero's background through the screenshots. Paused while the
+  // lightbox is open (you're looking at one) and under reduced-motion (leave it still).
+  // Local UI churn only — it never refetches, so it can't disturb scroll/data.
+  useEffect(() => {
+    if (screen !== 'detail' || lightbox !== null || shots.length < 2) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return
+    const t = setInterval(() => setHeroSlide((i) => (i + 1) % shots.length), 5000)
+    return () => clearInterval(t)
+  }, [screen, lightbox, shots.length])
 
   useEffect(() => {
     if (screen === 'boot') return
@@ -319,6 +334,7 @@ export default function FrogBrowser() {
     setDetailFocus({ zone: 'actions', index: 0 })
     setConfirm(null)
     setLightbox(null)
+    setHeroSlide(0)
     // Clear the previous game's metadata SYNCHRONOUSLY here, not only in the fetch
     // effect (which runs after paint): otherwise the new game's page renders for one
     // frame with the last game's hero/summary/genres before its own meta lands.
@@ -366,12 +382,10 @@ export default function FrogBrowser() {
   useEffect(() => {
     setDetailFocus((f) => {
       if (f.zone === 'actions') return f
-      if (f.zone === 'screens') {
-        if (shots.length === 0) return { zone: 'actions', index: 0 }
-        return f.index < shots.length ? f : { zone: 'screens', index: shots.length - 1 }
-      }
+      // The hero is a single target; if its screenshots went away, fall to actions.
+      if (f.zone === 'hero') return shots.length ? { zone: 'hero', index: 0 } : { zone: 'actions', index: 0 }
       // saves
-      if (saves.length === 0) return { zone: shots.length ? 'screens' : 'actions', index: 0 }
+      if (saves.length === 0) return { zone: 'actions', index: 0 }
       return f.index < saves.length ? f : { zone: 'saves', index: saves.length - 1 }
     })
   }, [saves, shots.length])
@@ -506,12 +520,12 @@ export default function FrogBrowser() {
           closeDetail()
           return
         case 'confirm':
-          if (f.zone === 'actions') {
+          if (f.zone === 'hero') {
+            if (shots.length) setLightbox(heroSlide) // open the hero's shots fullscreen
+          } else if (f.zone === 'actions') {
             if (f.index === 0) play(detailGame)
             else if (f.index === 1) toggleFav()
             else startOrRemoveDownload()
-          } else if (f.zone === 'screens') {
-            setLightbox(f.index) // open the focused screenshot fullscreen
           } else if (saves[f.index]) {
             play(detailGame, saves[f.index].slot)
           }
@@ -520,13 +534,15 @@ export default function FrogBrowser() {
         case 'alt':
           if (f.zone === 'saves' && saves[f.index]) requestDeleteSave(saves[f.index].slot)
           return
+        // On the hero, ◀▶ peek through the background screenshots; in the actions row
+        // they move between the buttons.
         case 'left':
-          if (f.zone === 'actions') setDetailFocus((p) => ({ zone: 'actions', index: Math.max(0, p.index - 1) }))
-          else if (f.zone === 'screens') setDetailFocus((p) => ({ zone: 'screens', index: Math.max(0, p.index - 1) }))
+          if (f.zone === 'hero') setHeroSlide((i) => (i - 1 + shots.length) % shots.length)
+          else if (f.zone === 'actions') setDetailFocus((p) => ({ zone: 'actions', index: Math.max(0, p.index - 1) }))
           return
         case 'right':
-          if (f.zone === 'actions') setDetailFocus((p) => ({ zone: 'actions', index: Math.min(2, p.index + 1) }))
-          else if (f.zone === 'screens') setDetailFocus((p) => ({ zone: 'screens', index: Math.min(shots.length - 1, p.index + 1) }))
+          if (f.zone === 'hero') setHeroSlide((i) => (i + 1) % shots.length)
+          else if (f.zone === 'actions') setDetailFocus((p) => ({ zone: 'actions', index: Math.min(2, p.index + 1) }))
           return
         case 'up':
           // Within the save list, up walks the list first; at its top (and from any
@@ -854,6 +870,7 @@ export default function FrogBrowser() {
           focus={detailFocus}
           confirm={confirm}
           lightbox={lightbox}
+          slide={heroSlide}
           onFocus={(zone, index) => setDetailFocus({ zone, index })}
           onPlay={() => play(detailGame)}
           onPlaySlot={(slot) => play(detailGame, slot)}
@@ -934,13 +951,13 @@ export default function FrogBrowser() {
                         label:
                           detailFocus.zone === 'saves'
                             ? 'Load'
-                            : detailFocus.zone === 'screens'
-                              ? 'View'
+                            : detailFocus.zone === 'hero'
+                              ? 'Screenshots'
                               : 'Select',
                       },
                       { button: 'B', label: 'Back' },
                       ...(detailFocus.zone === 'saves' ? [{ button: 'Y', label: 'Delete save' }] : []),
-                      { button: 'D-pad', label: 'Move' },
+                      { button: 'D-pad', label: detailFocus.zone === 'hero' ? 'Peek' : 'Move' },
                     ]
               : screen === 'games'
                 ? [

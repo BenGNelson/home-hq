@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  Play, Star, Download, Check, Trash2, TriangleAlert, Loader, X, ChevronLeft, ChevronRight,
+  Play, Star, Download, Check, Trash2, TriangleAlert, Loader, X, ChevronLeft, ChevronRight, Maximize2,
 } from 'lucide-react'
 import { coverUrl, saveStateShotUrl, igdbShotUrl } from '../../../lib/library.js'
 import { FROG, systemStyle, reflection } from './theme.js'
@@ -19,9 +19,10 @@ import { agoLabel } from './shelf.js'
 //
 // Presentational, like the shelf/list/search: FrogBrowser owns the focus, the save
 // list, the favourite/download state, the open lightbox, and every action; this draws
-// what it's told and reports hovers back. Focus zones stack vertically — actions, the
-// screenshot strip, then the save list — and a D-pad crosses them the same way the
-// search screen crosses grid⇄results.
+// what it's told and reports hovers back. Focus zones stack vertically — the hero, the
+// actions row, then the save list — and a D-pad crosses them the same way the search
+// screen crosses grid⇄results. The screenshots aren't a separate strip: they're the
+// hero's slowly-crossfading background, and clicking it (or A) opens them fullscreen.
 export default function GameScreen({
   game,
   meta,
@@ -32,6 +33,7 @@ export default function GameScreen({
   focus,
   confirm,
   lightbox,
+  slide,
   onFocus,
   onPlay,
   onPlaySlot,
@@ -102,19 +104,24 @@ export default function GameScreen({
     <div data-testid="frog-detail" className="relative flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto">
         {rich ? (
-          <RichHeader game={game} meta={meta} shots={shots} s={s} />
+          <RichHero
+            game={game}
+            meta={meta}
+            shots={shots}
+            s={s}
+            slide={slide}
+            focused={on('hero', 0)}
+            onOpen={onOpenShot}
+            onHover={() => onFocus('hero', 0)}
+          />
         ) : (
           <BasicHeader game={game} s={s} actions={actions} />
         )}
 
         <div className="flex flex-col gap-6 px-6 pb-4 pt-5">
-          {/* When rich, the header holds the title only, so the actions live here
-              under it. When basic, the header already carried them beside the cover. */}
+          {/* When rich, the hero holds the title only, so the actions live here under
+              it. When basic, the header already carried them beside the cover. */}
           {rich && actions}
-
-          {shots.length > 0 && (
-            <Screenshots gameId={game.id} shots={shots} on={on} onFocus={onFocus} onOpenShot={onOpenShot} accent={s.accent} />
-          )}
 
           {rich && <About meta={meta} />}
 
@@ -181,69 +188,119 @@ function BasicHeader({ game, s, actions }) {
   )
 }
 
-// The rich header — the reserved hero band, filled. A lead screenshot glows behind
-// the title (Ben's "back-lit radiance" motif), the cover floats over it, and the
-// facts line reads year · rating · genres at a glance.
-function RichHeader({ game, meta, shots, s }) {
-  const hero = shots[0]
+// The rich hero — a big banner whose background IS the screenshots, slowly
+// crossfading (Ben's steer: no separate strip; the banner is the gallery). The cover
+// floats over it, the facts read year · rating · genres at a glance, and clicking the
+// banner (or A when it's focused) opens the shots fullscreen. `slide` is the active
+// screenshot index (FrogBrowser owns it so the auto-advance can pause for the lightbox
+// and the D-pad can peek); dots show where you are.
+function RichHero({ game, meta, shots, s, slide, focused, onOpen, onHover }) {
+  const n = shots.length
+  const idx = n ? ((slide % n) + n) % n : 0
   return (
-    <div className="relative shrink-0 overflow-hidden">
-      {hero && (
-        <div className="pointer-events-none absolute inset-0">
+    <div
+      data-testid="frog-detail-hero"
+      data-focused={focused || undefined}
+      role={n ? 'button' : undefined}
+      aria-label={n ? 'View screenshots' : undefined}
+      onClick={n ? () => onOpen(idx) : undefined}
+      onMouseMove={onHover}
+      className="relative w-full overflow-hidden"
+      style={{ cursor: n ? 'pointer' : 'default' }}
+    >
+      <div className="relative h-[44vh] min-h-[260px] max-h-[460px] w-full" style={{ background: FROG.panel }}>
+        {/* The crossfading screenshots. Every shot is layered; only the active one is
+            opaque, and the 1.2s opacity transition is the whole (non-distracting)
+            animation — no zoom. Reduced-motion just leaves the auto-advance off (the
+            index simply never changes), so this stays a still image. */}
+        {shots.map((sid, i) => (
           <img
-            src={igdbShotUrl(game.id, hero)}
+            key={sid}
+            src={igdbShotUrl(game.id, sid)}
             alt=""
-            className="h-full w-full object-cover"
-            style={{ opacity: 0.5 }}
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full object-cover transition-opacity ease-in-out"
+            style={{ opacity: i === idx ? 1 : 0, transitionDuration: '1200ms' }}
           />
-          <div
-            className="absolute inset-0"
-            style={{
-              background: `linear-gradient(to top, ${FROG.ground} 10%, rgba(5,17,13,0.72) 52%, rgba(5,17,13,0.45))`,
-            }}
-          />
-          <div
-            className="absolute inset-0"
-            style={{ background: `radial-gradient(85% 95% at 20% 100%, rgba(${s.accent}, 0.24), transparent 70%)` }}
-          />
-        </div>
-      )}
+        ))}
 
-      <div className="relative flex gap-5 px-6 pb-5 pt-6">
-        <Cover game={game} accent={s.accent} className="w-28 sm:w-32" />
-        <div className="flex min-w-0 flex-1 flex-col justify-end">
-          <h1 className="text-2xl font-semibold leading-tight sm:text-3xl" style={{ color: FROG.ink }}>
-            {game.name}
-          </h1>
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-            <span className="font-medium" style={{ color: `rgb(${s.accent})` }}>
-              {game.label}
-            </span>
-            {meta.release_year && (
-              <span className="tabular-nums" style={{ color: FROG.soft }}>
-                {meta.release_year}
-              </span>
-            )}
-            {meta.rating != null && <RatingPill rating={meta.rating} />}
+        {/* Legibility scrim + the machine's accent glow rising from the corner. */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `linear-gradient(to top, ${FROG.ground} 4%, rgba(5,17,13,0.88) 32%, rgba(5,17,13,0.32) 66%, rgba(5,17,13,0.5))`,
+          }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: `radial-gradient(92% 82% at 16% 100%, rgba(${s.accent}, 0.30), transparent 64%)` }}
+        />
+        {/* Focus ring when the hero is the controller's focus. */}
+        {focused && (
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{ boxShadow: `inset 0 0 0 2px rgb(${s.accent}), inset 0 0 44px rgba(${s.accent}, 0.45)` }}
+          />
+        )}
+
+        {/* "N shots" cue (top-right) — signals the banner is a gallery you can open. */}
+        {n > 0 && (
+          <span
+            className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium"
+            style={{ background: 'rgba(5,17,13,0.55)', color: FROG.ink, backdropFilter: 'blur(4px)' }}
+          >
+            <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" /> {n}
+          </span>
+        )}
+
+        {/* Slide dots (top-right, under the cue). */}
+        {n > 1 && (
+          <div className="absolute right-4 top-11 flex gap-1.5">
+            {shots.map((sid, i) => (
+              <span
+                key={sid}
+                className="h-1.5 rounded-full transition-all"
+                style={{ width: i === idx ? 16 : 6, background: i === idx ? `rgb(${s.accent})` : 'rgba(230,245,238,0.4)' }}
+              />
+            ))}
           </div>
-          {meta.genres?.length > 0 && (
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
-              {meta.genres.slice(0, 4).map((g) => (
-                <span
-                  key={g}
-                  className="rounded-full px-2.5 py-0.5 text-xs font-medium"
-                  style={{ background: FROG.panel, color: FROG.soft, border: `1px solid ${FROG.line}` }}
-                >
-                  {g}
+        )}
+
+        {/* Overlaid: the cover + title + facts, sitting on the scrim. */}
+        <div className="absolute inset-x-0 bottom-0 flex items-end gap-4 p-5 sm:gap-5 sm:p-6">
+          <Cover game={game} accent={s.accent} className="w-24 sm:w-28" />
+          <div className="min-w-0 flex-1 pb-1">
+            <h1
+              className="text-2xl font-semibold leading-tight sm:text-3xl"
+              style={{ color: FROG.ink, textShadow: '0 2px 14px rgba(0,0,0,0.6)' }}
+            >
+              {game.name}
+            </h1>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              <span className="font-medium" style={{ color: `rgb(${s.accent})` }}>
+                {game.label}
+              </span>
+              {meta.release_year && (
+                <span className="tabular-nums" style={{ color: FROG.soft }}>
+                  {meta.release_year}
                 </span>
-              ))}
+              )}
+              {meta.rating != null && <RatingPill rating={meta.rating} />}
             </div>
-          )}
-        </div>
-        <div className="hidden shrink-0 sm:block">
-          <Reflected scale={0.4}>
-            <SystemFrog size={52} system={game.label} />
-          </Reflected>
+            {meta.genres?.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {meta.genres.slice(0, 4).map((g) => (
+                  <span
+                    key={g}
+                    className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+                    style={{ background: 'rgba(5,17,13,0.5)', color: FROG.soft, border: `1px solid ${FROG.line}` }}
+                  >
+                    {g}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -276,37 +333,6 @@ function RatingPill({ rating }) {
       <Star className="h-3 w-3" fill="currentColor" aria-hidden="true" />
       {Math.round(rating)}
     </span>
-  )
-}
-
-// The screenshot strip — focusable (zone 'screens'), tap/A opens the lightbox.
-function Screenshots({ gameId, shots, on, onFocus, onOpenShot, accent }) {
-  return (
-    <div>
-      <Heading>SCREENSHOTS</Heading>
-      <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
-        {shots.map((sid, i) => (
-          <button
-            key={sid}
-            type="button"
-            data-testid="frog-detail-shot"
-            data-focused={on('screens', i) || undefined}
-            onMouseMove={() => onFocus('screens', i)}
-            onClick={() => onOpenShot(i)}
-            className="relative aspect-video w-56 shrink-0 overflow-hidden rounded-xl transition-transform"
-            style={{
-              background: '#000',
-              boxShadow: on('screens', i)
-                ? `0 0 0 2px rgb(${accent}), ${reflection(accent, 0.4)}`
-                : `inset 0 0 0 1px ${FROG.line}`,
-              transform: on('screens', i) ? 'scale(1.03)' : 'scale(1)',
-            }}
-          >
-            <img src={igdbShotUrl(gameId, sid)} alt="" loading="lazy" className="h-full w-full object-cover" />
-          </button>
-        ))}
-      </div>
-    </div>
   )
 }
 

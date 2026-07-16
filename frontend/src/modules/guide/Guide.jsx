@@ -345,10 +345,11 @@ export default function Guide() {
           and its <strong>save states</strong> to jump straight back into (deleting one
           asks first) — so you manage a game without ever leaving Frog. ("Jump back in"
           skips the page and drops you right into the game.) With an optional (free){' '}
-          <strong>IGDB</strong> key set, that page turns into a proper game page —
-          screenshots, summary, genres and rating matched to your ROM and cached locally,
-          with a <strong>screenshot gallery</strong> you can open fullscreen; without a
-          key, or for a ROM hack IGDB doesn't have, it shows the basic page instead.
+          <strong>IGDB</strong> key set, that page turns into a proper game page — a big
+          banner whose background is the game's <strong>screenshots slowly crossfading</strong>{' '}
+          behind the title, summary, genres and rating (matched to your ROM and cached
+          locally); tap the banner to open the shots fullscreen. Without a key, or for a
+          ROM hack IGDB doesn't have, it shows the basic page instead.
         </p>
         <p>
           <strong>Reading</strong> is mostly client-side: PDFs (magazines
