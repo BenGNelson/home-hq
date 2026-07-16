@@ -335,7 +335,10 @@ export default function Guide() {
           <strong>phone</strong> taps a console, taps a game to play, and searches with
           the phone's own keyboard (the search button is in the top bar). (iOS won't
           let a web app force landscape, so in controller mode it asks you to turn the
-          device and picks the game back up when you do.)
+          device and picks the game back up when you do.) Frog also{' '}
+          <strong>works offline</strong>: with the server unreachable it shows the games
+          you've <strong>downloaded</strong> (an "Offline" badge appears), and swaps the
+          full library back in on its own once you're reconnected.
         </p>
         <p>
           <strong>Reading</strong> is mostly client-side: PDFs (magazines

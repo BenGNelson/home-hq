@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Search as SearchIcon } from 'lucide-react'
+import { X, Search as SearchIcon, Plane } from 'lucide-react'
 import { useApi } from '../../../lib/useApi.js'
+import { useOnline } from '../../../lib/online.jsx'
+import { useDownloadedEntries } from '../../../lib/useDownloaded.js'
 import { systemGames, gameDetailHref } from '../../../lib/library.js'
+import { offlineGamesToItems } from './offline.js'
 import { getRecent, recordPlayed } from '../../../lib/recentGames.js'
 import { getFavorites } from '../../../lib/favorites.js'
 import { moveInRails } from '../../../lib/gridNav.js'
@@ -49,8 +52,41 @@ const place = { booted: false, screen: 'shelf', system: null, focus: { rail: 0, 
 
 export default function FrogBrowser() {
   const navigate = useNavigate()
-  const { data, loading } = useApi('/library/games', 0)
-  const items = data?.items ?? []
+  const { online } = useOnline()
+
+  // Re-fetch the library once the server becomes reachable again, so a Frog opened in
+  // airplane mode fills in the full library on its own when the network returns —
+  // WITHOUT polling, which would churn a steady online session's data every interval
+  // (each poll a fresh array ref, yanking the game list's scroll back to focus). The
+  // nonce, ignored by the API, re-runs the one-shot fetch on the offline→online edge
+  // and only there.
+  const [reloadNonce, setReloadNonce] = useState(0)
+  const wasOnline = useRef(online)
+  useEffect(() => {
+    if (online && !wasOnline.current) setReloadNonce((n) => n + 1)
+    wasOnline.current = online
+  }, [online])
+  const { data, loading } = useApi(`/library/games${reloadNonce ? `?r=${reloadNonce}` : ''}`, 0)
+  const apiItems = data?.items ?? []
+
+  // The fallback when the API gives us nothing: the games you've DOWNLOADED (the
+  // on-device manifest, via the shared hook the rest of the Library uses). `null`
+  // until the read resolves, so we can tell "still reading" from "nothing downloaded".
+  const entries = useDownloadedEntries()
+  const offlineItems = useMemo(() => (entries === null ? null : offlineGamesToItems(entries)), [entries])
+
+  // The live library wins WHENEVER it has answered — the item source is NOT gated on
+  // the health probe, so a flaky /health check can never hide a reachable library
+  // behind the downloaded-only view. Only when the API has handed us nothing do we
+  // fall back to the downloaded games.
+  const items = apiItems.length ? apiItems : offlineItems ?? []
+  // Skeleton only while we truly have nothing to show and a source might still land.
+  // Keyed on `items` (not the API alone) so a reconnect refetch keeps the offline
+  // shelf up rather than flashing a skeleton over it.
+  const booting = !items.length && (loading || offlineItems === null)
+  // The chip means "you're seeing downloaded games only because the server is
+  // unreachable" — precisely when the probe says offline AND the API gave us nothing.
+  const offline = !online && !apiItems.length
 
   // 'boot' → 'shelf' ⇄ 'games'.
   const [screen, setScreen] = useState(place.booted ? place.screen : 'boot')
@@ -179,7 +215,7 @@ export default function FrogBrowser() {
     if (screen === 'boot') return
     // Nothing to point at yet. Without this, presses land against the skeleton's
     // placeholder rails and strand focus the moment the real ones arrive.
-    if (loading && !items.length) return
+    if (booting) return
 
     // X is search from anywhere, and X again closes it — a toggle you can find with
     // one thumb without reading the legend.
@@ -468,6 +504,21 @@ export default function FrogBrowser() {
         )}
 
         <div className="flex shrink-0 items-center gap-2">
+          {/* Offline: the shelf is built from downloaded games only, so say so — an
+              otherwise-sparse shelf reads as "broken" without it. Shown only when we
+              actually fell back (the server's unreachable AND gave us nothing), never
+              while a reachable library is on screen. */}
+          {offline && (
+            <span
+              data-testid="frog-offline"
+              className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium tracking-wide"
+              style={{ background: 'rgba(251, 191, 36, 0.12)', color: 'rgb(251, 191, 36)' }}
+            >
+              <Plane className="h-3 w-3" aria-hidden="true" />
+              Offline
+            </span>
+          )}
+
           {/* Search, reachable by thumb. On a pad it's X (and the legend says so); by
               touch there was no way in at all until this button — the header only had
               the ✕. Hidden on the search screen itself, where the ✕ becomes "close". */}
@@ -497,7 +548,7 @@ export default function FrogBrowser() {
         </div>
       </header>
 
-      {loading && !items.length ? (
+      {booting ? (
         <div className="flex-1 space-y-4 px-6 pt-6">
           <SkeletonLine className="h-4 w-40" />
           <div className="flex gap-3">

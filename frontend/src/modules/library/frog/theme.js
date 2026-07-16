@@ -105,12 +105,19 @@ export function systemStyle(label) {
 // is passed through instead; this is for the places that only ever stored a core (an
 // offline download manifest, say), where indigo-instead-of-berry is a better answer
 // than no colour at all.
+// Every core the backend actually stamps on a game (see library.py's games map),
+// mapped to the exact same label it sends online, so a downloaded game groups under
+// the identical system offline. The one unavoidable collision: .gbc files are stored
+// on the `gba` core (the backend runs them there), so a downloaded Game Boy Color
+// game reads as Game Boy Advance offline — a core genuinely can't tell them apart.
 const CORE_SYSTEM = {
   gb: 'Game Boy',
   gba: 'Game Boy Advance',
+  nes: 'NES',
   snes: 'Super Nintendo',
   segaMD: 'Sega Genesis',
   segaMS: 'Sega Master System',
+  segaGG: 'Sega Game Gear',
 }
 
 export function systemForCore(core) {
