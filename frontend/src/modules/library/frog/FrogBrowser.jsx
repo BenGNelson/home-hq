@@ -5,7 +5,7 @@ import { useApi } from '../../../lib/useApi.js'
 import { useOnline } from '../../../lib/online.jsx'
 import { useDownloadedEntries } from '../../../lib/useDownloaded.js'
 import { useDownload } from '../../../lib/useDownload.js'
-import { systemGames, gameOfflineUrls, saveStatesUrl } from '../../../lib/library.js'
+import { systemGames, gameOfflineUrls, saveStatesUrl, gameMetaUrl } from '../../../lib/library.js'
 import { isFavorite, toggleFavorite } from '../../../lib/favorites.js'
 import { ensureEmulatorEngine, cacheGameSram } from '../../../lib/offlineStore.js'
 import { offlineGamesToItems } from './offline.js'
@@ -134,6 +134,12 @@ export default function FrogBrowser() {
   const [saves, setSaves] = useState([])
   const [savesLoading, setSavesLoading] = useState(false)
   const [savesRefresh, setSavesRefresh] = useState(0)
+  // The open game's rich IGDB metadata (screenshots/summary/genres/rating). `null`
+  // until it lands / when the game isn't matched or IGDB isn't configured — in which
+  // case GameScreen renders its basic layout (a ROM hack looks exactly like today).
+  const [meta, setMeta] = useState(null)
+  // A screenshot opened fullscreen: its index into meta.screenshot_ids, or null.
+  const [lightbox, setLightbox] = useState(null)
 
   const rails = useMemo(() => buildShelf(items, getRecent(), getFavorites()), [items])
   const games = useMemo(() => (system ? systemGames(items, system) : []), [items, system])
@@ -182,6 +188,41 @@ export default function FrogBrowser() {
       alive = false
     }
   }, [detailGame, savesRefresh])
+
+  // The open game's IGDB metadata, fetched when a game page opens (guarded like the
+  // saves fetch so one game's data never flashes under another's cover). A failure
+  // (offline, or the endpoint 404s) just leaves `meta` null → the basic page.
+  const metaGameRef = useRef(null)
+  useEffect(() => {
+    if (!detailGame) {
+      setMeta(null)
+      metaGameRef.current = null
+      return
+    }
+    if (metaGameRef.current !== detailGame.id) setMeta(null)
+    metaGameRef.current = detailGame.id
+    let alive = true
+    fetch(gameMetaUrl(detailGame.id))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => alive && setMeta(d))
+      .catch(() => alive && setMeta(null))
+    return () => {
+      alive = false
+    }
+  }, [detailGame])
+
+  // The screenshots the game screen shows (only when IGDB matched this game). Drives
+  // both the strip's focus range and the fullscreen lightbox.
+  const shots = meta?.matched ? meta.screenshot_ids ?? [] : []
+  // The vertical focus order on the game page — actions, then the screenshot strip
+  // (only if there are shots), then the save list (only if there are saves). up/down
+  // cross between whichever zones are present; left/right move within actions/screens.
+  const detailZones = useMemo(() => {
+    const z = ['actions']
+    if (shots.length) z.push('screens')
+    if (saves.length) z.push('saves')
+    return z
+  }, [shots.length, saves.length])
 
   useEffect(() => {
     if (screen === 'boot') return
@@ -277,11 +318,18 @@ export default function FrogBrowser() {
     setDetailFrom(from)
     setDetailFocus({ zone: 'actions', index: 0 })
     setConfirm(null)
+    setLightbox(null)
+    // Clear the previous game's metadata SYNCHRONOUSLY here, not only in the fetch
+    // effect (which runs after paint): otherwise the new game's page renders for one
+    // frame with the last game's hero/summary/genres before its own meta lands.
+    setMeta(null)
+    metaGameRef.current = null
     setFavorited(isFavorite(game.id))
     setScreen('detail')
   }
   const closeDetail = () => {
     setConfirm(null)
+    setLightbox(null)
     setScreen(detailFrom)
   }
   const toggleFav = () => detailGame && setFavorited(toggleFavorite(detailGame).favorited)
@@ -312,15 +360,21 @@ export default function FrogBrowser() {
     setConfirm(null)
   }
 
-  // Keep the save-list focus in range as the list shrinks (a delete), handing the
-  // cursor back to the actions row when the last snapshot goes.
+  // Keep the game-page focus valid as its zones change: a save-list delete shrinks
+  // the list, and meta arriving (or a game switch) adds/removes the screenshot strip.
+  // Clamp the index and, when a zone empties, hand the cursor to the nearest one above.
   useEffect(() => {
     setDetailFocus((f) => {
-      if (f.zone !== 'saves') return f
-      if (saves.length === 0) return { zone: 'actions', index: 0 }
+      if (f.zone === 'actions') return f
+      if (f.zone === 'screens') {
+        if (shots.length === 0) return { zone: 'actions', index: 0 }
+        return f.index < shots.length ? f : { zone: 'screens', index: shots.length - 1 }
+      }
+      // saves
+      if (saves.length === 0) return { zone: shots.length ? 'screens' : 'actions', index: 0 }
       return f.index < saves.length ? f : { zone: 'saves', index: saves.length - 1 }
     })
-  }, [saves])
+  }, [saves, shots.length])
 
   // Append a key, but only if it keeps the list alive — the same dead-key rule the
   // grid dims by, enforced here so you physically cannot type into an empty result
@@ -349,6 +403,15 @@ export default function FrogBrowser() {
     if (screen === 'detail' && confirm) {
       if (action === 'confirm') confirmYes()
       else if (action === 'back') setConfirm(null)
+      return
+    }
+
+    // A fullscreen screenshot also traps input: left/right page through the shots,
+    // B / A closes. Ahead of the search toggle for the same reason as the confirm.
+    if (screen === 'detail' && lightbox !== null) {
+      if (action === 'left') setLightbox((i) => Math.max(0, i - 1))
+      else if (action === 'right') setLightbox((i) => Math.min(shots.length - 1, i + 1))
+      else if (action === 'back' || action === 'confirm') setLightbox(null)
       return
     }
 
@@ -429,47 +492,51 @@ export default function FrogBrowser() {
       return
     }
 
-    // The game page. (A confirm dialog, if up, was already handled at the top.)
+    // The game page. (A confirm dialog / open lightbox, if up, was handled at the top.)
+    // Zones stack vertically: actions → screens (screenshot strip) → saves, with only
+    // the present ones in `detailZones`. up/down step between zones; left/right move
+    // within actions or the screenshot strip.
     if (screen === 'detail') {
+      const f = detailFocus
+      const zi = detailZones.indexOf(f.zone)
+      const above = zi > 0 ? detailZones[zi - 1] : null
+      const below = zi >= 0 && zi < detailZones.length - 1 ? detailZones[zi + 1] : null
       switch (action) {
         case 'back':
           closeDetail()
           return
-        case 'confirm': {
-          const f = detailFocus
+        case 'confirm':
           if (f.zone === 'actions') {
             if (f.index === 0) play(detailGame)
             else if (f.index === 1) toggleFav()
             else startOrRemoveDownload()
+          } else if (f.zone === 'screens') {
+            setLightbox(f.index) // open the focused screenshot fullscreen
           } else if (saves[f.index]) {
             play(detailGame, saves[f.index].slot)
           }
           return
-        }
         // Y deletes the focused snapshot — behind the confirm, and only in the save zone.
         case 'alt':
-          if (detailFocus.zone === 'saves' && saves[detailFocus.index]) {
-            requestDeleteSave(saves[detailFocus.index].slot)
-          }
+          if (f.zone === 'saves' && saves[f.index]) requestDeleteSave(saves[f.index].slot)
           return
         case 'left':
-          if (detailFocus.zone === 'actions') setDetailFocus((f) => ({ zone: 'actions', index: Math.max(0, f.index - 1) }))
+          if (f.zone === 'actions') setDetailFocus((p) => ({ zone: 'actions', index: Math.max(0, p.index - 1) }))
+          else if (f.zone === 'screens') setDetailFocus((p) => ({ zone: 'screens', index: Math.max(0, p.index - 1) }))
           return
         case 'right':
-          if (detailFocus.zone === 'actions') setDetailFocus((f) => ({ zone: 'actions', index: Math.min(2, f.index + 1) }))
+          if (f.zone === 'actions') setDetailFocus((p) => ({ zone: 'actions', index: Math.min(2, p.index + 1) }))
+          else if (f.zone === 'screens') setDetailFocus((p) => ({ zone: 'screens', index: Math.min(shots.length - 1, p.index + 1) }))
           return
         case 'up':
-          if (detailFocus.zone === 'saves') {
-            if (detailFocus.index <= 0) setDetailFocus({ zone: 'actions', index: 0 })
-            else setDetailFocus((f) => ({ zone: 'saves', index: f.index - 1 }))
-          }
+          // Within the save list, up walks the list first; at its top (and from any
+          // other zone) it crosses to the zone above.
+          if (f.zone === 'saves' && f.index > 0) setDetailFocus((p) => ({ zone: 'saves', index: p.index - 1 }))
+          else if (above) setDetailFocus({ zone: above, index: 0 })
           return
         case 'down':
-          if (detailFocus.zone === 'actions') {
-            if (saves.length) setDetailFocus({ zone: 'saves', index: 0 })
-          } else {
-            setDetailFocus((f) => ({ zone: 'saves', index: Math.min(saves.length - 1, f.index + 1) }))
-          }
+          if (f.zone === 'saves') setDetailFocus((p) => ({ zone: 'saves', index: Math.min(saves.length - 1, p.index + 1) }))
+          else if (below) setDetailFocus({ zone: below, index: 0 })
           return
         default:
       }
@@ -779,18 +846,25 @@ export default function FrogBrowser() {
       ) : screen === 'detail' && detailGame ? (
         <GameScreen
           game={detailGame}
+          meta={meta}
           favorited={favorited}
           saves={saves}
           loadingSaves={savesLoading}
           download={dl}
           focus={detailFocus}
           confirm={confirm}
+          lightbox={lightbox}
           onFocus={(zone, index) => setDetailFocus({ zone, index })}
           onPlay={() => play(detailGame)}
           onPlaySlot={(slot) => play(detailGame, slot)}
           onToggleFavorite={toggleFav}
           onDownload={startOrRemoveDownload}
           onRequestDeleteSave={requestDeleteSave}
+          onOpenShot={(index) => setLightbox(index)}
+          onCloseLightbox={() => setLightbox(null)}
+          onLightboxNav={(dir) =>
+            setLightbox((i) => Math.max(0, Math.min(shots.length - 1, i + dir)))
+          }
           onConfirmYes={confirmYes}
           onConfirmNo={() => setConfirm(null)}
         />
@@ -849,12 +923,25 @@ export default function FrogBrowser() {
                     { button: 'A', label: 'Confirm' },
                     { button: 'B', label: 'Cancel' },
                   ]
-                : [
-                    { button: 'A', label: detailFocus.zone === 'saves' ? 'Load' : 'Select' },
-                    { button: 'B', label: 'Back' },
-                    { button: 'Y', label: 'Delete save' },
-                    { button: 'D-pad', label: 'Move' },
-                  ]
+                : lightbox !== null
+                  ? [
+                      { button: 'B', label: 'Close' },
+                      { button: 'D-pad', label: 'Browse' },
+                    ]
+                  : [
+                      {
+                        button: 'A',
+                        label:
+                          detailFocus.zone === 'saves'
+                            ? 'Load'
+                            : detailFocus.zone === 'screens'
+                              ? 'View'
+                              : 'Select',
+                      },
+                      { button: 'B', label: 'Back' },
+                      ...(detailFocus.zone === 'saves' ? [{ button: 'Y', label: 'Delete save' }] : []),
+                      { button: 'D-pad', label: 'Move' },
+                    ]
               : screen === 'games'
                 ? [
                     { button: 'A', label: 'Open' },

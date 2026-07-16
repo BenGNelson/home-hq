@@ -15,6 +15,7 @@ reports configured=False instead of erroring, so the hub renders a hint.
 import hashlib
 import json
 import os
+import re
 import time
 import urllib.parse
 
@@ -23,7 +24,7 @@ from fastapi import APIRouter, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from app import audiobooks, book_sync, bookmeta, comics, db, images, library, pdfcover
+from app import audiobooks, book_sync, bookmeta, comics, db, igdb, igdb_sync, images, library, pdfcover
 from app.config import settings
 
 router = APIRouter()
@@ -316,6 +317,126 @@ def get_game_cover(id: str = Query(description="Game id from the section listing
     if definitive:
         open(miss, "w").close()  # genuinely no art for this game — remember it
     return Response(status_code=404)  # transient failure → no miss cached, retry later
+
+
+# IGDB image ids are opaque base64-ish tokens — letters, digits, _ and -. Anything
+# else is rejected so an id is always safe as a cache filename (no path traversal).
+_IGDB_IMAGE_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+# --- IGDB rich metadata (the game screen) ----------------------------------
+# A background matcher (app/igdb_sync) looks each ROM up on IGDB and caches the
+# result; these endpoints just read that cache and lazily proxy the art. All
+# degrade gracefully: no IGDB creds ⇒ configured=False; a ROM hack IGDB doesn't
+# have ⇒ matched=False. The frontend renders its basic layout for both.
+
+class GameVideoModel(BaseModel):
+    id: str = Field(description="YouTube video id (used by the M2 trailer player)")
+    name: str | None = None
+
+
+class GameMetaModel(BaseModel):
+    matched: bool = Field(description="True when IGDB had a confident match for this ROM")
+    configured: bool = Field(description="False when IGDB creds are unset (feature dormant)")
+    igdb_id: int | None = None
+    name: str | None = None
+    summary: str | None = None
+    release_year: int | None = None
+    rating: int | None = Field(default=None, description="0..100, rounded IGDB total rating")
+    developer: str | None = None
+    publisher: str | None = None
+    genres: list[str] = []
+    cover_image_id: str | None = None
+    screenshot_ids: list[str] = []
+    videos: list[GameVideoModel] = []
+
+
+@router.get("/library/games/meta", response_model=GameMetaModel)
+def get_game_meta(id: str = Query(description="Game id from the section listing")):
+    """The cached IGDB metadata for a game, or a degraded shape (matched=False)
+    when it hasn't matched / isn't looked up yet. `configured` tells the frontend
+    'dormant, no key' apart from 'looked up, no match'."""
+    configured = igdb.configured(settings)
+    row = db.get_igdb_meta(id)
+    if not row or not row["matched"]:
+        return GameMetaModel(matched=False, configured=configured)
+    return GameMetaModel(
+        matched=True,
+        configured=configured,
+        igdb_id=row["igdb_id"],
+        name=row["name"],
+        summary=row["summary"],
+        release_year=row["release_year"],
+        rating=row["rating"],
+        developer=row["developer"],
+        publisher=row["publisher"],
+        genres=row["genres"] or [],
+        cover_image_id=row["cover_image_id"],
+        screenshot_ids=row["screenshot_ids"] or [],
+        videos=[GameVideoModel(**v) for v in (row["videos"] or [])],
+    )
+
+
+@router.get("/library/games/screenshot")
+def get_game_screenshot(
+    id: str = Query(description="Game id from the section listing"),
+    shot: str = Query(description="IGDB image id — must belong to this game"),
+):
+    """One IGDB screenshot (or the cover), proxied from IGDB and cached as a
+    downscaled WebP. The image id MUST be one this game's cached metadata
+    references — so this is not an open image proxy. Fetched once; a bad id or a
+    transient IGDB failure → 404 (the frontend shows nothing there)."""
+    # IGDB image ids are opaque alphanumerics; reject anything else up front so
+    # `shot` is safe to use as a cache filename (no path traversal) below.
+    if not _IGDB_IMAGE_ID_RE.match(shot):
+        return Response(status_code=404)
+
+    cache_dir = settings.igdb_art_dir
+    webp = os.path.join(cache_dir, shot + ".webp")
+    # Cache-first: a hit serves the file without touching the DB. The cache is only
+    # ever populated through the validated fetch below, so a cached image is one this
+    # (or another) game legitimately referenced — and screenshots are public art.
+    if os.path.isfile(webp):
+        return FileResponse(webp, media_type="image/webp", headers=_ART_CACHE_HEADERS)
+
+    # Cache miss: validate the id belongs to THIS game — so we can't be used as an
+    # open proxy to pull arbitrary images off IGDB — then fetch + downscale once.
+    row = db.get_igdb_meta(id)
+    if not row or not row["matched"]:
+        return Response(status_code=404)
+    allowed = set(row.get("screenshot_ids") or [])
+    if row.get("cover_image_id"):
+        allowed.add(row["cover_image_id"])
+    if shot not in allowed:
+        return Response(status_code=404)  # not this game's image → refuse
+
+    # Covers are portrait box art; screenshots are wide stills — pull each at a
+    # fitting IGDB size template, then downscale to a crisp local WebP.
+    is_cover = shot == row.get("cover_image_id")
+    url = igdb.image_url(shot, "t_cover_big" if is_cover else "t_screenshot_big")
+    try:
+        resp = requests.get(url, timeout=10)
+    except requests.RequestException:
+        return Response(status_code=404)  # transient — don't cache
+    if resp.status_code == 200 and resp.content:
+        thumb = images.to_thumbnail(resp.content, max_width=400 if is_cover else 1000)
+        if thumb:
+            os.makedirs(cache_dir, exist_ok=True)
+            images.write_atomic(webp, thumb)
+            return FileResponse(webp, media_type="image/webp", headers=_ART_CACHE_HEADERS)
+    return Response(status_code=404)
+
+
+@router.get("/library/games/meta/status")
+def get_game_meta_status():
+    """The IGDB matcher's progress (configured?, running?, how many looked up /
+    matched) — for the docs/debug + a future settings surface."""
+    matcher = igdb_sync.get_matcher()
+    if not matcher:
+        total, matched = db.count_igdb_meta()
+        return {"enabled": False, "configured": igdb.configured(settings),
+                "running": False, "looked_up": total, "matched": matched}
+    return matcher.status()
 
 
 class SaveStateModel(BaseModel):

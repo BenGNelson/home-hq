@@ -169,6 +169,18 @@ export function saveStateShotUrl(id, slot) {
   return `${API_BASE}/library/games/save-state/screenshot?id=${encodeURIComponent(id)}&slot=${encodeURIComponent(slot)}`
 }
 
+// A game's rich IGDB metadata (screenshots/summary/genres/rating) for the game
+// screen. Returns {matched:false} for a ROM hack / not-looked-up / no-key game;
+// the frontend renders its basic layout then.
+export function gameMetaUrl(id) {
+  return `${API_BASE}/library/games/meta?id=${encodeURIComponent(id)}`
+}
+// One IGDB image (cover or screenshot) for a game, by its IGDB image id — proxied
+// + cached WebP. The id must be one the game's metadata references (server-checked).
+export function igdbShotUrl(id, imageId) {
+  return `${API_BASE}/library/games/screenshot?id=${encodeURIComponent(id)}&shot=${encodeURIComponent(imageId)}`
+}
+
 // A game's in-game battery save (SRAM) — the game's OWN save (e.g. Pokemon's
 // "Save"), one per game, stored server-side so it roams. GET serves it, POST
 // (multipart) overwrites it. The emulator captures + restores it.

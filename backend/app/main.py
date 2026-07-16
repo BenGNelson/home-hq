@@ -24,6 +24,7 @@ from app.speedtest import init_sampler as init_speedtest_sampler
 from app.storage_history import init_sampler
 from app.space_usage import init_scanner
 from app.book_sync import init_indexer
+from app.igdb_sync import init_matcher
 from app import weather as weather_svc
 from app.routers import (
     adguard,
@@ -122,6 +123,10 @@ async def lifespan(app: FastAPI):
     # cache so the Books section is searchable (no-op unless Books is configured).
     book_indexer = init_indexer(settings.books_index_enabled, settings.books_index_interval)
     book_indexer.start()
+    # IGDB matcher: looks each ROM up on IGDB for the game screen's rich metadata
+    # (screenshots/summary/genres). No-op unless IGDB creds + Games are configured.
+    igdb_matcher = init_matcher(settings.igdb_sync_enabled, settings.igdb_sync_interval)
+    igdb_matcher.start()
     # Pre-warm the weather cache in the background so the first /api/weather hit
     # after a restart is instant instead of blocking on the ~4.5s Open-Meteo poll
     # (the read itself is stale-while-revalidate; this just seeds the cold cache).
@@ -138,6 +143,7 @@ async def lifespan(app: FastAPI):
         solar_sampler.stop()
         scanner.stop()
         book_indexer.stop()
+        igdb_matcher.stop()
 
 
 # Tag metadata groups the auto-generated API docs (/api/docs, /api/redoc) by

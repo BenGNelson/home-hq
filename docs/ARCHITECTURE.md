@@ -190,6 +190,9 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/library` | every section + configured + item count + a few cover `preview` refs (the hub landing) | scans the per-section content dirs; `preview` dresses the hub's peek tiles in one fetch (audiobooks: the unit is the book *folder*, so its count + preview are folders, not chapter files) |
 | `GET /api/library/{section}` | one section's items (the browse list) | recursive scan of the section's dir |
 | `GET /api/library/inbox-status` | the host-side sorter's drop zone + review pile (read-only) | lists `INBOX_DIR` + `NEEDS_REVIEW_DIR` (under the read-only RAID mount); each parked item's reason comes from its `.review.json` sidecar. HQ observes only — it never moves files |
+| `GET /api/library/games/meta?id=` | a game's rich IGDB metadata (screenshots/summary/genres/rating/dev) for the game screen | reads the `igdb_meta` cache the background matcher fills; `{matched:false}` when unmatched (ROM hack) or IGDB isn't configured, so the frontend shows the basic page |
+| `GET /api/library/games/screenshot?id=&shot=` | one IGDB screenshot/cover, proxied + cached WebP | validated (the image id must be one the game's cached row references — not an open proxy), fetched from IGDB on first view and downscaled into `IGDB_ART_DIR` |
+| `GET /api/library/games/meta/status` | IGDB matcher progress (configured/running/looked-up/matched) | from the `IgdbMatcher` + cache counts |
 | `GET /api/library/books/search?q=&limit=` | search Books by title/author | queries the `book_meta` cache (empty `q` = first results alphabetically) |
 | `GET /api/library/books/index-status` | book-indexer progress | from the indexer + cache count (drives the "indexing…" UI) |
 | `GET /api/library/books/cover?id=` | a book's cover art (cached) | EPUB/MOBI → embedded cover; PDF book → rendered first page (no embedded cover); downscaled to a small WebP on first view, served locally thereafter (404 → titled placeholder) |
@@ -781,12 +784,19 @@ anywhere (X) — and the shape of them is the argument:
 - **Picking a game opens its page, not the game** (`GameScreen.jsx`) — cover, a big
   Play (the battery save, default focus), favourite, download-for-offline, and the
   save-state shelf (each snapshot launches with its `?slot=`; delete is guarded by a
-  confirm, controller- and touch-drivable). Two focus zones — the actions row and the
-  save list — cross with up/down, the same shape search uses. The **one exception is
-  "Jump back in": A there resumes the game instantly** (that rail is *for* fast resume;
-  Y still opens the page). The download reuses the Library's own state machine via the
-  shared `useDownload` hook, and a reserved empty band up top is the seat for future
-  IGDB artwork/summary.
+  confirm, controller- and touch-drivable). The **one exception is "Jump back in": A
+  there resumes the game instantly** (that rail is *for* fast resume; Y still opens the
+  page). The download reuses the Library's own state machine via the shared
+  `useDownload` hook.
+  - **When IGDB has matched the ROM, the page fills with the real game** — a
+    screenshot backdrop glows behind the title (the back-lit motif), with the summary,
+    genres, rating and developer/publisher, plus a **screenshot strip you can open
+    fullscreen** (a controller-drivable lightbox). Focus zones stack vertically —
+    actions → screenshot strip → save list — and up/down cross between whichever are
+    present. When IGDB *hasn't* matched (a ROM hack, or no key configured) the page
+    **degrades to exactly the basic cover + name layout**, so nothing ever looks
+    broken. The metadata comes from a background collector (below); art is proxied +
+    cached locally on first view, so it isn't a per-load external call.
 - **The frog holds its console.** Colour alone can't tell the two Game Boys apart, so
   `SystemFrog` pins a small drawn `Console` badge to the mascot's corner wherever it
   stands in for the focused system (shelf, game list, game page).
@@ -986,6 +996,39 @@ backup), one per-game folder keyed by a hash of the id.
   (screenshot thumbnails), and **Resume** relaunches with `EJS_loadStateURL`
   pointed at the chosen state's bytes. Slot ids are backend-assigned millisecond
   timestamps (digits only) — also the traversal guard for the file paths.
+
+### IGDB game metadata (the game screen's rich data)
+
+The rich game screen is fed by an **in-app background collector** — the same
+daemon-thread + SQLite-cache pattern as the book indexer, not a host-script bridge.
+
+- **`app/igdb.py`** is the client. IGDB is Twitch's games DB; its API authenticates
+  with a Twitch OAuth *app access token* (client-credentials), minted once and cached
+  in-process until near expiry. The module is split so the logic is unit-tested with no
+  network: pure helpers (platform-id map, filename→search-string cleaning built on
+  `library.base_title`, the APICalypse query body, and article/word-order-insensitive
+  match **scoring**) and thin `requests` calls. Everything degrades to `None` /
+  unmatched on any error, so one bad lookup never breaks a pass.
+- **`app/igdb_sync.py`** is the matcher (`IgdbMatcher`, wired into the app lifespan).
+  Dormant unless IGDB creds + Games are configured. Each ROM is looked up once by
+  cleaned title + platform, best-match cached in the `igdb_meta` table; ROMs are
+  skipped by mtime, and a `_MATCH_VERSION` bump forces a re-match. **`matched=0` is a
+  real, cached result** ("IGDB has nothing for this ROM" — a hack), so it isn't
+  re-queried forever. Rate-limited to IGDB's 4 req/s (a first full pass ≈ a few
+  minutes; later passes are cheap). Screenshots/cover art are **not** downloaded here —
+  the `/screenshot` endpoint fetches + downscales each on first view (like book
+  covers), so passes stay fast and only art you actually look at is stored. A
+  `source` column ('auto'/'manual'/'cleared') reserves the M2 re-match override so the
+  auto matcher won't stomp it.
+- **Endpoints** (`routers/library.py`): `GET /library/games/meta` reads the cache
+  (degraded `{matched:false}` when unmatched/dormant); `GET /library/games/screenshot`
+  is a **validated** proxy — the requested IGDB image id must be one the game's cached
+  row references, so it's not an open image proxy — reusing the box-art
+  fetch→`to_thumbnail`→`write_atomic` WebP cache into `IGDB_ART_DIR`;
+  `GET /library/games/meta/status` reports collector progress.
+- **Keys are the one setup step:** register a free Twitch app and set
+  `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` (see README). No key = the feature is simply
+  dormant, and every game shows the basic page.
 
 ## Config backup (host script, app only lists)
 

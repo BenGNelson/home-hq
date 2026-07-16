@@ -68,7 +68,7 @@ with sync_playwright() as p:
     # Block the service worker: on the prod PWA the SW forwards /api/health to the
     # live backend (which is up), so route interception never sees it and the app
     # never goes "offline". Blocking it sends every fetch through page.route.
-    context = browser.new_context(service_workers="block")
+    context = browser.new_context(service_workers="block", reduced_motion="reduce")
     page = context.new_page()
     errors_on = [True]
 

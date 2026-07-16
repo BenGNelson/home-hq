@@ -27,6 +27,8 @@ import {
   systemGames,
   sectionHref,
   letterOf,
+  gameMetaUrl,
+  igdbShotUrl,
 } from './library.js'
 
 describe('bookSubtitle', () => {
@@ -179,6 +181,15 @@ describe('save-state urls', () => {
     expect(saveStateUrl('A B.gba', '99')).toBe('/api/library/games/save-state?id=A%20B.gba&slot=99')
     expect(saveStateShotUrl('A B.gba', '99')).toBe(
       '/api/library/games/save-state/screenshot?id=A%20B.gba&slot=99'
+    )
+  })
+})
+
+describe('igdb metadata urls', () => {
+  it('build meta + screenshot urls, encoding ids', () => {
+    expect(gameMetaUrl('gb/A B.gb')).toBe('/api/library/games/meta?id=gb%2FA%20B.gb')
+    expect(igdbShotUrl('gb/A B.gb', 'sc1abc')).toBe(
+      '/api/library/games/screenshot?id=gb%2FA%20B.gb&shot=sc1abc'
     )
   })
 })
