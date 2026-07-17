@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildUrl, buildNavLinks, haDeepLink } from './hostLocal.js'
+import { buildUrl, buildNavLinks, haDeepLink, appLinkFromLinks } from './hostLocal.js'
 
 describe('buildUrl', () => {
   it('returns null when there is no spec', () => {
@@ -78,6 +78,24 @@ describe('buildNavLinks', () => {
       { id: 'missing' },
     ]
     expect(buildNavLinks(links, 'h').map((l) => l.id)).toEqual(['good'])
+  })
+})
+
+describe('appLinkFromLinks', () => {
+  const links = [
+    { id: 'games', url: 'https://box.tailnet.ts.net:8444' },
+    { id: 'ha', url: { port: 8123 } },
+  ]
+
+  it('resolves a nav link URL by id (verbatim string or spec)', () => {
+    expect(appLinkFromLinks(links, 'games', 'ignored')).toBe('https://box.tailnet.ts.net:8444')
+    expect(appLinkFromLinks(links, 'ha', 'box.ts.net')).toBe('http://box.ts.net:8123')
+  })
+
+  it('returns null when the id is absent or unconfigured', () => {
+    expect(appLinkFromLinks(links, 'nope', 'h')).toBe(null)
+    expect(appLinkFromLinks(undefined, 'games', 'h')).toBe(null)
+    expect(appLinkFromLinks([{ id: 'games' }], 'games', 'h')).toBe(null)
   })
 })
 

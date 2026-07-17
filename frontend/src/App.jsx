@@ -10,7 +10,7 @@ import PlexWatchStats from './modules/plex/WatchStats.jsx'
 import Library from './modules/library/Library.jsx'
 import LibraryLayout from './modules/library/LibraryLayout.jsx'
 import Player from './modules/library/Player.jsx'
-import FrogBrowser from './modules/library/frog/FrogBrowser.jsx'
+import GamesRedirect from './modules/library/GamesRedirect.jsx'
 import PapersList from './modules/library/PapersList.jsx'
 import BooksList from './modules/library/BooksList.jsx'
 import TextbooksList from './modules/library/TextbooksList.jsx'
@@ -132,10 +132,10 @@ export default function App() {
           <Route path="/library/audiobooks" element={<AudiobooksList />} />
         </Route>
         <Route path="/library/play" element={<Player />} />
-        <Route path="/frog" element={<FrogBrowser />} />
-        {/* Games IS Frog now — the old grid AND the game-detail page are retired (Frog
-            hosts play / saves / favourite / download itself), so their routes (and any
-            old bookmark) redirect into the browser. */}
+        {/* Games is the STANDALONE Frog app now (its own origin / installable PWA).
+            HQ's embedded browser is retired: /frog and any old game route hand off to
+            it (GamesRedirect → the host-local link). */}
+        <Route path="/frog" element={<GamesRedirect />} />
         <Route path="/library/games" element={<Navigate to="/frog" replace />} />
         <Route path="/library/games/detail" element={<Navigate to="/frog" replace />} />
         <Route path="/library/read" element={<Reader />} />

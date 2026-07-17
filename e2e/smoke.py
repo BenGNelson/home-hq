@@ -50,7 +50,8 @@ PAGES = [
     ("/weather", ["Weather"]),
     ("/plex", []),
     ("/library", []),
-    ("/frog", []),
+    # Games is the standalone Frog app now — /frog hands off to it (external), so it's
+    # no longer an internal page to smoke here.
     ("/containers", []),
     ("/storage", []),
     ("/network", []),

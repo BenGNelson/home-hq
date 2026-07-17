@@ -54,6 +54,21 @@ export function hostNavLinks() {
   return buildNavLinks(host.navLinks, hostname)
 }
 
+// Resolve ONE host-local nav link's external URL by id, for handing an in-app
+// route off to a sibling standalone app (e.g. the Frog games app that Games
+// became). Returns null when that link isn't configured — so a generic clone
+// without host.local.jsx falls back gracefully rather than dead-ending. Pure core
+// (raw list + hostname) so it's unit-testable.
+export function appLinkFromLinks(links, id, hostname) {
+  const link = (links ?? []).find((l) => l.id === id)
+  return link ? buildUrl(link.url, hostname) : null
+}
+export function appLinkUrl(id) {
+  const hostname =
+    typeof window !== 'undefined' ? window.location.hostname : 'localhost'
+  return appLinkFromLinks(host.navLinks, id, hostname)
+}
+
 // Deep-link into Home Assistant for a given path (e.g. an entity's history),
 // reusing the SAME `home-assistant` navLink url spec the sidebar uses — so the
 // host/port stays only in the gitignored host.local.jsx and resolves correctly
