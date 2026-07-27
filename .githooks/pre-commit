@@ -10,8 +10,8 @@ DIR="$(git rev-parse --show-toplevel)/.githooks"
 . "$DIR/_patterns.sh"
 
 if [ -z "${FORBIDDEN:-}" ]; then
-  echo "privacy hook: no patterns configured (.githooks/patterns.local missing) — skipping." >&2
-  exit 0
+  echo "privacy hook: FORBIDDEN is empty — _patterns.sh failed to load. Refusing." >&2
+  exit 1
 fi
 
 # Scan only ADDED lines in the staged diff, with the leading '+' stripped (so the
