@@ -1,17 +1,24 @@
 # Forbidden-pattern list for the pre-commit / commit-msg privacy hooks.
 #
 # Copy this to  patterns.local  (gitignored) and fill in YOUR machine's real
-# values, so they're enforced locally and can never be committed to this public
-# repo. One POSIX extended-regex per line; blank lines and "#" comments ignored;
-# matching is case-insensitive.
+# values, so they are enforced locally and can never be committed to this public
+# repo. One POSIX extended-regex per line; matching is case-insensitive.
 #
-# Use SPECIFIC values, not broad regexes, so legitimate placeholders in the repo
-# (documentation IPs, example mounts) don't trip the hook. Examples:
+# ⚠️  ONLY a line STARTING with "#" is a comment. A trailing comment becomes part
+#     of the regex and SILENTLY disables that pattern — the hook keeps running and
+#     reports nothing. Keep every comment on its own line.
+#
+# Use SPECIFIC values rather than broad regexes, so legitimate placeholders in the
+# repo (documentation IPs, example mounts) don't trip the hook. Generic shape-based
+# patterns — private IP ranges, tailnet domains, absolute home paths, attribution
+# trailers — are already compiled into _patterns.sh and need no entry here.
+#
+# Example (each pattern on its own line, no trailing comments):
 #
 #   my-hostname
-#   203\.0\.113\.[0-9]+        # this host's real LAN/public IP (RFC5737 shown)
-#   100\.64\.[0-9]+\.[0-9]+    # tailnet IP range
-#   /mnt/myarray               # real mount path (repo uses a generic placeholder)
-#   me@example\.com            # your email
+#   203\.0\.113\.[0-9]+
+#   /mnt/myarray
+#   me@example\.com
+#   \bmysurname\b
 #
-# Activate the hooks once:  git config core.hooksPath .githooks
+# Activate the hooks once per clone:  git config core.hooksPath .githooks
