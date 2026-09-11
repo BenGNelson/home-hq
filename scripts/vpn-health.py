@@ -28,6 +28,8 @@ so the real container name stays out of both the repo and the unit file:
   VPN_IP_FALLBACK_URLS     comma-sep plain-text IP echoes used when the JSON
                            service fails (e.g. rate-limits a shared VPN exit)
   VPN_FORWARDED_PORT_FILE  in-container forwarded-port file  (set to your gateway's path)
+  VPN_FORWARDED_PORT_CONTAINER  container that holds that file, when a sidecar rather
+                           than the gateway maintains the port (default: VPN_CONTAINER)
   VPN_JSON                 output path  (default: /var/lib/home-hq/vpn.json)
 """
 
@@ -79,6 +81,8 @@ TRACE_IP_URLS = [
     if u.strip()
 ]
 PORT_FILE = os.environ.get("VPN_FORWARDED_PORT_FILE", "/tmp/vpn-gateway/forwarded_port")
+# A setup may hand port maintenance to a sidecar container; read the file there.
+PORT_CONTAINER = os.environ.get("VPN_FORWARDED_PORT_CONTAINER", CONTAINER)
 OUT = os.environ.get("VPN_JSON", "/var/lib/home-hq/vpn.json")
 
 
@@ -181,7 +185,7 @@ def vpn_ip():
 def forwarded_port():
     try:
         res = subprocess.run(
-            ["docker", "exec", CONTAINER, "cat", PORT_FILE],
+            ["docker", "exec", PORT_CONTAINER, "cat", PORT_FILE],
             capture_output=True, text=True, timeout=15,
         )
         if res.returncode == 0:
