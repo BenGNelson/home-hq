@@ -1,6 +1,6 @@
 import { useApi } from '../../lib/useApi.js'
 import { Spinner } from '../../components/ui.jsx'
-import { containerNotes, containerUrl } from '../../lib/hostLocal.js'
+import { containerNotes, containerUrl, containerLabel, containerImage } from '../../lib/hostLocal.js'
 
 function Section({ title, children }) {
   return (
@@ -28,7 +28,7 @@ const ENDPOINTS = [
   ['/api/disk', 'Total / used / free for the storage array.'],
   ['/api/containers · /{name} · /{name}/logs', 'Container list, one container’s live CPU/mem/net, and its recent logs (tail-limited; sensitive ones excludable).'],
   ['/api/network', 'Per-interface byte counters (read from the host’s /proc).'],
-  ['/api/vpn', 'VPN egress leak check — exit IP vs home IP, from a host timer.'],
+  ['/api/vpn', 'VPN egress health — exit IP vs home IP (leak), plus a dead tunnel under a running container, from a host timer.'],
   ['/api/tailscale', 'Tailnet devices (online state, exit node, last seen), from a host timer running `tailscale status`.'],
   ['/api/speedtest', 'ISP down/up/ping — latest + history + stats, from an in-app sampler running the Ookla CLI (/api/speedtest/history?range= serves the 24h–1yr trend chart; POST /api/speedtest/run triggers an on-demand test).'],
   ['/api/uptime', 'Per-service availability (status, uptime % 24h/7d, latency), from a host prober that can reach firewall-restricted services.'],
@@ -117,7 +117,7 @@ function ContainerReference() {
         return (
           <div key={c.name} className="rounded-lg border border-slate-800 p-3">
             <div className="flex items-center justify-between gap-2">
-              <span className="font-medium text-slate-100">{note?.displayName ?? c.name}</span>
+              <span className="font-medium text-slate-100">{containerLabel(c.name)}</span>
               <span className="flex shrink-0 items-center gap-2 text-xs text-slate-500">
                 {link && (
                   <a
@@ -132,9 +132,9 @@ function ContainerReference() {
                 {c.status}
               </span>
             </div>
-            {!note?.hideImage && (
+            {containerImage(c.name, c.image) && (
               <p className="mt-0.5 truncate font-mono text-[11px] text-slate-500">
-                {note?.displayImage ?? c.image}
+                {containerImage(c.name, c.image)}
               </p>
             )}
             <p className="mt-1 text-sm">
@@ -422,7 +422,7 @@ export default function Guide() {
 
       <Section title="Ad Blocking module">
         <p>
-          A <strong>read-only</strong> gauge for ad/tracker blocking. The blocker
+          A <strong>read-only</strong> gauge for ad blocking. The blocker
           itself — <strong>AdGuard Home</strong> — runs as a separate service that
           filters DNS for chosen devices; it’s deliberately <em>not</em> part of
           this app and <em>not</em> in the whole-house DNS path, so a problem with

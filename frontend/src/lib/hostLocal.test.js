@@ -1,5 +1,50 @@
 import { describe, it, expect } from 'vitest'
-import { buildUrl, buildNavLinks, haDeepLink, appLinkFromLinks } from './hostLocal.js'
+import {
+  buildUrl,
+  buildNavLinks,
+  haDeepLink,
+  appLinkFromLinks,
+  labelFor,
+  imageFor,
+} from './hostLocal.js'
+
+describe('labelFor', () => {
+  it('falls back to the real container name when unconfigured', () => {
+    expect(labelFor({}, 'svca')).toBe('svca')
+    expect(labelFor(undefined, 'svca')).toBe('svca')
+    expect(labelFor({ other: { displayName: 'x' } }, 'svca')).toBe('svca')
+  })
+
+  it('substitutes a display label when one is configured', () => {
+    expect(labelFor({ svca: { displayName: 'tv' } }, 'svca')).toBe('tv')
+  })
+
+  it('ignores a note that has no displayName', () => {
+    expect(labelFor({ svca: { purpose: 'x' } }, 'svca')).toBe('svca')
+  })
+})
+
+describe('imageFor', () => {
+  it('passes the real image through when unconfigured', () => {
+    expect(imageFor({}, 'svca', 'repo/svca:1')).toBe('repo/svca:1')
+    expect(imageFor(undefined, 'svca', 'repo/svca:1')).toBe('repo/svca:1')
+  })
+
+  it('returns null when hidden, so the caller omits the row entirely', () => {
+    expect(imageFor({ svca: { hideImage: true } }, 'svca', 'repo/svca:1')).toBeNull()
+  })
+
+  it('substitutes a display image when one is configured', () => {
+    expect(imageFor({ svca: { displayImage: 'generic' } }, 'svca', 'repo/svca:1')).toBe(
+      'generic',
+    )
+  })
+
+  it('lets hideImage win over displayImage', () => {
+    const notes = { svca: { hideImage: true, displayImage: 'generic' } }
+    expect(imageFor(notes, 'svca', 'repo/svca:1')).toBeNull()
+  })
+})
 
 describe('buildUrl', () => {
   it('returns null when there is no spec', () => {

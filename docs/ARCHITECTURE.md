@@ -309,6 +309,19 @@ because not every published port is a web UI, and only what a reverse proxy
 fronts is reachable over the tailnet. Committed code stays generic — the real
 links live only in the gitignored file.
 
+The same file can also **relabel** a container for display: `displayName`
+substitutes the rendered text, `hideImage` drops the image string entirely, and
+`displayImage` swaps in a generic one. Screenshots of this app end up in a public
+README, and both the container name and its image string name the software as
+plainly as each other — so hiding one without the other achieves nothing. Two
+pure helpers own this (`labelFor` / `imageFor`, unit-tested), and all three
+surfaces that render a container — the Containers page, the dashboard widget, and
+the guide — go through `containerLabel()` / `containerImage()`. That matters:
+these fields were originally honored **only** by the guide, so a container marked
+discreet still appeared under its real name on the other two. Every *lookup*
+(selection state, note attachment, link resolution) continues to key off the real
+Docker name; only the rendered text changes.
+
 ### Visual motif: "back-lit radiance"
 
 The Solar module established a look worth reusing on other pages: content that
@@ -672,7 +685,7 @@ Three more rules fall out of the same audit:
   was silently dropped.
 - **Newest wins, and the server says when.** `GET /library/games/sram` returns
   `X-Saved-At` (the file's mtime, epoch ms), and the device loads whichever copy is
-  newer. Seeding used to prefer the local cache unconditionally: play on a tablet,
+  newer. Priming used to prefer the local cache unconditionally: play on a tablet,
   pick up a phone, and the phone loaded its own older save *and then overwrote the
   server with it*. This is deliberately not a general sync algorithm — two devices
   played offline at once and the later one wins outright. For one person with two
@@ -1123,17 +1136,24 @@ split. `scripts/vpn-health.py` (a host timer) looks up two public IPs — the
 host's own, and the one seen from *inside* the VPN container — and writes them to
 `vpn.json`. The backend reads that via the same `/smart` mount, and
 **`/api/vpn`** computes the verdict: if the VPN egress IP equals the home IP it's
-a **leak**; if the container isn't running it's **down** (benign — the
-kill-switch means no traffic, so it isn't alarmed on); otherwise **protected**.
-The **VPN** page shows the exit vs home IPs side by side, and a leak raises an
-urgent push alert. The script is generic (`VPN_CONTAINER`, `VPN_IP_CHECK_URL`)
-and commits clean — no host or service specifics.
+a **leak**; if the container isn't running, or it is running but has no egress
+IP, it's **down**; otherwise **protected**. The **VPN** page shows the exit vs
+home IPs side by side. A leak raises an urgent push alert; a **down tunnel under
+a still-running container** raises a high one once it has persisted for
+`ALERT_VPN_DOWN_MINUTES` — see the alerting section for why those two flavours of
+"down" are not the same thing, and why one sample is not a verdict. The script is
+generic (`VPN_CONTAINER`, `VPN_IP_CHECK_URL`) and commits clean — no host or
+service specifics.
 
-The exit lookup tries a JSON geo service (ipinfo) first, then falls back to
-plain-text IP echoes (`VPN_IP_FALLBACK_URLS`): popular shared VPN exit IPs get
-HTTP 429'd by ipinfo's free tier regardless of our request rate, and without the
-fallback that would read as a false "down". The fallbacks return only the IP —
-which is exactly what the leak verdict compares — so geo/org just goes blank.
+The exit lookup tries a JSON geo service (ipinfo) first, then IP-literal trace
+endpoints (`VPN_IP_TRACE_URLS`, Cloudflare's `/cdn-cgi/trace` by address — no
+resolver involved), then plain-text IP echoes (`VPN_IP_FALLBACK_URLS`). Two
+failure modes drove that order: popular shared VPN exit IPs get HTTP 429'd by
+ipinfo's free tier regardless of our request rate, and the container's own
+resolver upstream occasionally resets, taking every *name-based* echo down
+with it. Either would otherwise read as a false "down". The later tiers return
+only the IP — which is exactly what the leak verdict compares — so geo/org just
+goes blank.
 
 ## Tailscale mesh status (host script)
 
@@ -1156,7 +1176,7 @@ The **Uptime** page shows each configured service's current status, uptime %
 (24h / 7d), latency, and a recent up/down sparkline. The probing is a **host
 script** (`scripts/uptime-probe.py`, a systemd timer) rather than in-app for a
 concrete reason: the backend container is firewalled away from LAN-restricted
-services (UFW limits Home Assistant, a download client, etc. to the LAN subnet, and the
+services (UFW limits Home Assistant, admin UIs, etc. to the LAN subnet, and the
 container's source is the Docker subnet), so it can only reach internet-open
 ports. The host can reach everything via localhost — the same privileged-host /
 unprivileged-app split as SMART/VPN/Tailscale. Each run probes every target
@@ -1216,7 +1236,7 @@ each item, folds the `infrastructure` block (a free-text topology note + roaming
 devices), and computes stats (totals, in-HA count, ⚠️-to-confirm count, per-
 category counts). The real catalog has room/device names, so it lives **outside
 the repo** — only the generic example is committed. The YAML is also meant to be
-read directly (by a human or an assistant) as a plain-English map of the house;
+read directly (by a person or a program) as a plain-English map of the house;
 the module just renders it. The real catalog lives host-side (wherever
 `CATALOG_FILE` points), never in the repo.
 
@@ -1338,7 +1358,7 @@ hourly strip** (temp + precip, scrollable).
 
 ## Ad blocking (AdGuard Home)
 
-A **read-only** glance at ad/tracker blocking. The blocking itself is a separate
+A **read-only** glance at ad blocking. The blocking itself is a separate
 host-side service — **AdGuard Home** in its own container, filtering DNS for
 chosen devices (here: one phone, over the mesh VPN) — deliberately kept *out* of
 the HQ stack so an AdGuard hiccup can't touch the dashboard, and out of the
@@ -1426,14 +1446,50 @@ per real completion and stays 1:1 with the printer page. The Bambu sits in FINIS
 long after a job and re-publishes whenever a new plate is loaded; keying off the
 live filename used to edge-trigger phantom "finished" alerts for prints we never
 watched, while the live-state gate lets the rule read OK again once the printer
-powers off or starts the next job (rather than staying amber forever). The
+powers off or starts the next job (rather than staying amber forever). Two more
+guards keep that gate from re-arming the edge, after "Print finished" pushed
+twice in Sept 2026 for a print five weeks old: a tick with **no live snapshot**
+(the MQTT client reconnecting, or a telemetry gap over 60 s — the printer sits
+behind a second router) *holds* the rule's stored key instead of reading as
+cleared, because clearing on the blip and then seeing the same FINISH again
+re-fired the same history row; and a recorded completion **older than 24 hours is
+never announced at all**, whatever the printer reports, so a power-cycle that
+re-publishes an old job's FINISH has nothing to resurrect. The
 **containers** rule skips any container
 whose name ends in `-dev` — those are opt-in `profiles: ["dev"]` services that are
-expected to be down, so a stopped dev container isn't a fault worth a push.
+expected to be down, so a stopped dev container isn't a fault worth a push. It
+counts `created` (never started — compose gave up on a dependency gate, and no
+restart policy ever applies to a container that has not run once) and
+`restarting` (crash loop) as down, not just `exited`: in Aug 2026 two containers
+sat in `created` for four days while every dashboard number read healthy.
 **Printer-offline** fires *only* when the printer
 vanishes mid-print (last state RUNNING/PAUSE) — a dead telemetry pipe, a crash,
 or the upstream router's WAN IP drifting (which silently breaks the printer
-host); a normal power-down while idle stays quiet. The **external-drive** rule
+host); a normal power-down while idle stays quiet. The **VPN** rule watches two
+different failures. A **leak** is the security one: protected traffic exiting via
+the home IP. A **down tunnel while the container is still running** is the
+availability one, and it was a blind spot until August 2026 — `status: "down"`
+covers both "container deliberately stopped" (a host monitor may stop it on
+purpose; the kill-switch means nothing escapes, so alarming would just spam)
+and "container up, tunnel passing nothing". The second
+looks healthy from every angle — container running, no leak, no error — while
+nothing actually gets through. One went unnoticed for ~50 hours. Only the
+running-container flavour fires — and only once the down reading has
+**persisted for `ALERT_VPN_DOWN_MINUTES`** (default 15, i.e. three samples). One
+sample is not a verdict: the collector learns the exit IP by fetching an IP-echo
+service from inside the container, and every name-based echo rides the
+container's own resolver. When its upstream reset — about once a
+day in Sept 2026 — all of them timed out together, the sample recorded no exit
+IP, and an *urgent* "tunnel down" went out for a tunnel that was fine, followed
+by "resolved" five minutes later; meanwhile the three genuine tunnel restarts
+that fortnight self-healed in seconds and never overlapped a sample. The
+collector now also tries IP-literal Cloudflare trace endpoints
+(`VPN_IP_TRACE_URLS`, no resolver involved) before giving up, so a DNS hiccup
+can't blank the reading in the first place, and the tunnel condition sends at
+*high* while the leak stays *urgent* — the only one worth waking up for.
+Deliberately *not* alerted: a protected tunnel
+with no forwarded port — the port is optional and comes and goes on its own
+between samples, so that rule would flap on a healthy tunnel. The **external-drive** rule
 fires on the drive's *last-reported* health even when the watchdog's state file
 is **stale**: during a hard wedge the watchdog backs off for minutes between
 probes, so its report ages past the stale window while it's still managing a
@@ -1725,7 +1781,7 @@ logs can contain whatever an app prints (an accidentally-logged secret, or
 other sensitive activity), so it's only sound because the UI is reachable
 only over the LAN/tailnet (UFW drops public traffic; no funnel) and the tailnet
 is single-user. `CONTAINER_LOGS_EXCLUDE` withholds named containers (a VPN
-gateway or download client — the most sensitive and the ones you'd `docker logs`
+gateway or an auth proxy — the most sensitive and the ones you'd `docker logs`
 over SSH anyway). The endpoint is read-only and tail-limited; it never streams
 full history.
 

@@ -23,7 +23,7 @@ import logging
 import threading
 import time
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable
 
 from app import db, notify
@@ -43,6 +43,9 @@ class Rule:
     notify_on_clear: bool  # send a "resolved" when it goes back to OK
     check: Callable[[dict], tuple[str | None, str]]
     path: str = ""  # in-app route this alert is about (deep-link target on tap)
+    # Per-condition override of `priority`, keyed by the check's returned key.
+    # For a rule whose conditions differ in weight (a VPN leak vs a dead tunnel).
+    key_priority: dict = field(default_factory=dict)
 
 
 # --- individual checks: take the gathered context, return (key, message) -------
@@ -121,14 +124,24 @@ def _check_containers(ctx):
     # Skip `*-dev` containers: they're opt-in `profiles: ["dev"]` services that
     # are *expected* to be down most of the time, so a stopped dev container
     # isn't a fault worth a push. Prod containers don't carry the suffix.
+    #
+    # `created` counts as down. A container that compose gave up on (its
+    # dependency's healthcheck flapped at boot) sits in `created` indefinitely:
+    # it has never run, so no restart policy will ever touch it, and it is
+    # invisible to `docker ps`. Two did exactly that for four days in Aug 2026
+    # while everything else read healthy. `restarting` is a crash loop.
     down = sorted(
         x["name"]
         for x in c.get("containers", [])
-        if x.get("status") in ("exited", "dead") and not x["name"].endswith("-dev")
+        if x.get("status") in ("exited", "dead", "created", "restarting") and not x["name"].endswith("-dev")
     )
     if down:
         return "down:" + ",".join(down), f"Container(s) down: {', '.join(down)}"
     return None, ""
+
+
+# A completion older than this is never announced, however the printer reports.
+_PRINT_DONE_WINDOW_S = 24 * 3600
 
 
 def _check_printer(ctx):
@@ -140,10 +153,15 @@ def _check_printer(ctx):
     re-publishing the same telemetry) can't edge-trigger a phantom alert: the id
     only changes when a genuinely new print is recorded. We also gate on the
     *live* terminal state so the rule reads OK again once the printer powers off
-    or starts the next job, instead of staying amber forever."""
-    pr = (ctx.get("printer") or {}).get("printer") or {}
-    if pr.get("state") not in ("FINISH", "FAILED"):
-        return None, ""
+    or starts the next job, instead of staying amber forever.
+
+    Two guards keep that gate from re-arming the edge. A tick with NO live
+    snapshot (MQTT reconnecting, a telemetry gap over 60 s — the printer sits
+    behind a second router) HOLDS the stored key rather than reading as cleared:
+    clearing on the blip and then seeing the same FINISH again re-fired a
+    five-week-old completion twice in Sept 2026. And a recorded completion older
+    than _PRINT_DONE_WINDOW_S is never announced at all, whatever the printer
+    reports, so nothing it does later can resurrect it."""
     if "last_print" not in ctx:
         # Print history couldn't be read this tick. Raise so the engine SKIPS the
         # rule (preserving its stored key) instead of reading the absence as
@@ -151,6 +169,15 @@ def _check_printer(ctx):
         raise RuntimeError("print history unavailable")
     last = ctx["last_print"]
     if not last:
+        return None, ""
+    ended, now = last.get("ended_at"), ctx.get("now")
+    if ended and now and now - ended > _PRINT_DONE_WINDOW_S:
+        return None, ""  # old news: nothing to announce, live state irrelevant
+    p = ctx.get("printer") or {}
+    if not p.get("available"):
+        raise RuntimeError("printer snapshot unavailable")  # hold, don't clear
+    pr = p.get("printer") or {}
+    if pr.get("state") not in ("FINISH", "FAILED"):
         return None, ""
     name = last.get("file") or "print"
     if last.get("result") == "success":
@@ -183,17 +210,67 @@ def _check_printer_hms(ctx):
     return None, ""
 
 
+# When the tunnel first read "down" under a running container; None while it
+# isn't. In memory on purpose — a backend restart just restarts the clock.
+_vpn_down_since: float | None = None
+
+
 def _check_vpn(ctx):
-    """Fire only on a genuine LEAK — the VPN's egress IP equals the home IP, so
-    protected traffic isn't being masked. 'down' (container stopped) is benign
-    because the kill-switch drops traffic, and the stack is intentionally stopped
-    when the external drive isn't mounted, so we'd just spam. Stale = the checker
-    isn't running, so the state is unknown; don't alarm on it."""
+    """Fire on a genuine LEAK, and on a tunnel that is down while the container
+    is still running.
+
+    The leak case is the security one: the VPN's egress IP equals the home IP,
+    so protected traffic isn't being masked.
+
+    The tunnel case is the availability one. `status == "down"` covers two very
+    different situations and only one is benign:
+      * container NOT running -> intentional. A host monitor may stop it on
+        purpose, and the kill-switch means no traffic escapes. Staying quiet
+        here is right; alarming would just spam.
+      * container running, no egress IP -> the tunnel is dead while everything
+        looks up. Nothing leaks (the kill-switch still holds), but nothing works
+        either: no traffic passes.
+        This went unnoticed for ~50 hours in Aug 2026, so it now alerts.
+
+    Deliberately NOT alerted: a protected tunnel with no forwarded port. The port
+    is optional and comes and goes on its own between samples, so that rule would
+    flap on a healthy tunnel. The dead-tunnel case above already covers the outage
+    that matters.
+
+    The tunnel case fires only once "down" has PERSISTED for
+    `alert_vpn_down_minutes`. One sample is not a verdict: the collector learns
+    the exit IP by fetching an IP-echo from inside the container, and when the
+    container's own resolver hiccups every echo times out together — the sample
+    records no exit IP and reads exactly like a dead tunnel. That was ~1 urgent
+    false alarm a day in Sept 2026, each "resolved" by the next 5-minute sample,
+    while the real tunnel restarts self-healed in seconds and never overlapped a
+    sample at all. A tunnel that is still down three samples later is real.
+
+    Stale = the checker isn't running, so the state is unknown; don't alarm on it.
+    """
+    global _vpn_down_since
     v = ctx.get("vpn") or {}
-    if not v.get("available") or v.get("stale"):
+    usable = v.get("available") and not v.get("stale")
+    down_running = usable and v.get("status") == "down" and v.get("container_running")
+    if not down_running:
+        # Any other reading — protected, stopped, stale, missing — breaks the
+        # streak. Two blips either side of a gap must not add up to an outage.
+        _vpn_down_since = None
+    if not usable:
         return None, ""
     if v.get("status") == "leak":
         return "leak", "VPN LEAK: protected traffic is exiting via your home IP, not the VPN"
+    if down_running:
+        now = ctx.get("now") or time.time()
+        if _vpn_down_since is None:
+            _vpn_down_since = now
+        if now - _vpn_down_since < settings.alert_vpn_down_minutes * 60:
+            return None, ""
+        return "tunnel", (
+            f"VPN tunnel is down but {v.get('container') or 'the container'} is still "
+            f"running (for over {settings.alert_vpn_down_minutes} min) — no traffic is "
+            "escaping, but nothing is getting out either (no traffic is passing)"
+        )
     return None, ""
 
 
@@ -237,6 +314,7 @@ def _check_printer_offline(ctx):
     return None, ""
 
 
+
 RULES = [
     Rule("backup", "Config backup", "floppy_disk", "high", True, _check_backup, path="/backups"),
     Rule("raid", "RAID array", "rotating_light", "urgent", True, _check_raid, path="/storage"),
@@ -248,7 +326,10 @@ RULES = [
     Rule("printer_paused", "Print paused", "printer", "high", True, _check_printer_paused, path="/printer"),
     Rule("printer_hms", "Printer fault (HMS)", "warning", "high", True, _check_printer_hms, path="/printer"),
     Rule("printer_offline", "Printer telemetry", "satellite", "urgent", True, _check_printer_offline, path="/printer"),
-    Rule("vpn", "VPN egress", "lock", "urgent", True, _check_vpn, path="/vpn"),
+    # A leak is the security case and stays urgent; a dead tunnel (already held
+    # for alert_vpn_down_minutes) is an outage but wakes nobody up.
+    Rule("vpn", "VPN egress", "lock", "urgent", True, _check_vpn, path="/vpn",
+         key_priority={"tunnel": "high"}),
     Rule("speedtest", "Internet speed", "snail", "high", True, _check_speedtest, path="/speedtest"),
     Rule("db", "Database size", "card_index_dividers", "high", True, _check_db, path="/storage"),
 ]
@@ -275,6 +356,10 @@ class AlertManager:
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
         self._status: dict[str, dict] = {}
+        # Last failure message per rule, so a rule that raises every tick (the
+        # printer rule holding through a day-long power-off) logs once, not 720
+        # times a day.
+        self._rule_errors: dict[str, str] = {}
 
     def start(self) -> None:
         if not settings.alerts_enabled:
@@ -360,8 +445,16 @@ class AlertManager:
             try:
                 key, message = rule.check(ctx)
             except Exception as exc:
-                log.info("alerting: rule %s failed: %s", rule.id, exc)
+                # The rule is holding (or broke). Keep its stored key untouched
+                # AND carry its last row forward, so the Alerts page doesn't lose
+                # the entry for as long as the hold lasts.
+                if self._rule_errors.get(rule.id) != str(exc):
+                    log.info("alerting: rule %s holding: %s", rule.id, exc)
+                    self._rule_errors[rule.id] = str(exc)
+                if rule.id in self._status:
+                    statuses[rule.id] = self._status[rule.id]
                 continue
+            self._rule_errors.pop(rule.id, None)
 
             prev = db.get_alert_state(rule.id)
             prev_key = prev["alert_key"] if prev else None
@@ -385,7 +478,7 @@ class AlertManager:
                 # replay of whatever it's doing right now.
                 if rule.id not in muted:
                     if key is not None:
-                        self._fire(rule, message, now)
+                        self._fire(rule, message, now, key)
                     elif rule.notify_on_clear and prev_key is not None:
                         self._clear(rule, now)
                 db.set_alert_state(rule.id, key, now)
@@ -393,8 +486,9 @@ class AlertManager:
         with self._lock:
             self._status = statuses
 
-    def _fire(self, rule: Rule, message: str, now: float) -> None:
-        notify.notify(message, title=f"Home HQ - {rule.title}", priority=rule.priority,
+    def _fire(self, rule: Rule, message: str, now: float, key: str | None = None) -> None:
+        priority = rule.key_priority.get(key, rule.priority) if key else rule.priority
+        notify.notify(message, title=f"Home HQ - {rule.title}", priority=priority,
                       tags=[rule.emoji], click=_click_url(rule))
         db.add_alert_log(now, rule.id, "fire", message)
         log.info("alert FIRED [%s]: %s", rule.id, message)

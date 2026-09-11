@@ -24,6 +24,16 @@ _baseline_ai='claude|anthropic|co-authored-by'
 
 # Host identifiers: RFC1918 LAN ranges, the Tailscale CGNAT range (100.64-127.x),
 # any tailnet domain, and absolute home paths on Linux or macOS.
+#
+# 10.0.0.0/8 is RFC1918 too and is DELIBERATELY NOT LISTED. Reviewed 2026-08-13:
+# no machine on this fleet is on a 10.x network (the LAN is 192.168.1.0/24 and
+# the tailnet is 100.64/10, both covered above), so a real 10.x address cannot
+# leak from here — while `10.0.0.5` is the established fake-host PLACEHOLDER in
+# .env.example and the printer tests across two repos. Adding the range would
+# block commits on a dozen intentional placeholders and reduce no real risk.
+# **If a 10.x network ever joins the fleet, add it here and migrate those
+# placeholders first** (to `<host>`, or RFC 5737's 192.0.2.0/24, which is
+# reserved for documentation and matches nothing above).
 _baseline_host='192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.'
 _baseline_host="$_baseline_host"'|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.'
 _baseline_host="$_baseline_host"'|\.ts\.net|/home/[a-z_][a-z0-9_-]*/|/Users/[a-z_][a-z0-9_-]*/'

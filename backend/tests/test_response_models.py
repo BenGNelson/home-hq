@@ -21,6 +21,7 @@ def _isolate_plex(monkeypatch):
     server that happens to be configured in the ambient .env."""
     monkeypatch.setattr(settings, "plex_token", "")
 
+
 # Every endpoint that got a typed model with exclude_none. In the test sandbox
 # the real host sources (/host/proc, /smart/*.json, the RAID mount) are absent,
 # so each degrades to a minimal available:false body — which still has to

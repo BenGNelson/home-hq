@@ -4,7 +4,7 @@ import { useCounterRate } from '../../lib/useRates.js'
 import { Row, Bar, Spinner, OpenLink, StatusDot } from '../../components/ui.jsx'
 import { Graph } from '../../components/Graph.jsx'
 import { formatBytes, formatRate, formatUptime } from '../../lib/format.js'
-import { containerUrl } from '../../lib/hostLocal.js'
+import { containerUrl, containerLabel, containerImage } from '../../lib/hostLocal.js'
 
 // The right-hand panel: live operational detail for the selected container.
 // Polls so CPU/memory stay current. Shows only non-sensitive facts.
@@ -28,13 +28,20 @@ function ContainerDetail({ name }) {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <StatusDot ok={data.status === 'running'} />
-        <h3 className="text-base font-semibold">{data.name}</h3>
+        <h3 className="text-base font-semibold">{containerLabel(data.name)}</h3>
         {loading && <span className="text-xs text-slate-500">…</span>}
         <OpenLink href={link} className="ml-auto" />
       </div>
 
       <div className="space-y-2 text-sm">
-        <Row label="Image" value={<span className="truncate">{data.image}</span>} />
+        {/* Omitted entirely when the notes hide it — an image string names the
+            software as plainly as the container name does. */}
+        {containerImage(data.name, data.image) && (
+          <Row
+            label="Image"
+            value={<span className="truncate">{containerImage(data.name, data.image)}</span>}
+          />
+        )}
         <Row label="State" value={data.state ?? data.status} />
         {data.health && (
           <Row label="Health" value={<span className={healthColor}>{data.health}</span>} />
@@ -216,7 +223,7 @@ export default function Containers() {
                 >
                   <span className="flex items-center gap-2 truncate">
                     <StatusDot ok={c.status === 'running'} />
-                    <span className="truncate text-slate-200">{c.name}</span>
+                    <span className="truncate text-slate-200">{containerLabel(c.name)}</span>
                     {containerUrl(c.name) && (
                       <span className="shrink-0 text-xs text-slate-500" title="has a web UI">
                         ↗

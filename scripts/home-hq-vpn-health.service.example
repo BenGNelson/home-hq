@@ -10,7 +10,8 @@ Wants=docker.service
 [Service]
 Type=oneshot
 ExecStart=/path/to/home-hq/scripts/vpn-health.py
-# Override any of these if your setup differs:
+# Override any of these if your setup differs — here, or in a gitignored
+# scripts/vpn-health.env next to the script (KEY=VALUE lines; this file wins):
 # Environment=VPN_CONTAINER=vpn-gateway
 # Environment=VPN_IP_CHECK_URL=https://ipinfo.io/json
 # Environment=VPN_JSON=/var/lib/home-hq/vpn.json

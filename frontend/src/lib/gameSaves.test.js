@@ -86,7 +86,7 @@ describe('hashSave', () => {
 
 describe('pickNewest', () => {
   it('takes the SERVER copy when it is newer', () => {
-    // The two-device bug. Seeding preferred the local cache unconditionally, so
+    // The two-device bug. Priming preferred the local cache unconditionally, so
     // playing on the iPad and then picking up the phone loaded the phone's older
     // save — and then overwrote the server with it, destroying the evidence.
     const local = { bytes: bytes(1), savedAt: 1000 }

@@ -7,6 +7,7 @@ endpoints (disk, containers, plex) we just include their routers here.
 """
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -57,6 +58,13 @@ from app.routers import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Root logger -> stdout at INFO, so the subsystems' own lines (alert fired /
+    # cleared, printer connected / disconnected, a collector failing) reach
+    # `docker logs`. Uvicorn only configures its own loggers; without this the
+    # root logger sits at WARNING and every log.info in the app is dropped —
+    # which made a week of phantom alerts undiagnosable from the logs.
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     # Create the SQLite cache tables if they don't exist yet (used by the
     # Plex library browser). Idempotent. Runs once on startup.
     init_db()

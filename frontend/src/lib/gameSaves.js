@@ -48,7 +48,7 @@ export function hashSave(bytes) {
 
 // Which copy wins: this device's, or the server's?
 //
-// NEWEST WINS. Seeding used to prefer the local cache unconditionally, which meant a
+// NEWEST WINS. Priming used to prefer the local cache unconditionally, which meant a
 // device with a stale copy ignored a newer save on the server — then played on and
 // overwrote the server with the old one. Play on the iPad, pick up the phone, and the
 // phone silently rewound you AND destroyed the evidence.

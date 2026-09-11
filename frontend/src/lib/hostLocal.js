@@ -8,6 +8,31 @@ const host = Object.values(mods)[0] ?? {}
 // hideImage, purpose, url }. See host.local.jsx for the shape.
 export const containerNotes = host.containerNotes ?? {}
 
+// Resolve a container's DISPLAY label. The gitignored notes may relabel a
+// container for the UI — screenshots of this app end up in a public README, and
+// not every container's real name belongs there. Every lookup (selection, links,
+// notes) still keys off the REAL Docker name; only the rendered text changes.
+// Pure (raw notes + name) so it's unit-testable.
+export function labelFor(notes, name) {
+  return notes?.[name]?.displayName ?? name
+}
+export function containerLabel(name) {
+  return labelFor(containerNotes, name)
+}
+
+// Resolve a container's DISPLAY image string. `hideImage` suppresses it
+// entirely — an image string names the software as plainly as the container
+// does — and `displayImage` substitutes a generic one. Returns null when
+// hidden, so callers omit the row rather than render an empty one.
+export function imageFor(notes, name, image) {
+  const note = notes?.[name]
+  if (note?.hideImage) return null
+  return note?.displayImage ?? image
+}
+export function containerImage(name, image) {
+  return imageFor(containerNotes, name, image)
+}
+
 // Build a container's web-UI link from an opt-in `url` spec. Pure (no globals)
 // so it's unit-testable. `spec` may be:
 //   • a string — used verbatim (an absolute URL)

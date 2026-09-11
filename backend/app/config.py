@@ -130,7 +130,7 @@ class Settings(BaseSettings):
     # Container log viewer: a comma-separated list of container names whose logs
     # the /api/containers/{name}/logs endpoint refuses to return. Logs can carry
     # secrets/activity an app prints to stdout, so list the sensitive ones here
-    # (e.g. a VPN gateway or a download client). Empty = every container's logs are readable
+    # (e.g. a VPN gateway or an auth proxy). Empty = every container's logs are readable
     # (still only over the LAN/tailnet — never the public internet).
     container_logs_exclude: str = ""
 
@@ -194,6 +194,10 @@ class Settings(BaseSettings):
     alert_disk_percent: int = 95  # warn when a filesystem is at/above this % full
     alert_backup_max_age_days: int = 8  # warn if no fresh backup in this many days
     alert_db_max_mb: int = 200  # warn if the SQLite DB grows past this many MB
+    # A VPN "down" must persist this long before it alerts. One sample is not a
+    # verdict: the collector's IP lookup fails for reasons that are not the
+    # tunnel (its resolver resetting), and those clear on the next sample.
+    alert_vpn_down_minutes: int = 15
     # Dead-man's switch: the engine pings this URL every tick. Point it at an
     # external check (e.g. Healthchecks.io) that alerts YOU if the pings stop —
     # catches the box/backend/internet going dark, which it can't self-report.

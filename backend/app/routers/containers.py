@@ -19,8 +19,8 @@ Logs capture an app's raw stdout/stderr, so they CAN contain whatever it prints
 informed reversal of the original "never expose logs" stance, sound only because
 the whole UI is reachable only over the LAN/tailnet (UFW drops public traffic;
 no Tailscale funnel) and the tailnet is single-user. As a guard, CONTAINER_LOGS_
-EXCLUDE lists containers whose logs are withheld (e.g. a VPN gateway or a
-download client — the most sensitive, and the ones you'd debug over SSH instead).
+EXCLUDE lists containers whose logs are withheld (e.g. a VPN gateway or an
+auth proxy — the most sensitive, and the ones you'd debug over SSH instead).
 
 This router only READS, and the proxy enforces that at the API level.
 """
@@ -290,7 +290,7 @@ def get_container_logs(name: str, tail: int = _LOGS_TAIL_DEFAULT):
 
     Read-only and tail-limited. Containers named in CONTAINER_LOGS_EXCLUDE are
     withheld (see the module docstring) — sensitive ones like a VPN gateway or
-    download client. Reachable only over the LAN/tailnet, never the public internet.
+    an auth proxy. Reachable only over the LAN/tailnet, never the public internet.
     """
     tail = _clamp_tail(tail)
 

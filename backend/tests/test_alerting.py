@@ -26,6 +26,15 @@ from app.config import settings
 NOW = 1_000_000.0
 
 
+@pytest.fixture(autouse=True)
+def _fresh_vpn_debounce():
+    # The tunnel rule's hold-timer is module state; never let one test's "down"
+    # streak leak into the next.
+    alerting._vpn_down_since = None
+    yield
+    alerting._vpn_down_since = None
+
+
 # --- rule checks ------------------------------------------------------------
 
 
@@ -45,14 +54,88 @@ def test_backup_ignored_when_unconfigured():
     assert _check_backup({"now": NOW, "backups": {"configured": False}}) == (None, "")
 
 
-def test_vpn_fires_only_on_a_real_leak():
-    # A leak (protected traffic exiting via the home IP) is the one thing to alert.
+def test_vpn_fires_on_a_real_leak():
+    # A leak (protected traffic exiting via the home IP) is the security case.
     key, msg = _check_vpn({"vpn": {"available": True, "status": "leak"}})
     assert key == "leak"
     assert "LEAK" in msg
-    # Protected / down are benign (down = kill-switch dropped traffic, not a leak).
+    # A healthy tunnel is quiet.
     assert _check_vpn({"vpn": {"available": True, "status": "protected"}}) == (None, "")
-    assert _check_vpn({"vpn": {"available": True, "status": "down"}}) == (None, "")
+
+
+def _down(now, **extra):
+    return {"now": now, "vpn": {"available": True, "status": "down",
+                                "container_running": True, "container": "vpn-gw", **extra}}
+
+
+def test_vpn_fires_when_tunnel_dies_under_a_running_container():
+    # The Aug 2026 outage: container up, tunnel passing nothing, traffic
+    # silently stopped for ~50h with no alert. Running + no egress IP fires —
+    # once it has persisted for alert_vpn_down_minutes (three 5-min samples).
+    hold = settings.alert_vpn_down_minutes * 60
+    assert _check_vpn(_down(NOW)) == (None, "")               # first sighting: wait
+    assert _check_vpn(_down(NOW + hold - 1)) == (None, "")    # still within the hold
+    key, msg = _check_vpn(_down(NOW + hold))
+    assert key == "tunnel"
+    assert "vpn-gw" in msg
+
+
+def test_vpn_one_bad_sample_does_not_fire():
+    # Sept 2026: the collector's resolver reset made every IP echo time out, the
+    # sample read "down", and the next one read fine. That is not an outage.
+    assert _check_vpn(_down(NOW)) == (None, "")
+    assert _check_vpn({"now": NOW + 300, "vpn": {"available": True, "status": "protected",
+                                                 "container_running": True}}) == (None, "")
+    # A recovery resets the clock: a later blip starts a fresh hold.
+    assert _check_vpn(_down(NOW + 600)) == (None, "")
+    assert _check_vpn(_down(NOW + 600 + settings.alert_vpn_down_minutes * 60 - 1)) == (None, "")
+    # So does a gap with no usable reading (collector stopped, file stale): a
+    # blip, 40 min of silence, then another blip is two blips, not an outage.
+    hold = settings.alert_vpn_down_minutes * 60
+    assert _check_vpn({"now": NOW + 4000, "vpn": {"available": True, "status": "protected",
+                                                  "container_running": True}}) == (None, "")
+    assert _check_vpn(_down(NOW + 5000)) == (None, "")
+    assert _check_vpn({"now": NOW + 5300, "vpn": {"available": True, "status": "down",
+                                                  "container_running": True, "stale": True}}) == (None, "")
+    assert _check_vpn(_down(NOW + 5000 + 2400)) == (None, "")
+    assert _check_vpn(_down(NOW + 5000 + 2400 + hold)) [0] == "tunnel"
+
+
+def test_vpn_tunnel_alert_is_high_not_urgent(monkeypatch):
+    # Only the leak wakes anyone up; a held-for-15-min dead tunnel is high.
+    from app.alerting import RULES
+    sent = []
+    monkeypatch.setattr(notify, "notify", lambda *a, **k: (sent.append(k), True)[1])
+    rule = next(r for r in RULES if r.id == "vpn")
+    mgr = AlertManager(60)
+    mgr._fire(rule, "m", NOW, "tunnel")
+    mgr._fire(rule, "m", NOW, "leak")
+    mgr._fire(rule, "m", NOW)
+    assert [k["priority"] for k in sent] == ["high", "urgent", "urgent"]
+
+
+def test_vpn_quiet_when_container_is_intentionally_stopped():
+    # A host monitor may stop the container on purpose; the kill-switch means
+    # nothing escapes. Alarming here would just spam.
+    assert _check_vpn(
+        {"vpn": {"available": True, "status": "down", "container_running": False}}
+    ) == (None, "")
+
+
+def test_vpn_leak_outranks_a_down_tunnel():
+    # Both conditions true -> report the security one.
+    key, _ = _check_vpn(
+        {"vpn": {"available": True, "status": "leak", "container_running": True}}
+    )
+    assert key == "leak"
+
+
+def test_vpn_clears_when_the_tunnel_comes_back():
+    # None key = resolved, which the engine turns into a "clear" notification.
+    assert _check_vpn(
+        {"vpn": {"available": True, "status": "protected", "container_running": True,
+                 "forwarded_port": 50166}}
+    ) == (None, "")
 
 
 def test_vpn_silent_when_unavailable_or_stale():
@@ -60,6 +143,11 @@ def test_vpn_silent_when_unavailable_or_stale():
     assert _check_vpn({"vpn": {"available": True, "status": "leak", "stale": True}}) == (None, "")
     assert _check_vpn({"vpn": {"available": False, "status": "leak"}}) == (None, "")
     assert _check_vpn({}) == (None, "")
+    # ...and a stale down-with-running-container is unknown, not a firing tunnel.
+    assert _check_vpn(
+        {"vpn": {"available": True, "status": "down", "container_running": True,
+                 "stale": True}}
+    ) == (None, "")
 
 
 def test_raid_degraded_vs_healthy():
@@ -150,9 +238,18 @@ def test_printer_done_failed_idle():
     # so the UI clears once it powers off / starts the next job.
     assert _check_printer(ctx("RUNNING", row)) == (None, "")
     assert _check_printer(ctx("IDLE", row)) == (None, "")
-    assert _check_printer({"last_print": row}) == (None, "")  # no snapshot at all
+    # No live snapshot this tick (MQTT blip) -> raise so the engine HOLDS the
+    # stored key; reading it as cleared re-fired the same old print on return.
+    with pytest.raises(RuntimeError):
+        _check_printer({"last_print": row})
     # Sitting in FINISH but nothing recorded yet -> nothing to announce.
     assert _check_printer(ctx("FINISH", None)) == (None, "")
+    # A completion older than a day is never announced, whatever the printer
+    # says now — and it needs no snapshot to say so.
+    old = {**row, "ended_at": NOW - 2 * 86400}
+    assert _check_printer({**ctx("FINISH", old), "now": NOW}) == (None, "")
+    assert _check_printer({"last_print": old, "now": NOW}) == (None, "")
+    assert _check_printer({**ctx("FINISH", {**row, "ended_at": NOW - 3600}), "now": NOW})[0] == "done:7"
     # Sitting in FINISH but history unreadable this tick -> raise so the engine
     # skips (holds state) instead of clearing.
     with pytest.raises(RuntimeError):
@@ -245,6 +342,33 @@ def test_printer_alert_fires_once_per_recorded_print(monkeypatch):
     mgr.evaluate()
     assert len(sent) == 1
     assert any(r["id"] == "printer" and r["firing"] is False for r in mgr.status())
+
+
+def test_printer_alert_holds_through_a_telemetry_blip(monkeypatch):
+    # Sept 2026: "Print finished: Soldering Helper.stl" pushed twice, five weeks
+    # after the print. The MQTT snapshot dropped for a tick, the rule read that
+    # as cleared, and the same FINISH + same history row re-fired on return.
+    sent = []
+    monkeypatch.setattr(notify, "notify", lambda *a, **k: (sent.append((a, k)), True)[1])
+    mgr = AlertManager(60)
+    row = {"id": 10, "file": "Soldering Helper.stl", "result": "success", "ended_at": NOW - 3600}
+    live = {"printer": {"available": True, "printer": {"state": "FINISH"}}}
+    gone = {"printer": {"available": False, "reason": "offline", "last_state": "FINISH"}}
+
+    monkeypatch.setattr(mgr, "build_context", lambda: {"now": NOW, **live, "last_print": row})
+    mgr.evaluate()  # prime silently
+    monkeypatch.setattr(mgr, "build_context", lambda: {"now": NOW + 120, **gone, "last_print": row})
+    mgr.evaluate()  # blip: rule skipped, key held — and the Alerts row stays
+    assert any(r["id"] == "printer" for r in mgr.status())
+    monkeypatch.setattr(mgr, "build_context", lambda: {"now": NOW + 240, **live, "last_print": row})
+    mgr.evaluate()  # back: same key -> nothing
+    assert sent == []
+    # Days later the printer is power-cycled and reports FINISH for the old job:
+    # the completion is past the window, so it clears silently and stays quiet.
+    monkeypatch.setattr(mgr, "build_context", lambda: {"now": NOW + 3 * 86400, **live, "last_print": row})
+    mgr.evaluate()
+    mgr.evaluate()
+    assert sent == []
 
 
 def test_printer_alert_holds_state_when_history_unreadable(monkeypatch):
@@ -376,3 +500,14 @@ def test_mute_endpoint_toggles_and_validates(client):
     assert client.post("/api/alerts/disk/mute", json={"muted": False}).json()["muted"] is False
     # An unknown rule id is rejected.
     assert client.post("/api/alerts/nope/mute", json={"muted": True}).status_code == 404
+
+
+def test_container_created_and_restarting_count_as_down():
+    # `created` = compose gave up on the dependency gate and the container never
+    # ran (no restart policy applies); `restarting` = crash loop.
+    ctx = {"containers": {"available": True, "containers": [
+        {"name": "vpn-gateway", "status": "running"},
+        {"name": "worker", "status": "created"},
+        {"name": "keeper", "status": "restarting"}]}}
+    key, msg = _check_containers(ctx)
+    assert key == "down:keeper,worker" and "worker" in msg

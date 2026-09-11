@@ -1,7 +1,7 @@
 import { useApi } from '../../../lib/useApi.js'
 import { WidgetSkeleton, StatusDot } from '../../../components/ui.jsx'
 import { formatUptime } from '../../../lib/format.js'
-import { containerUrl } from '../../../lib/hostLocal.js'
+import { containerUrl, containerLabel } from '../../../lib/hostLocal.js'
 import Widget from './Widget.jsx'
 
 export default function ContainersWidget() {
@@ -31,10 +31,10 @@ export default function ContainersWidget() {
                         rel="noreferrer"
                         className="relative z-20 truncate text-emerald-400 hover:underline"
                       >
-                        {c.name} ↗
+                        {containerLabel(c.name)} ↗
                       </a>
                     ) : (
-                      <span className="truncate text-slate-200">{c.name}</span>
+                      <span className="truncate text-slate-200">{containerLabel(c.name)}</span>
                     )}
                   </span>
                   <span className="ml-2 shrink-0 text-xs text-slate-400">

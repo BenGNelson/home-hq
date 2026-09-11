@@ -16,13 +16,18 @@ smart-health.py and the drive watchdog. The backend computes the leak verdict
 from these facts (so that logic stays unit-tested); we just gather them.
 
 Nothing here is host-specific or secret, so it's safe to commit. Config (all
-optional, with sane defaults) comes from the environment:
+optional, with sane defaults) comes from the environment — or from a gitignored
+`vpn-health.env` next to this script (`KEY=VALUE` lines; the environment wins),
+so the real container name stays out of both the repo and the unit file:
 
   VPN_CONTAINER            container whose egress to check   (default: vpn-gateway)
   VPN_IP_CHECK_URL         JSON IP-echo service              (default: ipinfo.io)
+  VPN_IP_TRACE_URLS        comma-sep IP-LITERAL trace endpoints tried next —
+                           they need no DNS, so a resolver hiccup inside the
+                           container can't read as "tunnel down"
   VPN_IP_FALLBACK_URLS     comma-sep plain-text IP echoes used when the JSON
                            service fails (e.g. rate-limits a shared VPN exit)
-  VPN_FORWARDED_PORT_FILE  in-container forwarded-port file  (vpn-gateway default)
+  VPN_FORWARDED_PORT_FILE  in-container forwarded-port file  (set to your gateway's path)
   VPN_JSON                 output path  (default: /var/lib/home-hq/vpn.json)
 """
 
@@ -31,6 +36,25 @@ import os
 import subprocess
 import time
 import urllib.request
+
+
+def _load_sibling_env():
+    """Read `vpn-health.env` beside this script, if present, as KEY=VALUE lines.
+    Values already set in the environment (e.g. by the systemd unit) win."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vpn-health.env")
+    try:
+        with open(path) as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, val = line.split("=", 1)
+                os.environ.setdefault(key.strip(), val.strip().strip('"').strip("'"))
+    except OSError:
+        pass
+
+
+_load_sibling_env()
 
 CONTAINER = os.environ.get("VPN_CONTAINER", "vpn-gateway")
 IP_CHECK_URL = os.environ.get("VPN_IP_CHECK_URL", "https://ipinfo.io/json")
@@ -41,6 +65,17 @@ IP_CHECK_URL = os.environ.get("VPN_IP_CHECK_URL", "https://ipinfo.io/json")
 _DEFAULT_FALLBACKS = "https://api.ipify.org,https://ifconfig.me/ip,https://icanhazip.com"
 FALLBACK_IP_URLS = [
     u.strip() for u in os.environ.get("VPN_IP_FALLBACK_URLS", _DEFAULT_FALLBACKS).split(",")
+    if u.strip()
+]
+# Addressed by IP, not name, so they answer even when the container's resolver
+# is wedged. Every name-based echo above goes through the VPN container's own
+# resolver, and when its upstream resets (it did about once a day
+# in Sept 2026) all of them time out together — which used to be written out as
+# "no exit IP" and alerted as a dead tunnel while the tunnel was fine. A
+# Cloudflare trace returns `ip=<client ip>` as one line of key=value text.
+_DEFAULT_TRACES = "http://1.1.1.1/cdn-cgi/trace,http://1.0.0.1/cdn-cgi/trace"
+TRACE_IP_URLS = [
+    u.strip() for u in os.environ.get("VPN_IP_TRACE_URLS", _DEFAULT_TRACES).split(",")
     if u.strip()
 ]
 PORT_FILE = os.environ.get("VPN_FORWARDED_PORT_FILE", "/tmp/vpn-gateway/forwarded_port")
@@ -63,6 +98,14 @@ def _shape(raw):
 def _looks_like_ip(s):
     s = (s or "").strip()
     return bool(s) and (s.count(".") == 3 or ":" in s) and " " not in s and len(s) <= 45
+
+
+def _trace_ip(body):
+    """The `ip=` line of a Cloudflare-style /cdn-cgi/trace body, or ''."""
+    for line in (body or "").splitlines():
+        if line.startswith("ip="):
+            return line[3:].strip()
+    return ""
 
 
 def _host_fetch(url):
@@ -90,9 +133,11 @@ def _container_fetch(url):
 
 def lookup(fetch):
     """Resolve a public IP (with geo when available) using `fetch` to make the
-    request. Tries the JSON service first for full geo/org; on failure falls back
-    to the plain-text IP echoes so we still capture the exit IP — which is what
-    the leak verdict compares. Returns a (possibly IP-only) dict, or {}."""
+    request. Tries the JSON service first for full geo/org; then the IP-literal
+    trace endpoints (no DNS involved, so they answer whenever the tunnel itself
+    is passing packets); then the plain-text IP echoes. Any of them captures the
+    exit IP — which is what the leak verdict compares. Returns a (possibly
+    IP-only) dict, or {} only when nothing at all got out."""
     body = fetch(IP_CHECK_URL)
     if body:
         try:
@@ -101,6 +146,10 @@ def lookup(fetch):
                 return shaped
         except (ValueError, TypeError):
             pass  # not JSON (e.g. an error page) — fall through to plain echoes
+    for url in TRACE_IP_URLS:
+        ip = _trace_ip(fetch(url))
+        if _looks_like_ip(ip):
+            return {"ip": ip}
     for url in FALLBACK_IP_URLS:
         ip = fetch(url)
         if _looks_like_ip(ip):

@@ -1,10 +1,17 @@
 # --- Secrets / host-specific config ---
 # .env holds REAL values (tokens, paths). Never commit it.
 .env
+# ...nor any hand-made copy of it. A `.env.bak-<date>` taken before editing is
+# NOT covered by the line above and lands in `git status` as an untracked file
+# full of secrets, one `git add -A` away from being committed.
+.env.bak*
+.env.local
 # Per-host backup path list (host-specific paths). Use backup.includes.example.
 scripts/backup.includes
 # Per-host "How it works" notes (container descriptions). Generic UI is committed.
 frontend/src/modules/guide/host.local.jsx
+# Per-host settings for the VPN health collector (the real container name).
+scripts/vpn-health.env
 # Real forbidden-pattern list for the pre-commit privacy hook (this machine's
 # hostname / IPs / paths). The hook machinery + a generic .example are committed.
 .githooks/*.local
