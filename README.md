@@ -186,7 +186,7 @@ every value with placeholders only. Nothing secret is ever committed.
 | `SERVER_NAME` | Display name for this host |
 | `RAID_MOUNT` | Storage mount the disk/backup widgets report |
 | `PLEX_URL` / `PLEX_TOKEN` | Plex address + token (optional; degrades if unset) |
-| `GAMES_ROM_DIR` | Folder of game ROMs for the Library's Games section, under `RAID_MOUNT` (optional; section hides if unset). Install the engine once with `scripts/fetch-emulatorjs.sh`. |
+| `GAMES_ROM_DIR` | Folder of game ROMs for the Library's Games section, under `RAID_MOUNT` (optional; section hides if unset). |
 | `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` | Twitch app credentials that unlock **rich game pages** (screenshots/summary/genres/rating from IGDB). Register a free app at [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps) (OAuth redirect `http://localhost`, category "Application Integration"). Optional — unset = every game shows its basic page. A background matcher looks each ROM up once and caches it (art in `IGDB_ART_DIR`). |
 | `PAPERS_DIR` / `BOOKS_DIR` / `TEXTBOOKS_DIR` / `COMICS_DIR` / `AUDIOBOOKS_DIR` | Folders for the Library's content sections under `RAID_MOUNT` (optional; each section hides if unset). `PAPERS_DIR` = PDFs (magazines/papers); `BOOKS_DIR` = ebooks (EPUB/MOBI/AZW3 + PDFs); `TEXTBOOKS_DIR` = reference/informational books (same formats, organized into sub-category folders); `COMICS_DIR` = comics (CBZ/CBR/CB7); `AUDIOBOOKS_DIR` = audiobooks (folders of audio files). |
 | `API_PORT` | Host port the backend listens on |

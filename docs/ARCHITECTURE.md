@@ -604,10 +604,10 @@ also carries **its own CSP** (nginx, `= /emulator.html`) bounding `script-src` t
 `'self'` + that one CDN — looser than the app shell only where EmulatorJS needs
 it (WASM/eval, blob workers, the inline boot script).
 
-**The engine is self-hosted + pinned.** `scripts/fetch-emulatorjs.sh` downloads a
-pinned EmulatorJS release (v4.2.3) into `frontend/public/emulatorjs/` (gitignored,
-~300 MB of third-party WASM — reproducible like `node_modules`, not committed), so
-play time makes no third-party calls. The build excludes it from the PWA precache
+**The engine is self-hosted + pinned.** A pinned EmulatorJS release (v4.2.3) lives in
+`frontend/public/emulatorjs/` (gitignored, ~300 MB of third-party WASM — reproducible
+like `node_modules`, not committed; the fetch script that installs it moved to Frog
+Game Station with the games browser), so play time makes no third-party calls. The build excludes it from the PWA precache
 (`globIgnores`) and nginx caches it hard. A one-line switch (`EMULATORJS_DATA` in
 `lib/library.js`) points the engine at the pinned CDN instead, for a zero-download
 setup.

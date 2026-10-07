@@ -46,9 +46,9 @@ export function continueAccentKey(item) {
 }
 
 // Where the EmulatorJS engine + cores load from. Default: self-hosted at
-// /emulatorjs/ (populate with scripts/fetch-emulatorjs.sh — a pinned, gitignored
-// bundle, so nothing third-party is committed and play time makes no external
-// calls). To use the official pinned CDN instead, set this to
+// /emulatorjs/ (a pinned, gitignored bundle installed by Frog Game Station's
+// fetch script, so nothing third-party is committed and play time makes no
+// external calls). To use the official pinned CDN instead, set this to
 // 'https://cdn.emulatorjs.org/4.2.3/data/'. emulator.html allowlists both forms.
 export const EMULATORJS_DATA = '/emulatorjs/'
 

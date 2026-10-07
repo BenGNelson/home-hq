@@ -151,10 +151,10 @@
           s.src = data + 'loader.js';
           s.onerror = function () {
             document.body.innerHTML =
-              '<p id="msg">Emulator engine not installed. Run ' +
-              '<code>scripts/fetch-emulatorjs.sh</code> to download EmulatorJS into ' +
-              '<code>frontend/public/emulatorjs/</code>, then rebuild the frontend — ' +
-              'or point the player at the pinned CDN (see the script header).</p>';
+              '<p id="msg">Emulator engine not installed. Games open in Frog Game ' +
+              'Station now; to use this player, install a pinned EmulatorJS release ' +
+              'into <code>frontend/public/emulatorjs/</code> and rebuild the frontend, ' +
+              'or point <code>EMULATORJS_DATA</code> at the pinned CDN.</p>';
             // Settle the contract: there will never be a game. Without this the
             // parent waits on whenStarted forever and shows a spinner over the
             // top of the message above.

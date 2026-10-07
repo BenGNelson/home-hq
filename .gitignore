@@ -25,8 +25,8 @@ venv/
 # --- Node / frontend ---
 node_modules/
 dist/
-# Self-hosted EmulatorJS engine/cores (~300 MB of third-party WASM). Pinned and
-# fetched by scripts/fetch-emulatorjs.sh — never committed.
+# Self-hosted EmulatorJS engine/cores (~300 MB of third-party WASM) — never
+# committed. Frog Game Station carries the fetch script that installs them.
 frontend/public/emulatorjs/
 
 # Visual-regression screenshots — captured from the LIVE app, so they contain
