@@ -4,13 +4,15 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
 import { OnlineProvider } from './lib/online.jsx'
 import OutboxFlusher from './components/OutboxFlusher.jsx'
-import { requestPersist } from './lib/offlineStore.js'
+import { requestPersist, purgeRetiredDownloads } from './lib/offlineStore.js'
 import './index.css'
 
 // Best-effort, once at startup: ask the browser to keep our offline downloads
 // from being evicted under storage pressure (installed PWAs usually get this
 // without a prompt). Fire-and-forget — failure is harmless.
 requestPersist()
+// Drop what the removed in-app game player left behind on an old device (no-op otherwise).
+purgeRetiredDownloads()
 
 // Entry point: mount React into #root, wrapped in the router so modules can
 // live at their own URLs, and in OnlineProvider so the app knows when the

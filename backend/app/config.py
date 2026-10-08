@@ -75,11 +75,6 @@ class Settings(BaseSettings):
     # SQLite DB). The backend matches each ROM to libretro-thumbnails art by its
     # No-Intro name, fetches it once, and serves it locally thereafter.
     covers_dir: str = "/data/covers"
-    # Where game save states are stored (state blob + screenshot per slot). On
-    # the same writable volume as the DB, which lives under the host's / — so
-    # saves roam across devices AND ride the off-site restic backup (the RAID is
-    # NOT in that backup). Capped per upload so a bad client can't fill the disk.
-    games_saves_dir: str = "/data/saves"
     # --- IGDB (rich game metadata for the Games / Frog game screen) ---
     # IGDB is Twitch's games database; the API authenticates with Twitch OAuth.
     # Register a free app at https://dev.twitch.tv/console/apps to get a Client

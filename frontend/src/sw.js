@@ -43,6 +43,9 @@ self.addEventListener('activate', (event) => {
       const wanted = new Set(shellUrls().map((u) => new URL(u, self.location.href).href))
       const have = await cache.keys()
       await Promise.all(have.map((req) => (wanted.has(req.url) ? null : cache.delete(req))))
+      // The in-app game player (removed 2026-10) kept its saves in a cache of its own;
+      // retire it so an old device stops carrying bytes nothing reads.
+      await caches.delete('hq-game-saves').catch(() => {})
       await self.clients.claim()
     })(),
   )
@@ -97,28 +100,9 @@ async function rangeResponse(res, rangeHeader) {
 async function handle(request) {
   const offline = await caches.open(OFFLINE_CACHE)
 
-  // The emulator host page is requested with per-game query params (?core=&rom=)
-  // but is the same file (downloaded with a game; matched by bare path). Serve it
-  // NETWORK-FIRST so online play always runs the latest engine page — and refresh
-  // the cached copy on the way through (when a game is downloaded), so OFFLINE
-  // play picks up engine-page changes after a single online load, with no
-  // re-download. Offline falls back to the cached page; not cached + offline =
-  // fail (you can't reach a non-downloaded game offline).
-  if (new URL(request.url).pathname === '/emulator.html') {
-    try {
-      const fresh = await fetch(request)
-      if (fresh.ok && (await offline.match('/emulator.html'))) {
-        await offline.put('/emulator.html', fresh.clone()) // keep the downloaded engine page current
-      }
-      return fresh
-    } catch {
-      return (await offline.match('/emulator.html')) || Response.error()
-    }
-  }
-
   // 1) Explicitly-downloaded content → cache-first (works fully offline). The
-  //    reader/player requested the same /api/library/file, /comics/page, or
-  //    /emulatorjs/ URL it would online; if it's in the offline cache, serve the
+  //    reader/player requested the same /api/library/file or /comics/page
+  //    URL it would online; if it's in the offline cache, serve the
   //    local copy (honouring a Range header so cached audio plays + seeks on iOS).
   const downloaded = await offline.match(request, { ignoreVary: true })
   if (downloaded) {

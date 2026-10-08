@@ -13,8 +13,7 @@
 // `downloadJob` here. Nothing else caches content. `auditCache` exists to PROVE
 // that — it cross-checks the real cache against the manifest and flags strays.
 
-import { OFFLINE_CACHE, SHELL_CACHE, GAME_SAVES_CACHE } from './offlineConfig.js'
-import { EMULATOR_ENGINE_URLS, gameSramUrl } from './library.js'
+import { OFFLINE_CACHE, SHELL_CACHE } from './offlineConfig.js'
 
 const DB_NAME = 'home-hq-offline'
 const DB_VERSION = 1
@@ -46,26 +45,15 @@ export function auditCache(entries, cachedUrls) {
 // Shape the storage manager's view: the per-item breakdown (newest first), the
 // shell line, the downloads total, and — when the browser reports a usage
 // figure — how much of it our accounting explains vs. is unaccounted-for.
-export function summarizeStorage(entries, estimate = {}, shellBytes = 0, gameSaves = 0) {
-  const all = entries ?? []
-  // The shared emulator engine is infrastructure, not a content download — show
-  // it as its own line (like the app shell), not in the items list.
-  const engineBytes = all
-    .filter((e) => e.section === 'emulator')
-    .reduce((n, e) => n + (e.bytes || 0), 0)
-  const items = all
-    .filter((e) => e.section !== 'emulator')
-    .sort((a, b) => (b.date || 0) - (a.date || 0))
+export function summarizeStorage(entries, estimate = {}, shellBytes = 0) {
+  const items = [...(entries ?? [])].sort((a, b) => (b.date || 0) - (a.date || 0))
   const downloadsBytes = items.reduce((n, e) => n + (e.bytes || 0), 0)
-  const gameSavesBytes = gameSaves || 0
-  const accounted = downloadsBytes + (shellBytes || 0) + engineBytes + gameSavesBytes
+  const accounted = downloadsBytes + (shellBytes || 0)
   const usage = typeof estimate.usage === 'number' ? estimate.usage : null
   const quota = typeof estimate.quota === 'number' ? estimate.quota : null
   return {
     items,
     shellBytes: shellBytes || 0,
-    engineBytes,
-    gameSavesBytes,
     downloadsBytes,
     accounted,
     usage,
@@ -218,125 +206,35 @@ export async function downloadJob(meta, onProgress) {
     urls: meta.urls,
     bytes: loaded,
     date: Date.now(),
-    // Games carry their emulator core; audiobooks carry their ordered chapter
-    // list — both so the player can open the item offline without the live API.
-    ...(meta.core ? { core: meta.core } : {}),
-    ...(meta.slot ? { slot: meta.slot } : {}), // newest save state cached with a game → resume into it
+    // Audiobooks carry their ordered chapter list, so the player can open the
+    // book offline without the live API.
     ...(meta.chapters ? { chapters: meta.chapters } : {}),
-    ...(meta.engineVersion != null ? { engineVersion: meta.engineVersion } : {}),
   }
   await putEntry(entry)
   return entry
 }
 
-// The shared EmulatorJS engine (host page + loader + core-agnostic assets) that
-// every downloaded game needs. Cached once as its own manifest entry (section
-// 'emulator') — the storage manager shows it as a distinct "Emulator engine"
-// line, like the app shell. A game download ensures this first. Bump
-// ENGINE_VERSION whenever emulator.html or EMULATOR_ENGINE_URLS changes so a
-// device that already cached the engine refreshes it instead of running stale.
-const ENGINE_VERSION = 10
-export async function ensureEmulatorEngine() {
-  const key = downloadKey('emulator', 'engine')
-  const existing = await getEntry(key)
-  if (existing && existing.engineVersion === ENGINE_VERSION) return
-
-  // ATOMIC refresh: fetch every file into memory first, and only touch the cache
-  // once they've ALL arrived.
-  //
-  // The obvious version of this — delete the old engine, then download the new
-  // one — is a trap. The engine is what every downloaded game boots through, and
-  // its files live at fixed URLs, so a refresh overwrites them in place. If the
-  // connection drops halfway, a delete-first (or overwrite-in-place) refresh
-  // leaves the device with a half-engine and NO working offline copy: every game
-  // the user has downloaded stops launching in airplane mode, and nothing puts it
-  // back. Staging in memory means a failed refresh is a no-op — you keep the
-  // engine you had.
-  //
-  // Safe to buffer because the engine is six small files (<1 MB). Games, comics
-  // and magazines are the big ones, and they still stream through downloadJob.
-  const staged = []
-  let bytes = 0
-  for (const url of EMULATOR_ENGINE_URLS) {
-    const res = await fetch(url, { cache: 'no-store' })
-    if (!res.ok) throw new Error(`engine download failed (${res.status}) for ${url}`)
-    const blob = await res.blob()
-    bytes += blob.size
-    staged.push([url, new Response(blob, { headers: res.headers })])
-  }
-
-  const cache = await caches.open(OFFLINE_CACHE)
-  await Promise.all(staged.map(([url, res]) => cache.put(url, res)))
-  await putEntry({
-    key,
-    section: 'emulator',
-    id: 'engine',
-    name: 'Emulator engine',
-    engineVersion: ENGINE_VERSION,
-    urls: EMULATOR_ENGINE_URLS,
-    bytes,
-    date: Date.now(),
-  })
-}
-
-// --- captured game saves (the "resume where you left off" snapshot) ---------
-// emulator.html writes one save per game (key /__game-save/<gid>) to its own
-// cache so reopening resumes the latest state, including offline. Surfaced here
-// for the storage manager + cleaned up with the game.
-
-const gameSaveKey = (gid) => '/__game-save/' + encodeURIComponent(gid)
-
-// Total bytes of all captured game saves, for the "Game saves" storage line.
-export async function gameSavesBytes() {
-  if (!('caches' in self)) return 0
+// One-time cleanup for a device that downloaded games before the in-app player was
+// removed (2026-10): their manifest rows + cached bytes, the shared engine's row, and
+// the save cache the player kept, are all dead weight now — Frog Game Station keeps its
+// own. Called once at startup; a clean device does nothing. Best-effort and silent.
+const RETIRED_SECTIONS = new Set(['games', 'emulator'])
+const RETIRED_CACHES = ['hq-game-saves']
+export async function purgeRetiredDownloads() {
   try {
-    const cache = await caches.open(GAME_SAVES_CACHE)
-    const reqs = await cache.keys()
-    let total = 0
-    for (const req of reqs) {
-      const res = await cache.match(req)
-      if (res) total += (await res.blob()).size
+    const stale = (await allEntries()).filter((e) => RETIRED_SECTIONS.has(e.section))
+    for (const e of stale) await removeDownload(e.key)
+    if ('caches' in self) {
+      for (const name of RETIRED_CACHES) await caches.delete(name).catch(() => {})
     }
-    return total
+    return stale.length
   } catch {
     return 0
   }
 }
 
-async function removeGameSave(gid) {
-  if (!('caches' in self) || !gid) return
-  try {
-    const cache = await caches.open(GAME_SAVES_CACHE)
-    await cache.delete(gameSaveKey(gid))
-    await cache.delete('/__game-sram/' + encodeURIComponent(gid))
-  } catch {
-    /* ignore */
-  }
-}
-
-// Seed a game's in-game battery save (SRAM) into the local saves cache at
-// download time, so playing it offline before ever playing online still has
-// your server-side save. Best-effort (no save yet → 404 → skip).
-export async function cacheGameSram(id) {
-  if (!('caches' in self) || !id) return
-  try {
-    const res = await fetch(gameSramUrl(id))
-    if (res.ok) {
-      const cache = await caches.open(GAME_SAVES_CACHE)
-      await cache.put('/__game-sram/' + encodeURIComponent(id), res)
-    }
-  } catch {
-    /* ignore */
-  }
-}
-
-// Drop every captured game save (used by "Remove all" on the Downloads page).
-export async function clearGameSaves() {
-  if ('caches' in self) await caches.delete(GAME_SAVES_CACHE).catch(() => {})
-}
-
 // Remove a download: delete its cached URLs AND its manifest row, so nothing is
-// left behind. A game also drops its captured save state.
+// left behind.
 export async function removeDownload(key) {
   const entry = await getEntry(key)
   if (!entry) return false
@@ -344,7 +242,6 @@ export async function removeDownload(key) {
     const cache = await caches.open(OFFLINE_CACHE)
     await Promise.all((entry.urls || []).map((u) => cache.delete(u)))
   }
-  if (entry.section === 'games') await removeGameSave(entry.id)
   await delEntry(key)
   return true
 }

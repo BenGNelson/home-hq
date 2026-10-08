@@ -2,10 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   fileUrl,
   coverUrl,
-  saveStatesUrl,
-  saveStateUrl,
-  saveStateShotUrl,
-  playerSrc,
   resumeHref,
   readerHref,
   browseFolder,
@@ -23,7 +19,6 @@ import {
   libraryHeadline,
   bookSubtitle,
   libraryNavSections,
-  gameOfflineUrls,
   systemGames,
   sectionHref,
   letterOf,
@@ -51,19 +46,6 @@ describe('resumeHref', () => {
   it('carries the reader hint for an ebook reading entry', () => {
     expect(resumeHref({ kind: 'read', section: 'books', id: 'Dune.epub', reader: 'epub' })).toBe(
       '/library/read?section=books&id=Dune.epub&reader=epub'
-    )
-  })
-  it('routes a play entry to the player (no save slot — resume is the in-game Continue/SRAM)', () => {
-    expect(
-      resumeHref({ kind: 'play', id: 'Tetris.gb', core: 'gb', name: 'Tetris', label: 'Game Boy', slot: '123' })
-    ).toBe('/library/play?id=Tetris.gb&core=gb&name=Tetris&label=Game+Boy')
-  })
-
-  it('carries the SYSTEM, which the core cannot imply', () => {
-    // Game Boy Color games run on the `gba` core, so the player would dress itself in
-    // the wrong machine's colours if it had to guess from the core alone.
-    expect(resumeHref({ kind: 'play', id: 'x.gbc', core: 'gba', name: 'X', label: 'Game Boy Color' })).toContain(
-      'label=Game+Boy+Color'
     )
   })
   it('routes a listen entry to the audiobook player at the book path', () => {
@@ -144,44 +126,9 @@ describe('sectionAccent', () => {
 
 describe('continueAccentKey', () => {
   it('maps a resume item to its section for the spotlight accent', () => {
-    expect(continueAccentKey({ kind: 'play' })).toBe('games')
     expect(continueAccentKey({ kind: 'listen' })).toBe('audiobooks')
     expect(continueAccentKey({ kind: 'read', section: 'comics' })).toBe('comics')
     expect(continueAccentKey(null)).toBe(null)
-  })
-})
-
-describe('playerSrc', () => {
-  it('points at emulator.html with core, rom, data, and name', () => {
-    const src = playerSrc({ id: 'Tetris.gb', core: 'gb', name: 'Tetris' })
-    expect(src.startsWith('/emulator.html?')).toBe(true)
-    const q = new URLSearchParams(src.split('?')[1])
-    expect(q.get('core')).toBe('gb')
-    expect(q.get('rom')).toBe('/api/library/file?section=games&id=Tetris.gb')
-    expect(q.get('data')).toBe('/emulatorjs/')
-    expect(q.get('name')).toBe('Tetris')
-  })
-  it('omits name when absent but always carries the game id (gid)', () => {
-    const q = new URLSearchParams(playerSrc({ id: 'Tetris.gb', core: 'gb' }).split('?')[1])
-    expect(q.has('name')).toBe(false)
-    expect(q.get('gid')).toBe('Tetris.gb')
-    expect(q.has('loadstate')).toBe(false)
-  })
-  it('passes a resume-state URL through as loadstate', () => {
-    const q = new URLSearchParams(
-      playerSrc({ id: 'Tetris.gb', core: 'gb', loadStateUrl: '/api/library/games/save-state?id=Tetris.gb&slot=42' }).split('?')[1]
-    )
-    expect(q.get('loadstate')).toBe('/api/library/games/save-state?id=Tetris.gb&slot=42')
-  })
-})
-
-describe('save-state urls', () => {
-  it('build list / blob / screenshot urls', () => {
-    expect(saveStatesUrl('A B.gba')).toBe('/api/library/games/save-states?id=A%20B.gba')
-    expect(saveStateUrl('A B.gba', '99')).toBe('/api/library/games/save-state?id=A%20B.gba&slot=99')
-    expect(saveStateShotUrl('A B.gba', '99')).toBe(
-      '/api/library/games/save-state/screenshot?id=A%20B.gba&slot=99'
-    )
   })
 })
 
@@ -232,32 +179,6 @@ describe('letterOf', () => {
     expect(letterOf('Élevator')).toBe('E')
     expect(letterOf('Über Blaster')).toBe('U')
     expect(letterOf('Ñu')).toBe('N')
-  })
-})
-
-describe('gameOfflineUrls', () => {
-  // The offline cache must fetch the SAME libretro core file the online loader
-  // picks by default for each EmulatorJS system (src/emulator.js's core table).
-  const coreFile = (core) => {
-    const u = gameOfflineUrls('X', core).find((url) => url.includes('/cores/') && url.endsWith('-wasm.data'))
-    return u.split('/cores/')[1].replace('-wasm.data', '')
-  }
-  it('maps each system to its default libretro core', () => {
-    expect(coreFile('gb')).toBe('gambatte')
-    expect(coreFile('gba')).toBe('mgba')
-    expect(coreFile('nes')).toBe('fceumm')
-    expect(coreFile('snes')).toBe('snes9x')
-    expect(coreFile('segaMD')).toBe('genesis_plus_gx')
-    expect(coreFile('segaGG')).toBe('genesis_plus_gx')
-    // Master System defaults to smsplus, NOT genesis_plus_gx
-    expect(coreFile('segaMS')).toBe('smsplus')
-  })
-  it('includes the ROM, both wasm variants, and the core report', () => {
-    const urls = gameOfflineUrls('Sonic.md', 'segaMD')
-    expect(urls.some((u) => u.includes('library/file') && u.includes('Sonic.md'))).toBe(true)
-    expect(urls).toContain('/emulatorjs/cores/genesis_plus_gx-wasm.data')
-    expect(urls).toContain('/emulatorjs/cores/genesis_plus_gx-legacy-wasm.data')
-    expect(urls).toContain('/emulatorjs/cores/reports/genesis_plus_gx.json')
   })
 })
 

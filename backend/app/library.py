@@ -15,7 +15,6 @@ Two things this module owns:
     file-streaming endpoint — see routers/library.py)
 """
 
-import hashlib
 import os
 import re
 import urllib.parse
@@ -36,13 +35,10 @@ SECTIONS = [
         "icon": "🎮",
         "kind": "play",
         "dir_setting": "games_rom_dir",
-        # `core` is the EmulatorJS system name (it auto-selects the libretro core
-        # — see src/emulator.js's default-core table; the frontend's LIBRETRO_CORE
-        # mirrors the defaults for offline asset caching). All of these are 8/16-bit
-        # 2D systems: the cores run full-speed in WASM on a phone and map cleanly
-        # to the dpad + face-button touch overlay. Emulation is entirely client-
-        # side — the backend only lists + range-streams the ROM bytes, so adding a
-        # system adds zero server load.
+        # `core` is the EmulatorJS system name Frog Game Station plays the file
+        # with (it auto-selects the libretro core). Home HQ only lists these and
+        # serves their box art — the backend range-streams ROM bytes and never
+        # emulates, so adding a system adds zero server load.
         "formats": {
             ".gb": {"label": "Game Boy", "core": "gb"},
             # GBC routed through mGBA (the `gba` core) instead of gambatte: the
@@ -395,66 +391,6 @@ def safe_dir(section, settings, path):
     if target != root and not target.startswith(root + os.sep):
         return None
     return target if os.path.isdir(target) else None
-
-
-# --- save states (server-side, roam across devices) ------------------------
-# Each game's states live in a dir keyed by a hash of the game id (so the raw
-# ROM filename — with spaces/parens — never becomes a path), and each slot is a
-# backend-assigned millisecond timestamp. Both the dir key and the digits-only
-# slot are derived/validated here, so a request can't traverse out of the saves
-# root.
-_SLOT_RE = re.compile(r"^\d+$")
-
-
-def saves_game_dir(saves_root, game_id):
-    """The directory holding a game's save states (keyed by a hash of its id)."""
-    key = hashlib.sha1((game_id or "").encode()).hexdigest()
-    return os.path.join(saves_root, key)
-
-
-def save_state_files(saves_root, game_id, slot):
-    """(state_path, screenshot_path) for a slot, or (None, None) if the inputs
-    are missing/invalid. `slot` must be digits only — that's the traversal
-    guard (it can never contain a path separator or '..')."""
-    if not saves_root or not game_id or not _SLOT_RE.match(str(slot or "")):
-        return None, None
-    d = saves_game_dir(saves_root, game_id)
-    return os.path.join(d, f"{slot}.state"), os.path.join(d, f"{slot}.png")
-
-
-def sram_file(saves_root, game_id):
-    """Path to a game's in-game battery save (SRAM / .sav) — ONE per game (the
-    game's own save, distinct from snapshot save states). None if inputs missing.
-    Lives in the same per-game dir, keyed by a hash of the id (no traversal)."""
-    if not saves_root or not game_id:
-        return None
-    return os.path.join(saves_game_dir(saves_root, game_id), "sram.bin")
-
-
-def list_save_states(saves_root, game_id):
-    """A game's save states, newest first: [{slot, created_ms, has_shot}]. The
-    slot id IS the creation time (ms), so no sidecar metadata is needed."""
-    if not saves_root or not game_id:
-        return []
-    d = saves_game_dir(saves_root, game_id)
-    if not os.path.isdir(d):
-        return []
-    states = []
-    for fn in os.listdir(d):
-        if not fn.endswith(".state"):
-            continue
-        sid = fn[: -len(".state")]
-        if not _SLOT_RE.match(sid):
-            continue
-        states.append(
-            {
-                "slot": sid,
-                "created_ms": int(sid),
-                "has_shot": os.path.isfile(os.path.join(d, f"{sid}.png")),
-            }
-        )
-    states.sort(key=lambda s: s["created_ms"], reverse=True)
-    return states
 
 
 # How many cover refs to surface per section for the hub's peek tiles. A handful

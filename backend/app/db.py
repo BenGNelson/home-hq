@@ -197,11 +197,9 @@ CREATE INDEX IF NOT EXISTS idx_book_meta_title ON book_meta (title COLLATE NOCAS
 CREATE INDEX IF NOT EXISTS idx_book_meta_author ON book_meta (author COLLATE NOCASE);
 
 -- "Last played" marker for games that have save states — the games half of the
--- Jump Back In shelf. Save files live on disk keyed by a HASH of the game id (so
--- the raw filename never hits a path), which can't be reversed; this table holds
--- the real game id + core so the shelf can list the game, show its art, and
--- resume its newest save. Removing a row drops it from the shelf WITHOUT touching
--- the save files (still reachable from the game's detail page).
+-- Legacy: the in-app game player's "last played" marker. Nothing reads or writes
+-- it since games moved to Frog Game Station (which keeps its own resume row); the
+-- table stays so an existing database opens unchanged.
 CREATE TABLE IF NOT EXISTS game_progress (
     game_id    TEXT PRIMARY KEY,
     core       TEXT,
@@ -793,41 +791,6 @@ def delete_reading_progress(section, item_id):
         cur = conn.execute(
             "DELETE FROM reading_progress WHERE section = ? AND item_id = ?",
             (section, item_id),
-        )
-        return cur.rowcount > 0
-
-
-def set_game_progress(game_id, core, now_ms=None):
-    """Mark a game as recently played (it has save states) for the Jump Back In
-    shelf. Records the real game id + core (the on-disk save dir is hashed)."""
-    if now_ms is None:
-        now_ms = int(time.time() * 1000)
-    with get_conn() as conn:
-        conn.execute(
-            "INSERT INTO game_progress (game_id, core, updated_ms) VALUES (?, ?, ?)"
-            " ON CONFLICT(game_id) DO UPDATE SET"
-            " core = excluded.core, updated_ms = excluded.updated_ms",
-            (game_id, core, now_ms),
-        )
-
-
-def list_game_progress(limit=50):
-    """Recently-played games, newest first."""
-    with get_conn() as conn:
-        rows = conn.execute(
-            "SELECT game_id, core, updated_ms FROM game_progress"
-            " ORDER BY updated_ms DESC LIMIT ?",
-            (limit,),
-        ).fetchall()
-        return [dict(r) for r in rows]
-
-
-def delete_game_progress(game_id):
-    """Drop a game from Jump Back In (keeps its save files). Returns whether a
-    row was deleted."""
-    with get_conn() as conn:
-        cur = conn.execute(
-            "DELETE FROM game_progress WHERE game_id = ?", (game_id,)
         )
         return cur.rowcount > 0
 

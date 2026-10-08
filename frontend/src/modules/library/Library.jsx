@@ -22,7 +22,6 @@ import { ACCENT_HOVER } from '../../lib/moduleAccent.js'
 import { SkeletonLine, AccentArrow } from '../../components/ui.jsx'
 import { Inbox, FileQuestion } from 'lucide-react'
 import RemoveButton from './RemoveButton.jsx'
-import GameCover from './GameCover.jsx'
 import BookCover from './BookCover.jsx'
 import ComicCover from './ComicCover.jsx'
 import AudiobookCover from './AudiobookCover.jsx'
@@ -40,7 +39,6 @@ function SectionIcon({ id, className }) {
 // adapter takes a content item and emits the section's cover (the audiobook
 // cover keys on a folder path, the rest on an item id).
 const SECTION_COVERS = {
-  games: (item, cls) => <GameCover game={item} className={cls} />,
   books: (item, cls) => <BookCover book={item} className={cls} />,
   textbooks: (item, cls) => <BookCover book={item} src={textbookCoverUrl(item.id)} className={cls} />,
   comics: (item, cls) => <ComicCover comic={item} className={cls} />,
@@ -225,13 +223,11 @@ function JumpBackIn() {
   const remove = (it) => {
     setRemoved((prev) => new Set(prev).add(key(it))) // optimistic
     const url =
-      it.kind === 'play'
-        ? `${API_BASE}/library/games/last-played?id=${encodeURIComponent(it.id)}`
-        : it.kind === 'listen'
-          ? `${API_BASE}/library/listen-progress?book=${encodeURIComponent(it.id)}`
-          : `${API_BASE}/library/reading-progress?section=${encodeURIComponent(
-              it.section
-            )}&id=${encodeURIComponent(it.id)}`
+      it.kind === 'listen'
+        ? `${API_BASE}/library/listen-progress?book=${encodeURIComponent(it.id)}`
+        : `${API_BASE}/library/reading-progress?section=${encodeURIComponent(
+            it.section
+          )}&id=${encodeURIComponent(it.id)}`
     fetch(url, { method: 'DELETE' }).catch(() => {})
   }
 
@@ -259,10 +255,10 @@ function JumpBackIn() {
 
 // The cover for a resume item, via the same section→cover map the peek tiles
 // use (so the two surfaces never drift). A resume item carries its section as a
-// kind (play→games, listen→audiobooks) or an explicit reading `section`; with no
+// kind (listen→audiobooks) or an explicit reading `section`; with no
 // cover source it falls back to a titled tile.
 function resumeSectionKey(entry) {
-  return continueAccentKey(entry) // play→games, listen→audiobooks, else entry.section
+  return continueAccentKey(entry) // listen→audiobooks, else entry.section
 }
 function ResumeCover({ entry, className }) {
   const render = SECTION_COVERS[resumeSectionKey(entry)]
@@ -275,10 +271,9 @@ function ResumeCover({ entry, className }) {
 }
 
 // A resume item's sub-label — shared by the spotlight hero and the shelf cards
-// so the wording stays in lockstep. Games/audiobooks show when they were last
+// so the wording stays in lockstep. Audiobooks show when they were last
 // touched; documents show reading progress.
 function resumeSubLabel(entry) {
-  if (entry.kind === 'play') return `Saved ${formatAgo(entry.updated_ms / 1000)}`
   if (entry.kind === 'listen') return `Last played ${formatAgo(entry.updated_ms / 1000)}`
   return progressLabel(entry.page, entry.total, entry.fraction)
 }
@@ -289,10 +284,9 @@ function resumeSubLabel(entry) {
 // like a light source, with a resume call to action.
 function SpotlightHero({ entry, onResume, onRemove }) {
   const accent = sectionAccent(continueAccentKey(entry))
-  const isPlay = entry.kind === 'play'
   const isListen = entry.kind === 'listen'
   const sub = resumeSubLabel(entry)
-  const pct = isPlay || isListen ? null : Math.round(progressFraction(entry.page, entry.total, entry.fraction) * 100)
+  const pct = isListen ? null : Math.round(progressFraction(entry.page, entry.total, entry.fraction) * 100)
 
   return (
     <div
@@ -305,7 +299,7 @@ function SpotlightHero({ entry, onResume, onRemove }) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-xs font-medium uppercase tracking-wide" style={{ color: `rgb(${accent.rgb})` }}>
-            {isPlay ? 'Resume game' : isListen ? 'Keep listening' : 'Continue reading'}
+            {isListen ? 'Keep listening' : 'Continue reading'}
           </div>
           <div className="truncate text-lg font-semibold text-slate-100">{entry.name}</div>
           <div className="truncate text-sm text-slate-400">{sub}</div>
@@ -340,8 +334,8 @@ function Downloaded() {
   }, [])
 
   if (entries === null) return <DownloadedSkeleton />
-  // The shared emulator engine is infrastructure (shown on the Downloads page),
-  // not a content tile.
+  // A retired engine row from the old in-app player is not a content tile (it is
+  // purged at startup; this guards the first render).
   const content = entries.filter((e) => e.section !== 'emulator')
   if (content.length === 0) return null
   const sorted = [...content].sort((a, b) => (b.date || 0) - (a.date || 0))
@@ -374,7 +368,6 @@ function Downloaded() {
 }
 
 function ContinueCard({ entry, onResume, onRemove }) {
-  const isPlay = entry.kind === 'play'
   const isListen = entry.kind === 'listen'
   const sub = resumeSubLabel(entry)
 
@@ -384,7 +377,7 @@ function ContinueCard({ entry, onResume, onRemove }) {
         <ResumeCover entry={entry} className="w-full rounded-lg" />
         <span className="mt-1 block truncate text-xs text-slate-200">{entry.name}</span>
         <span className="block truncate text-[11px] text-slate-500">{sub}</span>
-        {!isPlay && !isListen && (
+        {!isListen && (
           <span className="mt-1 block h-1 overflow-hidden rounded bg-slate-800">
             <span
               className="block h-full bg-sky-500"

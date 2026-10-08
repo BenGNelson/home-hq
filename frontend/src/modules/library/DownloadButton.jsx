@@ -11,8 +11,8 @@ import { formatSize } from '../../lib/format.js'
 // `item` = { section, id, name, type, urls } — the download job. The state machine
 // lives in useDownload (shared with Frog's own control); the single-writer rule
 // (downloadJob is the only path bytes land) holds there.
-export default function DownloadButton({ item, onBefore }) {
-  const { state, pct, bytes, start, remove } = useDownload(item, onBefore)
+export default function DownloadButton({ item }) {
+  const { state, pct, bytes, start, remove } = useDownload(item)
   const confirmRemove = () => {
     if (window.confirm('Remove this offline download from your device?')) remove()
   }

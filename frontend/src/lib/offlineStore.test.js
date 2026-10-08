@@ -79,24 +79,4 @@ describe('summarizeStorage', () => {
     expect(s.downloadsBytes).toBe(0)
     expect(s.accounted).toBe(0)
   })
-
-  it('adds captured game saves as their own line in the accounting', () => {
-    const e = [{ key: 'games:g', section: 'games', name: 'G', bytes: 4_000_000, date: 1 }]
-    const s = summarizeStorage(e, {}, 1_000_000, 250_000) // shell 1MB, game saves 250KB
-    expect(s.gameSavesBytes).toBe(250_000)
-    expect(s.downloadsBytes).toBe(4_000_000)
-    expect(s.accounted).toBe(4_000_000 + 1_000_000 + 250_000) // downloads + shell + saves
-  })
-
-  it('breaks the shared emulator engine out of the items as its own line', () => {
-    const e = [
-      { key: 'books:d', section: 'books', name: 'D', bytes: 1000, date: 2 },
-      { key: 'emulator:engine', section: 'emulator', name: 'Emulator engine', bytes: 5000, date: 1 },
-    ]
-    const s = summarizeStorage(e, {}, 0)
-    expect(s.items.map((i) => i.key)).toEqual(['books:d']) // engine not a content item
-    expect(s.engineBytes).toBe(5000)
-    expect(s.downloadsBytes).toBe(1000)
-    expect(s.accounted).toBe(6000) // downloads + shell(0) + engine
-  })
 })

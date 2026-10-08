@@ -42,13 +42,6 @@ export default defineConfig({
           },
         ],
       },
-      injectManifest: {
-        // Precache the built shell only. The self-hosted EmulatorJS engine/cores
-        // (frontend/public/emulatorjs/, ~300 MB) and the isolated emulator host
-        // page load on demand — never precache them (would bloat the install and
-        // blow the size cap).
-        globIgnores: ['**/emulatorjs/**', 'emulator.html'],
-      },
     }),
   ],
   server: {

@@ -61,7 +61,7 @@ const ENDPOINTS = [
     '/api/plex · …',
     'Status (streams/transcodes), now-playing sessions, recently added, libraries, background sync, cached library items & show episodes, on-demand item detail, and a poster proxy.',
   ],
-  ['/api/library · /{section} · /file · /games/cover · /games/meta (+ /candidates, POST re-match) · /games/screenshot · /books/cover · /papers/cover · /comics/page · /listen-progress · /reading-progress · /continue', 'The owned-content hub: sections + counts + a few cover previews (games, books, comics, audiobooks, magazines & papers), a section’s items, a range-capable traversal-guarded file stream (used by the emulator, the PDF + ebook readers, and the audiobook player — audio gets a real MIME type so it plays on iOS), proxied/cached covers for every format — game box art, embedded ebook/audiobook art, and a rendered first page for magazines and PDF books (which carry no embedded cover), rich IGDB game metadata + validated screenshot proxy for the game screen (a background matcher looks each ROM up on IGDB and caches it; unmatched games and ROM hacks fall back to the basic page), comic page count + per-page extraction (each comic page pulled from its CBZ/CBR/CB7 archive on the server, downscaled to a cached WebP), server-side game saves (the in-game battery save / "Continue" AND explicit save states) + reading + listening position + pinned folders (all roam across devices), and the unified resume surface (a radiant spotlight + "Jump back in" shelf) that resumes books/comics/documents (to your spot), audiobooks (chapter + position), and games (boot + in-game Continue).'],
+  ['/api/library · /{section} · /file · /games/cover · /games/meta (+ /candidates, POST re-match) · /games/screenshot · /books/cover · /papers/cover · /comics/page · /listen-progress · /reading-progress · /continue', 'The owned-content hub: sections + counts + a few cover previews (games, books, comics, audiobooks, magazines & papers), a section’s items, a range-capable traversal-guarded file stream (used by the PDF + ebook readers and the audiobook player — audio gets a real MIME type so it plays on iOS), proxied/cached covers for every format — game box art, embedded ebook/audiobook art, and a rendered first page for magazines and PDF books (which carry no embedded cover), rich IGDB game metadata + validated screenshot proxy (a background matcher looks each ROM up on IGDB and caches it), comic page count + per-page extraction (each comic page pulled from its CBZ/CBR/CB7 archive on the server, downscaled to a cached WebP), reading + listening position + pinned folders (all roam across devices), and the unified resume surface (a radiant spotlight + "Jump back in" shelf) that resumes books/comics/documents (to your spot) and audiobooks (chapter + position). Games are played in Frog Game Station, which keeps its own saves and its own resume row.'],
 ]
 
 // Plain-language one-liners for the tools named on this page, so the guide
@@ -90,10 +90,9 @@ const GLOSSARY = [
   ['SMART', 'Self-monitoring data that drives expose — temperature, wear, reallocated sectors — used to catch a failing disk early.'],
   ['systemd timer', "Linux's built-in scheduler (a modern cron) that runs a task on a schedule, like the daily SMART collector."],
   ['MQTT', 'A lightweight publish/subscribe messaging protocol for devices. The 3D printer publishes its state to a local broker and the backend subscribes — the one push-based data source (everything else is pulled on request).'],
-  ['EmulatorJS', 'A browser game-emulator engine (WebAssembly). It runs retro consoles entirely client-side, so the Library can play your ROMs on the device while the server just streams the file. Self-hosted at a pinned version and run in an isolated iframe.'],
   ['foliate-js', 'A browser ebook-rendering engine. It reads EPUB, MOBI, and AZW3 entirely client-side (parsing the Kindle formats itself — no server-side conversion), so the Library can show your books on the device while the server just streams the file.'],
   ['libarchive', 'A C library that reads many archive formats through one interface. The Library uses it to open comics — CBZ/CBR/CB7 are just zip/rar/7z archives of page images — so the server can list a comic’s pages and extract them one at a time.'],
-  ['HTTP range request', 'A way to ask a server for just part of a file (a byte range) instead of the whole thing — so a reader or emulator fetches only what it needs, which keeps big PDFs snappy on a phone.'],
+  ['HTTP range request', 'A way to ask a server for just part of a file (a byte range) instead of the whole thing — so a reader fetches only what it needs, which keeps big PDFs snappy on a phone.'],
 ]
 
 // The live, host-specific part: real containers from the API + your notes.
@@ -276,59 +275,22 @@ export default function Guide() {
           <Code>/api/library/file</Code> streams bytes with <strong>HTTP range</strong>{' '}
           support (so a reader fetches only the pages it shows) and a strict
           <strong> traversal guard</strong> (a crafted id can't escape the content
-          folder). All the actual rendering is <strong>client-side</strong>: an
-          emulator core or a reader runs on your phone, so the server never breaks a
-          sweat no matter how much you play or read. Games use{' '}
-          <strong>EmulatorJS</strong>, run inside an isolated <Code>&lt;iframe&gt;</Code>
-          {' '}(so its globals never leak into the app) and self-hosted at a pinned
-          version. <strong>Box art</strong> is matched to each ROM by name and cached
-          locally (proxied like Plex artwork); titles are cleaned up from raw filenames,
-          and each game has a detail page. Because one system can hold hundreds of
-          titles, Games <strong>browse one system at a time</strong>: the landing shows a{' '}
-          <strong>Recently played</strong> row and a box-art card per system, and tapping a
-          system lists its games alphabetically with sticky letter headers, an{' '}
-          <strong>A→Z scrubber</strong> (drag your thumb down the right edge to jump to a
-          letter), and a search box scoped to that system. The Recently played row drops a
-          game with its <strong>✕</strong> (just the marker — your saves are untouched).{' '}
-          <strong>Two kinds of save, both roam across your devices</strong>
-          (and ride the off-site backup): your <strong>in-game save</strong> — the game’s
-          own “Save” → “Continue” — is the everyday one. The app captures it as you play
-          (and seeds it back when you open the game), so you resume where you left off on
-          any device, even offline. <strong>Save states</strong> (the snapshot button) are
-          the second kind — each with a screenshot, listed on the game’s detail page to
-          resume from. Opening a game boots it normally and your in-game Continue loads
-          your spot; save states are there when you want to jump to an exact moment.
+          folder). All the actual rendering is <strong>client-side</strong>: a
+          reader runs on your phone, so the server never breaks a sweat no matter how
+          much you read. <strong>Box art</strong> is matched to each ROM by name and
+          cached locally (proxied like Plex artwork), and titles are cleaned up from raw
+          filenames — that is what the Games card on the hub peeks at.
         </p>
         <p>
-          <strong>Playing them.</strong> The in-game <strong>pause menu</strong> (the ☰
-          button, or hold <strong>Menu</strong> on a controller) is a grid of big tiles —
-          save a state, load one, fast-forward, restart, quit — with the game blurred
-          behind it. The <strong>save-state shelf</strong> it opens is D-pad driven too
-          (A loads the one you're on, Y deletes it), so loading a save never means
-          reaching for the glass mid-game. Loading a state drops you straight back in,
-          without reloading anything. On a <strong>phone</strong>, the touch controls are built for thumbs:
-          the d-pad is one region you can <em>slide</em> across (so diagonals actually
-          work), you can hold left while tapping B, and every button's hit area is bigger
-          than the button you can see — because thumbs undershoot. The direction you're
-          holding lights up its <em>outer edge</em>, so you can read the input even with a
-          thumb on top of it. To start a game, <strong>tap anywhere</strong> on the box-art
-          screen (on a pad, press <strong>A</strong> — though on an iPhone/iPad only a real
-          tap can start it <em>with sound</em>, an Apple rule no app can dodge). There's no
-          title bar, and no on-screen exit once you're playing — the pause menu owns{' '}
-          <strong>Quit</strong> (a small corner exit shows only on the start screen, before
-          the game runs). Pair a <strong>Bluetooth controller</strong>{' '}
-          and the on-screen buttons get out of the way entirely: the pad drives the
-          game, and a <strong>Controls</strong> screen decides how it maps onto it. By default the <strong>letters match</strong> — A
-          means A. You can flip it to match <strong>positions</strong> instead (the
-          bottom button stays the bottom button, wherever its letter sits), and rebind
-          any button on top of either. There's no mapping that wins both ways, so it's
-          yours to pick. Opening <strong>Games</strong> from the Library launches{' '}
-          <strong>Frog</strong> — it's the games screen now: a full-screen browser with
+          <strong>Playing games.</strong> Home HQ does not run games itself any more.{' '}
+          Opening <strong>Games</strong> from the Library launches{' '}
+          <strong>Frog Game Station</strong>, its own app on its own address: a full-screen browser with
           a mascot that wears the colours of whichever machine you're pointing at —{' '}
           <em>and holds a little drawing of it</em>, so the two Game Boys don't look
           alike — a shelf of consoles that never scrolls, and{' '}
           <strong>"Jump back in"</strong> and <strong>Favorites</strong> rows (star a
-          game on its page) so most sessions never touch the alphabet. It works the
+          game on its page) so most sessions never touch the alphabet — and that is where
+          a game resumes from, not the Library's own shelf. It works the
           same <strong>with a controller or by touch</strong>, switching the instant
           you press a button or tap the glass: a pad walks it with a{' '}
           <strong>dead-key keyboard</strong> (press <strong>X</strong> to search every
@@ -369,8 +331,8 @@ export default function Guide() {
           Your <strong>position roams across devices</strong> (saved on the
           server: PDFs and comics by page, ebooks by an exact location, audiobooks
           by chapter + seconds), and a unified{' '}
-          <strong>Jump back in</strong> shelf resumes books, comics, documents,
-          audiobooks, and games from one place. (foliate renders a book in a sandboxed frame, so a{' '}
+          <strong>Jump back in</strong> shelf resumes books, comics, documents, and
+          audiobooks from one place. (foliate renders a book in a sandboxed frame, so a{' '}
           <strong>Content-Security-Policy</strong> on the app is the guardrail there.)
           DRM-free files only.
         </p>
@@ -387,8 +349,7 @@ export default function Guide() {
           reads or plays with <strong>no connection</strong> (on a plane). A{' '}
           <strong>service worker</strong> we own serves the saved copy from a cache:
           a book/PDF is one file; a comic caches every rendered page; an audiobook
-          caches every chapter (served as 206 range responses so iOS plays them); a
-          game caches the ROM, its emulator core, and the shared engine. The single
+          caches every chapter (served as 206 range responses so iOS plays them). The single
           rule is that <strong>only an explicit download writes content</strong> —
           nothing is cached behind your back — so the <strong>Downloads</strong>{' '}
           page can show exactly what’s on the device, with a <em>Verify storage</em>{' '}

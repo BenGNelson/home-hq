@@ -20,7 +20,7 @@ import time
 import urllib.parse
 
 import requests
-from fastapi import APIRouter, File, Form, Query, UploadFile
+from fastapi import APIRouter, Query
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
@@ -29,17 +29,12 @@ from app.config import settings
 
 router = APIRouter()
 
-# Upload caps so a buggy/abusive client can't fill the volume. Save states are
-# small (GB/GBA well under 1 MB); these are generous headroom.
-_MAX_STATE_BYTES = 16 * 1024 * 1024
-_MAX_SHOT_BYTES = 4 * 1024 * 1024
-
 
 class SectionSummaryModel(BaseModel):
     key: str
     label: str
     icon: str
-    kind: str = Field(description="How items open: 'play' (emulator) or 'read' (reader)")
+    kind: str = Field(description="How items open: 'play' (handed off to Frog Game Station) or 'read' (reader)")
     configured: bool = Field(description="False when the section's content dir is unset/missing")
     count: int
     preview: list[str] = Field(
@@ -500,160 +495,6 @@ def set_game_meta(body: RematchBody):
     return {"matched": True}
 
 
-class SaveStateModel(BaseModel):
-    slot: str = Field(description="Slot id (also its creation time in ms)")
-    created_ms: int
-    has_shot: bool = Field(description="True if a screenshot was captured")
-
-
-class SaveStatesModel(BaseModel):
-    states: list[SaveStateModel]
-
-
-@router.post("/library/games/save-states")
-def create_save_state(
-    id: str = Form(description="Game id from the section listing"),
-    state: UploadFile = File(description="The emulator save-state blob"),
-    screenshot: UploadFile | None = File(default=None, description="Optional PNG screenshot"),
-):
-    """Store a new save state (server-side, so it roams across devices and rides
-    the off-site backup). The slot id is a backend-assigned ms timestamp — never
-    client-supplied — so it can't traverse. Capped in size. A plain (sync) handler
-    so Starlette runs it in a threadpool — the disk write to the RAID mount stays
-    off the event loop."""
-    saves_root = settings.games_saves_dir
-    slot = str(int(time.time() * 1000))
-    state_path, shot_path = library.save_state_files(saves_root, id, slot)
-    if not state_path:
-        return Response(status_code=400)
-    # Read at most cap+1 bytes so an oversized upload is rejected without ever
-    # buffering the whole (possibly multi-GB) body.
-    data = state.file.read(_MAX_STATE_BYTES + 1)
-    if not data or len(data) > _MAX_STATE_BYTES:
-        return Response(status_code=413)
-    os.makedirs(os.path.dirname(state_path), exist_ok=True)
-    with open(state_path, "wb") as fh:
-        fh.write(data)
-    if screenshot is not None:
-        shot = screenshot.file.read(_MAX_SHOT_BYTES + 1)
-        if shot and len(shot) <= _MAX_SHOT_BYTES:
-            with open(shot_path, "wb") as fh:
-                fh.write(shot)
-    # Mark the game as recently played so it surfaces on the Jump Back In shelf
-    # (records the real id + core, since the save dir name is a hash).
-    games = library.get_section("games")
-    core = games["formats"].get(os.path.splitext(id)[1].lower(), {}).get("core")
-    db.set_game_progress(id, core)
-    return {"slot": slot, "created_ms": int(slot)}
-
-
-@router.get("/library/games/save-states", response_model=SaveStatesModel)
-def list_save_states(id: str = Query(description="Game id from the section listing")):
-    """A game's save states, newest first."""
-    return {"states": library.list_save_states(settings.games_saves_dir, id)}
-
-
-# --- in-game battery save (SRAM) -------------------------------------------
-# The game's OWN save (e.g. Pokemon's in-game "Save"), distinct from snapshot
-# save states. One per game, overwritten on each save, stored server-side so it
-# roams across devices + rides the backup. EmulatorJS doesn't persist SRAM
-# itself, so the player captures the .sav and POSTs it here.
-
-
-@router.post("/library/games/sram")
-def put_sram(
-    id: str = Form(description="Game id from the section listing"),
-    sram: UploadFile = File(description="The game's .sav battery save"),
-):
-    """Store/overwrite a game's in-game battery save (SRAM). Sync handler →
-    threadpool, so the write stays off the event loop."""
-    path = library.sram_file(settings.games_saves_dir, id)
-    if not path:
-        return Response(status_code=400)
-    data = sram.file.read(_MAX_STATE_BYTES + 1)  # cap+1 — never buffer the whole body
-    if not data or len(data) > _MAX_STATE_BYTES:
-        return Response(status_code=413)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "wb") as fh:
-        fh.write(data)
-    # An in-game save means you're playing it — surface it on the Jump Back In
-    # shelf (records the real id + core, since the save dir name is a hash).
-    games = library.get_section("games")
-    core = games["formats"].get(os.path.splitext(id)[1].lower(), {}).get("core") if games else None
-    db.set_game_progress(id, core)
-    return Response(status_code=204)
-
-
-@router.get("/library/games/sram")
-def get_sram(id: str = Query(description="Game id")):
-    """Serve a game's in-game battery save (SRAM), so the player can seed the
-    emulator with it on open. 404 when there's none yet.
-
-    `X-Saved-At` (epoch ms) is what makes newest-wins possible: the player compares
-    it against the copy cached on the device and loads whichever is newer. Without
-    it the device can only prefer its own copy, which means playing on a tablet and
-    then picking up a phone silently rewinds you to the phone's older save — and
-    then overwrites the server with it.
-    """
-    path = library.sram_file(settings.games_saves_dir, id)
-    if not path or not os.path.isfile(path):
-        return Response(status_code=404)
-    saved_at = int(os.path.getmtime(path) * 1000)
-    return FileResponse(
-        path,
-        media_type="application/octet-stream",
-        headers={
-            "X-Saved-At": str(saved_at),
-            # The browser can't read a custom header on a cross-origin response
-            # without this. We're same-origin today, but a header nobody can read is
-            # a trap waiting for whoever moves the API.
-            "Access-Control-Expose-Headers": "X-Saved-At",
-        },
-    )
-
-
-@router.get("/library/games/save-state")
-def get_save_state(
-    id: str = Query(description="Game id"),
-    slot: str = Query(description="Slot id"),
-):
-    """Serve a save state's bytes — this is what EJS_loadStateURL points at to
-    resume a game into that state."""
-    state_path, _ = library.save_state_files(settings.games_saves_dir, id, slot)
-    if not state_path or not os.path.isfile(state_path):
-        return Response(status_code=404)
-    return FileResponse(state_path, media_type="application/octet-stream")
-
-
-@router.get("/library/games/save-state/screenshot")
-def get_save_state_screenshot(
-    id: str = Query(description="Game id"),
-    slot: str = Query(description="Slot id"),
-):
-    """The screenshot for a save state (the detail-page thumbnail)."""
-    _, shot_path = library.save_state_files(settings.games_saves_dir, id, slot)
-    if not shot_path or not os.path.isfile(shot_path):
-        return Response(status_code=404)
-    return FileResponse(shot_path, media_type="image/png")
-
-
-@router.delete("/library/games/save-states")
-def delete_save_state(
-    id: str = Query(description="Game id"),
-    slot: str = Query(description="Slot id"),
-):
-    """Delete one save state (and its screenshot)."""
-    state_path, shot_path = library.save_state_files(settings.games_saves_dir, id, slot)
-    if not state_path:
-        return Response(status_code=400)
-    removed = False
-    for p in (state_path, shot_path):
-        if p and os.path.isfile(p):
-            os.remove(p)
-            removed = True
-    return Response(status_code=204 if removed else 404)
-
-
 # --- reading progress / Continue Reading ----------------------------------
 # Where you are in a reading item, stored server-side so it roams across devices
 # (the saved page IS the bookmark). Powers the Continue Reading shelf + resume.
@@ -703,9 +544,9 @@ class ContinueModel(BaseModel):
 @router.get("/library/continue", response_model=ContinueModel)
 def library_continue():
     """The unified "Jump back in" shelf: in-progress reading items (resume to a
-    page) AND recently-played games (resume their newest save state), merged and
-    sorted newest-first. Skips entries whose underlying file is gone (a removed
-    PDF, or a game whose ROM or save states are gone)."""
+    page) and audiobooks, merged and sorted newest-first. Skips entries whose
+    underlying file is gone (a removed PDF, a deleted book folder). Games are not
+    here: they live in Frog Game Station, which keeps its own resume row."""
     entries = []
     # Reading items in progress.
     for row in db.list_reading_progress():
@@ -731,26 +572,6 @@ def library_continue():
                 "updated_ms": row["updated_ms"],
             }
         )
-    # Recently-played games that still have a ROM. Resume = open the game and let
-    # its in-game (SRAM) "Continue" pick up your save — NOT a save-state snapshot,
-    # which would restore an older machine state over your latest in-game save. So
-    # no slot, and a game counts as in-progress on any play (save state OR SRAM),
-    # not only when a save state exists.
-    games = library.get_section("games")
-    for row in db.list_game_progress():
-        gid = row["game_id"]
-        if not library.safe_path(games, settings, gid):
-            continue  # ROM removed
-        entries.append(
-            {
-                "kind": "play",
-                "section": "games",
-                "id": gid,
-                "name": library.display_name(games, gid),
-                "core": row["core"],
-                "updated_ms": row["updated_ms"],
-            }
-        )
     # Audiobooks in progress (resume the book → its saved chapter + position).
     for row in db.list_listen_progress():
         book_id = row["book_id"]
@@ -769,13 +590,6 @@ def library_continue():
         )
     entries.sort(key=lambda e: e["updated_ms"], reverse=True)
     return {"items": entries[:12]}
-
-
-@router.delete("/library/games/last-played")
-def delete_last_played(id: str = Query(description="Game id")):
-    """Drop a game from Jump Back In (keeps its save files)."""
-    removed = db.delete_game_progress(id)
-    return Response(status_code=204 if removed else 404)
 
 
 @router.get("/library/reading-progress/item", response_model=ReadingProgressItemModel)

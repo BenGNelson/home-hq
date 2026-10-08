@@ -36,24 +36,16 @@ export function sectionAccent(key) {
 }
 
 // Which section a "continue" (resume) item belongs to, so the spotlight can take
-// that section's accent. Games resume via the play kind (no section field);
-// audiobooks via listen; everything else carries its reading section.
+// that section's accent. Audiobooks resume via the listen kind (no section
+// field); everything else carries its reading section.
 export function continueAccentKey(item) {
   if (!item) return null
-  if (item.kind === 'play') return 'games'
   if (item.kind === 'listen') return 'audiobooks'
   return item.section || null
 }
 
-// Where the EmulatorJS engine + cores load from. Default: self-hosted at
-// /emulatorjs/ (a pinned, gitignored bundle installed by Frog Game Station's
-// fetch script, so nothing third-party is committed and play time makes no
-// external calls). To use the official pinned CDN instead, set this to
-// 'https://cdn.emulatorjs.org/4.2.3/data/'. emulator.html allowlists both forms.
-export const EMULATORJS_DATA = '/emulatorjs/'
-
-// URL the backend streams an item's bytes from. Range-capable, so a reader or
-// emulator can fetch only the bytes it needs (matters for big PDFs later).
+// URL the backend streams an item's bytes from. Range-capable, so a reader
+// can fetch only the bytes it needs (matters for big PDFs later).
 export function fileUrl(section, id) {
   return `${API_BASE}/library/file?section=${encodeURIComponent(section)}&id=${encodeURIComponent(id)}`
 }
@@ -156,19 +148,6 @@ export function pinsUrl(section) {
   return `${API_BASE}/library/pins?section=${encodeURIComponent(section)}`
 }
 
-// Server-side save states for a game (roam across devices).
-export function saveStatesUrl(id) {
-  return `${API_BASE}/library/games/save-states?id=${encodeURIComponent(id)}`
-}
-// The state blob — what EJS_loadStateURL fetches to resume into a state.
-export function saveStateUrl(id, slot) {
-  return `${API_BASE}/library/games/save-state?id=${encodeURIComponent(id)}&slot=${encodeURIComponent(slot)}`
-}
-// A save state's screenshot (detail-page thumbnail).
-export function saveStateShotUrl(id, slot) {
-  return `${API_BASE}/library/games/save-state/screenshot?id=${encodeURIComponent(id)}&slot=${encodeURIComponent(slot)}`
-}
-
 // A game's rich IGDB metadata (screenshots/summary/genres/rating) for the game
 // screen. Returns {matched:false} for a ROM hack / not-looked-up / no-key game;
 // the frontend renders its basic layout then.
@@ -194,46 +173,12 @@ export function postGameMatch(id, igdbId) {
   })
 }
 
-// A game's in-game battery save (SRAM) — the game's OWN save (e.g. Pokemon's
-// "Save"), one per game, stored server-side so it roams. GET serves it, POST
-// (multipart) overwrites it. The emulator captures + restores it.
-export function gameSramUrl(id) {
-  return `${API_BASE}/library/games/sram?id=${encodeURIComponent(id)}`
-}
-
-// The isolated player page (public/emulator.html) for a game item. Running
-// EmulatorJS inside an iframe keeps its window globals + teardown out of the SPA.
-export function playerSrc(item, data = EMULATORJS_DATA) {
-  const q = new URLSearchParams({
-    core: item.core,
-    rom: fileUrl('games', item.id),
-    data,
-  })
-  q.set('gid', item.id) // game id, so the emulator can upload save states for it
-  if (item.name) q.set('name', item.name) // EJS_gameName — avoids an "undefined" title
-  if (item.loadStateUrl) q.set('loadstate', item.loadStateUrl) // resume into a saved state
-  return `/emulator.html?${q.toString()}`
-}
-
-// Where a "Jump back in" entry resumes to. A play entry opens the emulator into
-// its newest save state; a listen entry opens the audiobook player at the book
-// (which resumes its saved chapter+position itself); a reading entry opens the
-// reader (which resumes its saved position; `reader` picks PDF vs ebook engine).
+// Where a "Jump back in" entry resumes to. A listen entry opens the audiobook
+// player at the book (which resumes its saved chapter+position itself); a reading
+// entry opens the reader (which resumes its saved position; `reader` picks PDF vs
+// ebook engine). Games are not on this shelf: they live in Frog Game Station, which
+// keeps its own.
 export function resumeHref(entry) {
-  if (entry.kind === 'play') {
-    // Open the game and let its in-game save (SRAM) resume via "Continue" — do
-    // NOT auto-load a save state, which would snapshot-restore the whole machine
-    // (incl. an older SRAM) on top of your latest in-game save.
-    // `label` is the system ("Game Boy Color"), carried so the player can dress itself
-    // in that machine's colours — a core can't tell us, since GBC games run on `gba`.
-    const q = new URLSearchParams({
-      id: entry.id,
-      core: entry.core || '',
-      name: entry.name || '',
-      label: entry.label || '',
-    })
-    return `/library/play?${q.toString()}`
-  }
   if (entry.kind === 'listen') {
     return `/library/audiobooks?path=${encodeURIComponent(entry.id)}`
   }
@@ -273,58 +218,16 @@ export function readerHref(section, item) {
 }
 
 // Where a downloaded manifest entry opens. Audiobooks → the ?path= player;
-// games → the emulator player (needs the stored core + name); everything else
-// → the /library/read reader. Used by the Downloads page / offline lists.
+// everything else → the /library/read reader. Used by the Downloads page /
+// offline lists. A `games` entry left on a device from before the player was
+// removed (purged at startup, but a shelf can render first) opens the Games
+// handoff — never a dead route.
 export function downloadHref(entry) {
   if (entry.section === 'audiobooks') {
     return `/library/audiobooks?path=${encodeURIComponent(entry.id)}`
   }
-  if (entry.section === 'games') {
-    // Boot + in-game "Continue" (SRAM) resumes — not an auto-loaded save state.
-    const q = new URLSearchParams({ id: entry.id, core: entry.core || '', name: entry.name || '' })
-    return `/library/play?${q.toString()}`
-  }
+  if (entry.section === 'games') return '/frog'
   return readerHref(entry.section, { id: entry.id, reader: entry.reader })
-}
-
-// --- offline emulator (ROMs) -----------------------------------------------
-// The shared EmulatorJS engine assets a game needs (cached once, not per-game).
-// Captured live from a real game load. The host page (emulator.html) is matched
-// by bare path in the SW since it's requested with per-game query params.
-export const EMULATOR_ENGINE_URLS = [
-  '/emulator.html',
-  `${EMULATORJS_DATA}loader.js`,
-  `${EMULATORJS_DATA}emulator.min.js`,
-  `${EMULATORJS_DATA}emulator.min.css`,
-  `${EMULATORJS_DATA}localization/en-US.json`,
-  `${EMULATORJS_DATA}compression/extract7z.js`,
-]
-
-// EmulatorJS maps our system core name to the libretro core file it loads by
-// DEFAULT (the first entry in its per-system core table, src/emulator.js) — so
-// the offline cache fetches the same .data the online loader does. Note segaMS
-// defaults to smsplus (not genesis_plus_gx, which Genesis/Game Gear use).
-const LIBRETRO_CORE = {
-  gb: 'gambatte',
-  gbc: 'mgba',
-  gba: 'mgba',
-  nes: 'fceumm',
-  snes: 'snes9x',
-  segaMD: 'genesis_plus_gx',
-  segaMS: 'smsplus',
-  segaGG: 'genesis_plus_gx',
-}
-
-// The per-game offline URLs: the ROM + its core (both non-thread variants, since
-// iOS may pick either) + the core's report. The shared engine is separate.
-export function gameOfflineUrls(id, core) {
-  const lib = LIBRETRO_CORE[core] || core
-  return [
-    fileUrl('games', id),
-    `${EMULATORJS_DATA}cores/${lib}-wasm.data`,
-    `${EMULATORJS_DATA}cores/${lib}-legacy-wasm.data`,
-    `${EMULATORJS_DATA}cores/reports/${lib}.json`,
-  ]
 }
 
 // --- Games: per-system drill-in ---------------------------------------------

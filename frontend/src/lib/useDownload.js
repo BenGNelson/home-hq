@@ -4,8 +4,7 @@ import { downloadKey, getEntry, downloadJob, removeDownload } from './offlineSto
 // The offline-download state machine for one item, extracted from DownloadButton so
 // the HQ control and Frog's own (differently themed) control share ONE implementation
 // — the single-writer-of-bytes rule holds because both go through the same
-// `downloadJob`. `item` = { section, id, name, core?, urls }; `onBefore` runs once
-// before the job (games ensure the shared emulator engine first).
+// `downloadJob`. `item` = { section, id, name, urls }.
 //
 //   checking → idle | done          (looked up the manifest on mount)
 //   idle → downloading → done | error
@@ -13,7 +12,7 @@ import { downloadKey, getEntry, downloadJob, removeDownload } from './offlineSto
 //
 // `remove` does NOT prompt — the confirm is the caller's, so each theme asks in its
 // own voice (HQ uses window.confirm, Frog its in-screen dialog).
-export function useDownload(item, onBefore) {
+export function useDownload(item) {
   const key = downloadKey(item.section, item.id)
   const [state, setState] = useState('checking')
   const [pct, setPct] = useState(0)
@@ -49,7 +48,6 @@ export function useDownload(item, onBefore) {
     setState('downloading')
     setPct(0)
     try {
-      if (onBefore) await onBefore()
       const entry = await downloadJob(item, ({ fraction, loaded }) => {
         if (activeKey.current !== jobKey) return
         setPct(Math.min(100, Math.round((fraction || 0) * 100)))

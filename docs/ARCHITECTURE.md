@@ -205,14 +205,8 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `GET /api/library/comics/page?id=&n=` | one comic page (cached) | extracts page `n` from the archive, downscales to a reading-size WebP, serves locally thereafter |
 | `GET /api/library/file?section=&id=` | stream one item's bytes (range-capable) | `FileResponse` from the section dir, traversal-guarded |
 | `GET /api/library/games/cover?id=` | a game's box art (cached) | prefers a custom image dropped beside the ROM, else libretro-thumbnails by exact No-Intro name (following libretro's text-pointer pseudo-symlinks), else a base-title fallback against the system's full boxart listing (cached) for region/version-tag mismatches; downscaled to a cached WebP (404 → placeholder) |
-| `POST /api/library/games/save-states` | upload a save state (blob + screenshot) | multipart; backend-assigned ms slot id; size-capped; stored under `/data/saves` |
-| `GET /api/library/games/save-states?id=` | a game's save states, newest first | lists the slots in the game's saves dir |
-| `GET /api/library/games/save-state?id=&slot=` | a save state's bytes | `FileResponse` — the `EJS_loadStateURL` target for resuming |
-| `GET /api/library/games/save-state/screenshot?id=&slot=` | a save state's screenshot | `FileResponse` (the detail-page thumbnail) |
-| `DELETE /api/library/games/save-states?id=&slot=` | delete a save state | removes the slot's files |
-| `POST /api/library/games/sram` | store a game's in-game battery save (SRAM) | multipart; one `.sav` per game (overwritten); size-capped; also marks the game last-played |
-| `GET /api/library/games/sram?id=` | a game's in-game battery save | `FileResponse` — the player seeds the emulator's FS with this on open (404 when none yet) |
-| `GET /api/library/continue` | the unified "Jump back in" shelf | merges in-progress reading items + recently-played games, newest first; a game counts as in-progress on any play (incl. an in-game save), and resumes by booting (in-game Continue), not a save-state slot; skips entries whose file is gone |
+| ~~`/api/library/games/save-states`, `/save-state`, `/sram`, `/last-played`~~ | removed 2026-10 — the in-app player is gone; Frog Game Station owns game saves | see the decision log; the old save files stay untouched in the data volume under `/data/saves`|
+| `GET /api/library/continue` | the unified "Jump back in" shelf | merges in-progress reading items + audiobooks, newest first; no games |
 | `GET /api/library/reading-progress/item?section=&id=` | one item's saved position (page/total or locator/fraction) | the reader fetches this on open to resume |
 | `PUT /api/library/reading-progress` | save reading position (upsert) | body `{section,id,page,total}` (PDF) or `{section,id,locator,fraction}` (ebook); validated against a real item |
 | `DELETE /api/library/reading-progress?section=&id=` | remove a document from the shelf | clears its bookmark |
@@ -223,7 +217,6 @@ add the model, diff the response key-paths — the only allowed change is droppe
 | `PUT /api/library/listen-progress` | save listening position (upsert) | body `{book_id,chapter_id,position_s}`; chapter is traversal-validated |
 | `DELETE /api/library/listen-progress?book=` | drop an audiobook from the shelf | clears its position |
 | `GET /api/library/audiobooks/cover?path=` | a book's cover (cached) | a folder image, else the first chapter's embedded art (mutagen), downscaled to WebP (404 → 🎧 placeholder) |
-| `DELETE /api/library/games/last-played?id=` | remove a game from the shelf | clears the marker; keeps the save files |
 
 **Graceful degradation:** every endpoint that touches an external system
 (Docker, Plex, a mount) catches failures and returns a friendly
@@ -394,27 +387,22 @@ no reason to store long summaries or binary art). Posters are **proxied** throug
 ## Library (owned content: games, papers, books, comics, audiobooks)
 
 Where Plex streams *video*, the **Library** is the hub for content you **own and
-consume directly** — ROMs you play, ebooks (EPUB/MOBI/AZW3), comics (CBZ/CBR/CB7),
-audiobooks, and the PDFs from newspaper/magazine subscriptions — read/played/heard
-**in-app**, mobile-first.
+consume directly** — ebooks (EPUB/MOBI/AZW3), comics (CBZ/CBR/CB7), audiobooks,
+and the PDFs from newspaper/magazine subscriptions — read/heard **in-app**,
+mobile-first. ROMs are listed here for their box art, but **played in Frog Game
+Station** (its own app, its own origin); the Games card hands off to it.
 
 **Section framework.** `app/library.py` (pure, unit-tested) defines an ordered
 list of **sections**, each with a content dir (a `.env` path under `RAID_MOUNT`,
 so the existing read-only RAID mount serves it — no extra mount), recognized file
 extensions, and per-item metadata. Sections so far: **games** — each ROM
-extension maps to an EmulatorJS system (`core`): Game Boy (`.gb`), Game Boy
-Color/Advance (`.gbc`/`.gba` → mGBA — GBC uses mGBA because gambatte crashes GBC
-games on iOS Safari), plus the 8/16-bit consoles NES (`.nes`), Super Nintendo
-(`.sfc`/`.smc`), Sega Genesis (`.md`/`.gen`/`.smd`), Master System (`.sms`), and
-Game Gear (`.gg`). All are lightweight cores that run full-speed in WASM on a
-phone and fit the dpad + face-button touch overlay; emulation is entirely
-client-side, so a new system adds no server load (the backend only lists +
-range-streams ROM bytes). `.bin` is deliberately *not* recognized — it's
+extension maps to a system (`core`, the EmulatorJS name Frog Game Station plays it
+with): Game Boy (`.gb`), Game Boy Color/Advance (`.gbc`/`.gba`), NES (`.nes`),
+Super Nintendo (`.sfc`/`.smc`), Sega Genesis (`.md`/`.gen`/`.smd`), Master System
+(`.sms`), and Game Gear (`.gg`). `.bin` is deliberately *not* recognized — it's
 ambiguous across Genesis/Atari/PS1, and the scan maps one extension to exactly
-one system. The frontend's `LIBRETRO_CORE` map mirrors EmulatorJS's default-core
-table (`src/emulator.js`) so the offline cache fetches the same `.data` the
-online loader does (note Master System defaults to `smsplus`, while
-Genesis/Game Gear use `genesis_plus_gx`). **papers** (Magazines &
+one system. Home HQ only lists these and serves their box art; playing is Frog
+Game Station's. **papers** (Magazines &
 Papers — `.pdf`, read in-browser via PDF.js), **books** (EPUB/MOBI/AZW3 read
 via foliate-js, plus `.pdf` falling back to PDF.js), **textbooks** (reference /
 informational books — the same file types + readers as books, but organized into
@@ -433,14 +421,13 @@ listed item's id (its path relative to the content dir) to an absolute path with
 `os.path.realpath` and refuses anything that lands outside the dir or lacks a
 recognized extension — so `../`, an absolute path, or a symlink escape all 404.
 The dir is mounted read-only; the backend only lists + streams, never writes.
-`FileResponse` honors the `Range` header (206 partial content), so a reader or
-emulator fetches only the bytes it needs — cheap for ROMs, important for the
-large scanned PDFs the reading sections will serve.
+`FileResponse` honors the `Range` header (206 partial content), so a reader
+fetches only the bytes it needs — important for large scanned PDFs.
 
 **Engines run client-side; the server is just a file server.** Rendering happens
-on the device (an emulator core, or a reader), so the server stays a dumb byte-streamer
-no matter how much is played/read — and the work scales with the phone, not the
-box. The engines: **EmulatorJS** (games); **PDF.js** for the **papers** section
+on the device (a reader), so the server stays a dumb byte-streamer no matter how
+much is read — and the work scales with the phone, not the box. The engines:
+**PDF.js** for the **papers** section
 and any PDF book (lazily imported as its own chunk, *legacy* build for broad iOS
 support, rendering one page at a time to a canvas with swipe/buttons); and
 **foliate-js** for the **books** section's EPUB/MOBI/AZW3 — also lazily imported,
@@ -511,17 +498,14 @@ content only.
 server-side in a `reading_progress` table keyed by `(section, item_id)`: PDFs
 bookmark by `page`/`total`, while ebooks (no stable pages) bookmark by a foliate
 location string (`locator`, a CFI) plus a 0..1 `fraction` — both readers
-self-resume on open. Games record a `game_progress` "last played" marker
-on any play — when a save state OR an in-game (SRAM) save is written (the on-disk
-save dir is a *hash* of the game id, so this table holds the real id + core to
-resume + show art); the game then resumes by booting to its in-game Continue, not
-a save-state slot. Both **roam across
-devices** and ride the backup. The Library hub's resume surface merges
-them — `GET /library/continue` returns in-progress documents (resume to the
-saved page) and recently-played games (boot to their in-game Continue), newest
-first — so one tap skips the drill-down. Each kind's remove clears only its
-marker (`reading_progress` row, or `game_progress` row), never the content or
-the save files; the shelf also skips entries whose underlying file is gone.
+self-resume on open; audiobooks keep chapter + position in `listen_progress`.
+All of it **roams across devices** and rides the backup. The Library hub's resume
+surface merges them — `GET /library/continue` returns in-progress documents
+(resume to the saved page) and audiobooks, newest first — so one tap skips the
+drill-down. A remove clears only the marker, never the content; the shelf also
+skips entries whose underlying file is gone. **Games are not on this shelf.** They
+are played in Frog Game Station, which keeps its own "Jump back in" row and its
+own saves; the legacy `game_progress` table stays only so old databases open.
 
 **The hub leads with the content, not abstract tiles.** The most-recent
 in-progress item becomes a **radiant spotlight** (the hub's single back-lit
@@ -592,174 +576,29 @@ keeps the on-disk cache tiny: only books you actually open ever get a cover file
 so the metadata index stays text-only and a huge library costs nothing extra
 until browsed.
 
-**The emulator runs in an isolated `<iframe>`.** EmulatorJS sets many `window.*`
-globals and has no clean teardown, so it lives in a static page,
-`public/emulator.html`, that boots the engine from query params (`core`, `rom`,
-`data`). The React `Player` just renders that page in an iframe and removes it to
-tear the engine fully down — nothing leaks into the SPA. `emulator.html`
-allowlists its `data` (engine) source to a same-origin path or the official
-EmulatorJS CDN, so the param can't be abused to load arbitrary script (the JS
-guard rejects a protocol-relative `//host` too). As defence-in-depth that page
-also carries **its own CSP** (nginx, `= /emulator.html`) bounding `script-src` to
-`'self'` + that one CDN — looser than the app shell only where EmulatorJS needs
-it (WASM/eval, blob workers, the inline boot script).
-
-**The engine is self-hosted + pinned.** A pinned EmulatorJS release (v4.2.3) lives in
-`frontend/public/emulatorjs/` (gitignored, ~300 MB of third-party WASM — reproducible
-like `node_modules`, not committed; the fetch script that installs it moved to Frog
-Game Station with the games browser), so play time makes no third-party calls. The build excludes it from the PWA precache
-(`globIgnores`) and nginx caches it hard. A one-line switch (`EMULATORJS_DATA` in
-`lib/library.js`) points the engine at the pinned CDN instead, for a zero-download
-setup.
-
-**The player talks to the engine through one bridge, and its config lives in the
-app bundle — not in `emulator.html`.** The iframe is same-origin, so the React
-side holds the live engine instance directly (`iframe.contentWindow.HQ.emu`) and
-drives it with plain method calls: no `postMessage`, no serialization, no added
-frame of input latency. Exactly one module, `lib/emuBridge.js`, is allowed to
-reach across that boundary; everything else goes through it.
-
-The contract is two-way and both halves are plain property reads:
-
-| direction | what | why |
-|---|---|---|
-| parent → player | `window.HQ_PLAYER_CONFIG` | the engine's config (control presets, which of its buttons to hide, default options). Set during `PlayerShell`'s render, so it is always in place before React commits the `<iframe>` and the player document runs its inline script. |
-| player → parent | `window.HQ = { version, emu, whenStarted }` | the live engine. `whenStarted` resolves only once the game is actually **running**. |
-
-> **Do not move engine config back into `emulator.html`.** That file is excluded
-> from the PWA precache and versioned by hand (`ENGINE_VERSION` in
-> `lib/offlineStore.js`), so every edit to it forces a re-download of the cached
-> engine on every device. Config that lives in the bundle rides the
-> content-hashed shell instead — which is why the control presets, the hidden
-> engine buttons and the suppression CSS (`killEngineChrome`, injected into the
-> player document as a stylesheet) can all change without touching the player
-> document at all.
-
-Two rules fall out of iOS and are load-bearing:
-
-- **Nothing may cover the player until `whenStarted` resolves.** iOS unlocks audio
-  per-document, so the tap that starts the game has to land *inside* the iframe —
-  hence the engine keeps its own Start button (we never set `EJS_startOnLoaded`),
-  and the HQ overlay mounts only after the game is running. A player that boots
-  silent means something covered that tap.
-- **`whenStarted` must always settle.** The game may never start (the user backs
-  out; `loader.js` 404s), so the player document settles it with no engine rather
-  than leaving the parent waiting on a promise forever.
-
-**The in-game menu is ours.** EmulatorJS's own bottom bar is a strip of small
-mouse-sized icons that a D-pad can't reach, so it's suppressed and replaced by a
-`PauseMenu` — a grid of large tiles, thumb-reachable and controller-navigable,
-with the game rendering blurred behind it. Focus movement is pure index
-arithmetic over a grid/rails model (`lib/gridNav.js`) rather than a DOM-measuring
-spatial-navigation engine: the app has no jsdom in its test setup, and a
-measuring engine would leave the most navigation-critical code as the only
-untested code in the tree. Loading a save state from that menu restores it into
-the **running** engine (`gameManager.loadState`) instead of relaunching the
-player, which is what the older launch-with-`?slot=` path did.
-
-### Saves — and why the parent owns them
-
-Two different things are called a "save", and only one of them is the one you'd cry
-about losing:
-
-- the **battery save** (SRAM) — the game's own *Save*, the thing Pokémon writes. It
-  is the save that represents hours.
-- **save states** — a snapshot of the whole machine, taken from the pause menu.
-
-EmulatorJS persists neither, so the app does. The load-bearing decision: **the parent
-owns saves, not the player document.**
-
-That is not a stylistic choice. The old code saved from inside `emulator.html`,
-flushing on `pagehide`. The event fires — but the work it starts is asynchronous
-(open a cache, write it, POST it) and the iframe is destroyed before any of it lands.
-We were asking a dying document to save the game. Quit shortly after saving and the
-save was **gone** — not stale, gone, on the device *and* the server. The parent
-survives the teardown, so it can read the save out of the engine synchronously
-(`getSaveFile`) and then write it down at its leisure (`lib/gameSaves.js`,
-`lib/useGameSaves.js`).
-
-Three more rules fall out of the same audit:
-
-- **Hash the whole save.** The change-detector used to sample every 64th byte — 1.6%
-  of a 32KB file — so a write touching only unsampled bytes read as "unchanged" and
-  was silently dropped.
-- **Newest wins, and the server says when.** `GET /library/games/sram` returns
-  `X-Saved-At` (the file's mtime, epoch ms), and the device loads whichever copy is
-  newer. Priming used to prefer the local cache unconditionally: play on a tablet,
-  pick up a phone, and the phone loaded its own older save *and then overwrote the
-  server with it*. This is deliberately not a general sync algorithm — two devices
-  played offline at once and the later one wins outright. For one person with two
-  devices that's the right trade; anything cleverer needs conflict UI nobody wants
-  mid-game.
-- **A failed upload goes in an outbox** and is retried on `online`. The readers have
-  had this for ages (`progressOutbox`); games simply never got it, so a save made
-  offline never reached the server, the backup, or the other device.
-
-**Save-state screenshots: capture the frame while the game is still on screen.** A
-WebGL canvas discards its drawing buffer the moment the frame is composited, so
-reading it back afterwards gives a perfectly valid, perfectly *black* image. The
-engine never sets `preserveDrawingBuffer`, and its alternative source ("retroarch",
-which asks the core for the frame) aborts the Emscripten module and takes the whole
-iframe down with it — so `emuBridge.preserveCanvas()` patches `getContext` in the
-player document before the engine builds anything and forces the flag on. **But the
-flag alone was never enough**, and this is the part that stayed broken for weeks: the
-shot was taken at *save* time, and by then the core is paused (not presenting) and the
-save overlay covers the iframe — and iOS WebKit is free to release an occluded,
-non-presenting drawing buffer, so the readback still comes back black. Nine real
-device captures on disk were all black to prove it. The fix is **timing, not the
-flag**: PlayerShell keeps a `liveShotRef` fed by a slow timer (`captureShot` every 3s)
-that runs *only while `state === 'PLAYING'`* — i.e. while the canvas is actually
-presenting and visible — and `saveState` uploads that pre-captured frame
-(`{ shot }`) instead of grabbing one at save time. `captureShot` still discards a
-black frame, so a card shows an honest "no preview" rather than a black rectangle if
-no live frame was ever caught.
-
-### Controller mode
-
-Pick up a Bluetooth pad and the on-screen controls disappear; the pad drives the
-game, and **Frog** (`/frog`) turns the library into a console front-end. Four
-decisions carry the feature:
-
-- **A pad counts as live from its FIRST BUTTON PRESS**, never from
-  `gamepadconnected` — iOS Safari doesn't fire that event until a button is
-  pressed anyway, so waiting for it would leave the touch pad sitting on top of a
-  perfectly good controller. It only goes away on a real disconnect, never on an
-  idle timeout: a controller resting through a cutscene must not make the touch
-  controls reappear.
-- **The face buttons are a SETTING, because there is no right answer**
-  (`lib/controlPresets.js`). Nintendo's confirm button is A and it sits on the
-  RIGHT; Xbox's confirm button is also A and it sits at the BOTTOM. Same letter,
-  different place — so you can keep the letter or keep the position, never both.
-  Match the letters and Pokémon's "yes" is under the button that says A (and agrees
-  with our own menus); match the positions and Mario's jump stays under your thumb.
-  Two schemes, **letters by default**, plus a per-button remap on top — and the
-  bindings are stored **per controller**, because the next pad is a different shape
-  and remapping one must not rewire the other. A change applies to the *running*
-  game: the engine reads `emu.controls` on every button event, so `applyControls`
-  takes effect on the very next press, with no reload.
-- **The engine's `localStorage` is switched off** (`EJS_disableLocalStorage`). It
-  persists the control map per-game and reloads it on boot, so the first session
-  with a game would freeze whatever mapping was in effect then and silently
-  overwrite the preset from then on — including any later fix to it. Off, the
-  preset stays authoritative; the volume/shader prefs that costs us are ours now
-  anyway (`lib/playerSettings.js`).
-- **The pad's Menu button belongs to the app, and START is left UNBOUND on it.**
-  Short press sends a synthetic START to the game; long press opens the pause menu.
-  Bound both ways, every long press would open the menu *and* hit START, leaving
-  the game's own pause screen sitting underneath ours.
-
-While a menu is open the engine's own gamepad handler is **gated** — otherwise the
-D-pad press that walks the menu also steers the paused game underneath it. It's
-wrapped, not replaced: `GamepadHandler` keeps exactly one listener per event, so
-overwriting would kill the engine's input handling outright.
+**There is no in-app game player any more (2026-10).** Games used to run here in an
+isolated EmulatorJS iframe with their own pause menu, touch controls, controller
+mapping and server-side saves. All of that moved into Frog Game Station when it was
+extracted, and the copy left behind in this tree was dead: the Games card already
+handed off to Frog, no engine was installed, and the only thing still reachable was
+"Jump back in", which opened a black frame. The player, its libraries, `emulator.html`,
+its nginx CSP, the save-state / SRAM / last-played endpoints and the games branch of
+`/library/continue` were removed together; see the decision log. The backend's games
+*section* (listing, box art, IGDB metadata) stays, because the hub's Games card still
+reads it.
 
 ### Frog (`/frog`)
+
+> **Historical since the extraction.** Everything below describes the games browser as it
+> was built inside Home HQ. It now lives in the Frog Game Station repo; here, `/frog` and
+> `/library/games*` redirect to that app (`GamesRedirect`), and the only Frog code left in
+> this tree is the mascot art the hub's Games card wears (`modules/library/frog/`).
+
 
 The games browser, for a couch and a controller — and now **the games screen full
 stop**. The Library's "Games" entry (its nav pill and hub card, both via
 `sectionHref('games')`) opens `/frog`; the old thumb-first grid at `/library/games`
-is **retired** — its route redirects to `/frog`, and the player's "Back to Games"
-(`PlayerShell`'s Quit) returns there too. Frog earned that
+is **retired** — its route redirects to `/frog`. Frog earned that
 by becoming first-class **by thumb** (every tile/row is a real tap target, its own
 touch keyboard for search) and **offline** (falls back to downloaded games), not just
 by pad — so one browser now covers what took a separate grid before. Leaving Frog
@@ -846,15 +685,7 @@ HQ's blue-black. It should read as a different app, not a different page. The fr
 itself wears the focused machine's colours, which makes it the focus indicator rather
 than a decoration.
 
-That identity follows the game **into the player**, which is Frog's screen wherever
-it's launched from. The box-art start screen (`emuBridge.styleStartScreen`, CSS
-injected into the player document because the engine's Start button — the iOS audio
-unlock — has to stay there) wears Frog's colours: a jade glow over the green-black
-pond, and the cover art floating with a **reflection** cast into the water below it,
-the same signature as `Frog.jsx`'s `<Reflected>`. So the whole launch — shelf → start
-screen → the loading frog → the game — is one continuous world rather than a violet
-screen that turns green. `styleStartScreen` takes the palette as params (`accent`,
-`ground`) so the bridge stays Frog-agnostic; the player passes `FROG`'s.
+That identity used to follow the game into the in-app player; the player is gone and the start screen is Frog Game Station's own now.
 
 **The whole start screen is the tap target, and there is no top bar.** iOS only lets a
 game begin *with sound* from a real touch — so `styleStartScreen` lays a full-screen
@@ -921,50 +752,12 @@ games surface.)
 
 *(Frog replaced "Big Picture" — same job, done properly.)*
 
-### The touch controls
+### Touch, iOS limits, saves
 
-Rebuilt from scratch (`TouchOverlay.jsx` + `lib/touchInput.js` +
-`lib/touchLayouts.js`). **One surface captures every touch; the button visuals are
-`pointer-events: none`** and never receive an event — they exist only to be looked
-at. All the logic is coordinate arithmetic over a declarative layout, which is what
-buys the things a grid of `<button>`s cannot do: real multi-touch (hold Left, tap
-B, keep holding Left), a d-pad you slide a thumb around with true diagonals (it's
-ONE region split into nine zones — you can't jump diagonally if up-right is a gap
-between two hitboxes), thumb-rolls between face buttons, and hit areas larger than
-the visible button, because thumbs undershoot.
+These sections described the in-app player and now live with it in the Frog Game
+Station repo (`docs/ARCHITECTURE.md` there). Home HQ keeps no game saves.
 
-Layouts are **data**, authored once in a virtual coordinate space and letterboxed
-onto whatever screen they land on, with the safe-area insets as an *input* — so no
-button can end up under the notch or in the home-indicator strip by construction
-rather than by eyeballing it.
-
-Two traps worth knowing:
-
-- Press states are painted by toggling classes on refs, **never with `setState`**.
-  `touchmove` fires at screen rate under a moving thumb.
-- Touch events arrive in **page** coordinates while the layout transform is
-  relative to the surface's own box, and the player has a top bar above it. Mixing
-  the two shifts every touch down by the height of that bar — pressing the middle
-  of the d-pad returns *Down*.
-
-### What iOS will not let us do
-
-Worth stating so nobody plans around a fantasy:
-
-| Want | Reality |
-|---|---|
-| Force landscape | **No.** iOS ignores the manifest's `orientation`, and `screen.orientation.lock()` is behind an off-by-default experimental flag. We detect portrait and show a rotate prompt (controller mode only — touch has a real portrait layout). |
-| Fullscreen API | Absent on iPhone; webkit-prefixed on iPad. The **installed PWA** is the real fullscreen path. Fullscreen targets the player's *wrapper*, not the iframe, or the game goes fullscreen without its controls. |
-| Haptics | **None.** WebKit has no vibration API at all. The press glow carries the whole feel. |
-| Wake lock | Works (iOS 16.4+), but is **released whenever the page hides and never returned** — it must be re-acquired on every `visibilitychange`. |
-
-**Mobile-first, real routes.** The player and (later) readers are routes
-(`/library/play`, `/library/read`), not overlays, so the phone's back gesture
-exits — the native expectation — and items are deep-linkable. The player is also
-deliberately *not* auto-fullscreened: its top-bar **Exit** stays visible, which
-is the only way out in the installed PWA (no browser chrome).
-
-**Presentation: titles, art, recents.** Filenames are raw No-Intro
+**Presentation: titles and box art (kept — the hub's Games card reads it).** Filenames are raw No-Intro
 (`Legend of Zelda, The - The Minish Cap (USA)`); a pure `clean_title()` strips
 region/version tags, moves the trailing article, and turns ` - ` into `: `
 (`The Legend of Zelda: The Minish Cap`), and the list sorts ignoring a leading
@@ -990,29 +783,7 @@ caches the result under the exact-name key so later loads skip the fallback (it
 recovered 33 of 34 unmatched Sega titles in testing); and a **custom cover dropped
 beside the ROM** (same basename, e.g. `My Hack.png`) takes precedence over
 libretro — the durable override for hacks or the rare name with no listing match
-(e.g. a Japanese-only title filed under its Japanese name). Each game gets a
-**detail page** (cover +
-title + Play). **Recently played** is tracked **client-side** (localStorage, this
-device) for now — consistent with in-browser saves; it graduates to the backend
-with save roaming.
-
-**Game saves roam — two systems, both server-synced + backed up.** Both live
-under `/data/saves` (a writable volume on the host's `/`, so they **roam across
-devices AND ride the off-site restic backup** — the RAID is *not* in that
-backup), one per-game folder keyed by a hash of the id.
-- **In-game battery save (SRAM) — the everyday one.** The game's own "Save" →
-  "Continue". `emulator.html` polls the live SRAM as you play and POSTs it to
-  `POST /library/games/sram` (overwriting one `.sav` per game); on open it seeds
-  the emulator's FS with the latest so Continue resumes your spot anywhere. This
-  is what a normal "open the game and keep playing" uses — opening a game does
-  **not** auto-load a save state (that would snapshot-restore an older SRAM over
-  it). An in-game save also marks the game last-played for the Jump-back-in shelf.
-- **Save states — explicit snapshots.** The engine fires `EJS_onSaveState` (state
-  blob + screenshot) when you hit Save State in-game; the iframe POSTs it to
-  `POST /library/games/save-states`. A game's detail page lists its states
-  (screenshot thumbnails), and **Resume** relaunches with `EJS_loadStateURL`
-  pointed at the chosen state's bytes. Slot ids are backend-assigned millisecond
-  timestamps (digits only) — also the traversal guard for the file paths.
+(e.g. a Japanese-only title filed under its Japanese name).
 
 ### IGDB game metadata (the game screen's rich data)
 
@@ -1681,40 +1452,7 @@ download UI — is:
   dispatcher). The SW synthesizes **206 Partial Content** from a cached body for
   range requests on **media** responses (audio/video) — iOS Safari won't play a
   cached `<audio>` served as a plain 200 — while non-media (PDFs) keep the full
-  200 pdf.js is happy with. A **game** download is the most involved: it caches
-  the ROM + its libretro core (both non-thread variants — `gb`→gambatte,
-  `gba`/`gbc`→mgba) and, once, the shared **EmulatorJS engine** (`emulator.html`
-  + the core-agnostic `/emulatorjs/` assets) as a distinct `emulator` manifest
-  entry that the storage manager shows as its own "Emulator engine" line.
-  `ensureEmulatorEngine()` runs before a game download (via the button's
-  `onBefore`). The SW no longer bypasses `/emulator.html` + `/emulatorjs/` — it
-  serves them from cache when downloaded (the host page is matched by bare path
-  since it carries per-game query params), so the emulator iframe, engine, core,
-  and ROM all come from cache offline. The ROM (and any resume save state) are
-  loaded by `emulator.html` itself via `fetch`+blob URL rather than EmulatorJS's
-  own XHR, since a service-worker-intercepted XHR for a large binary stalls on
-  iOS. **Two save systems, both ours to persist** (EmulatorJS persists neither
-  reliably):
-  - The game's in-game **battery save (SRAM)** — Pokémon's own "Save" → "Continue"
-    — is the *everyday* save. EmulatorJS doesn't keep it across sessions, so
-    `emulator.html` **polls the live SRAM itself** (every 5s + on page-hide, via
-    `getSaveFile(true)`, which flushes the core's battery RAM to the FS) — a poll,
-    not EmulatorJS's `saveSaveFiles` event, because that event doesn't fire before
-    the iframe is torn down on exit. Each change is written to a local cache and
-    POSTed to `/library/games/sram` (one `.sav` per game, roams + offline). On open
-    it seeds the emulator's FS (`FS.writeFile(getSaveFilePath())` + `loadSaveFiles()`)
-    with the latest (local cache first, else server) so "Continue" works on any
-    device and offline. **Opening a game boots normally and the SRAM Continue loads
-    your spot — save states are NOT auto-loaded** (a save state restores the whole
-    machine, incl. an older SRAM, so auto-loading one would clobber the newer
-    in-game save).
-  - **Save states** (the snapshot button) are the deliberate "freeze this exact
-    moment" system — captured via `EJS_onSaveState` (with a screenshot), listed on
-    the detail page to resume from. The locally-captured copies live in a
-    `hq-game-saves` cache shown as a "Game saves" storage line. The engine bundle
-  is versioned (`ENGINE_VERSION`) and the SW serves `emulator.html` network-first
-  (refreshing the cached copy) so engine-page changes reach a device without a
-  re-download. Once
+  200 pdf.js is happy with. Games are not downloaded here — Frog Game Station owns offline play. Once
   downloaded, the reader/player requests the same URLs and the SW serves them from
   cache — verified end-to-end that a downloaded PDF renders with
   the tailnet off (pdf.js range requests fall back cleanly to the cached full
@@ -2075,3 +1813,17 @@ Short record of *why* things are the way they are, so future changes have contex
   for the two-column one, so the widgets remount and briefly re-skeleton/refetch.
   Harmless for these read-only glances, and the devices that matter — desktop and
   tablet — sit well clear of the line in normal use.
+- **The dead in-app game player was removed, and games left "Jump back in"
+  (2026-10).** After the extraction, the Games card handed off to Frog Game Station
+  but the old player stayed in the tree: `/library/play`, `emulator.html` and its
+  CSP, the EmulatorJS bridge, saves, touch and controller code, the save-state and
+  SRAM endpoints, and the games branch of `/library/continue`. Nothing reached it
+  except the resume shelf, whose five game entries dated from before the handoff and
+  opened a black frame — no engine was installed, and nothing had written the
+  `game_progress` table since Frog took over. Pointing those entries at Frog was
+  considered and rejected: Frog does not write Home HQ's table, so the shelf would
+  have shown the same five games forever. The rule now: **Frog Game Station owns
+  everything about playing a game** — the player, the saves, the resume row — and
+  Home HQ's shelf resumes what Home HQ renders (documents, comics, books,
+  audiobooks). The backend's games *section* stays for the hub's box-art peek and the
+  IGDB metadata; the legacy `game_progress` table is kept so existing databases open.

@@ -9,7 +9,6 @@ import PlexInsights from './modules/plex/Insights.jsx'
 import PlexWatchStats from './modules/plex/WatchStats.jsx'
 import Library from './modules/library/Library.jsx'
 import LibraryLayout from './modules/library/LibraryLayout.jsx'
-import Player from './modules/library/Player.jsx'
 import GamesRedirect from './modules/library/GamesRedirect.jsx'
 import PapersList from './modules/library/PapersList.jsx'
 import BooksList from './modules/library/BooksList.jsx'
@@ -131,7 +130,6 @@ export default function App() {
           <Route path="/library/comics" element={<ComicsList />} />
           <Route path="/library/audiobooks" element={<AudiobooksList />} />
         </Route>
-        <Route path="/library/play" element={<Player />} />
         {/* Games is the STANDALONE Frog app now (its own origin / installable PWA).
             HQ's embedded browser is retired: /frog and any old game route hand off to
             it (GamesRedirect → the host-local link). */}
